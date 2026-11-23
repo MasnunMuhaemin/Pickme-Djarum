@@ -38,13 +38,23 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
         form.post('/participant/slot', { preserveScroll: true });
     }
 
+    /** "Salin" langsung mengisi 6 kotak kode (dan menyalin ke clipboard bila browser mengizinkan). */
     async function copyCode() {
+        const clean = slotCode
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, 6);
+        setChars(Array.from({ length: 6 }, (_, i) => clean[i] ?? ''));
+        form.setData('code', clean);
+        form.clearErrors('code');
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+        refs.current[Math.min(clean.length, 5)]?.blur();
+
         try {
             await navigator.clipboard.writeText(slotCode);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
         } catch {
-            setCopied(false);
+            // Clipboard bisa ditolak browser; kotak kode tetap sudah terisi.
         }
     }
 
@@ -60,10 +70,18 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                 </header>
 
                 <main className="flex flex-1 flex-col rounded-t-[28px] bg-[#f7f3e3] px-5 pt-5 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
-                    <span className="bg-lime-soft text-ink inline-flex w-fit items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold">
-                        <Check className="size-3.5" />
-                        Foto terkirim
-                    </span>
+                    <div className="flex items-center justify-between gap-3">
+                        <span className="bg-lime-soft text-ink inline-flex w-fit items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold">
+                            <Check className="size-3.5" />
+                            Foto terkirim
+                        </span>
+                        {claim?.claim_code && (
+                            <span className="text-right">
+                                <span className="text-ink-soft block text-[9px] font-bold tracking-widest uppercase">Kode klaim</span>
+                                <span className="font-mono text-[18px] font-extrabold tracking-[0.15em]">{claim.claim_code}</span>
+                            </span>
+                        )}
+                    </div>
 
                     <div className="mt-5">
                         <div className="grid grid-cols-[16px_repeat(5,1fr)] items-center gap-1.5">
@@ -100,14 +118,15 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                             ))}
                         </div>
                         <p className="text-ink mt-4 text-[12px] leading-relaxed">
-                            Slot {position} ditahan untuk kamu{heldUntil ? ` sampai ${heldUntil}` : ''}. Ambil slot ini di papan.
+                            Slot {position} ditahan untuk kamu{heldUntil ? ` sampai ${heldUntil}` : ''}. Ambil slot ini di papan warung, lalu masukkan
+                            kode 6 karakter yang tercetak di baliknya.
                         </p>
                     </div>
 
                     {slotCode && (
                         <div className="border-ink/25 mt-5 rounded-2xl border border-dashed p-3">
                             <div className="flex items-center justify-between">
-                                <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Mode uji coba · kode slot</p>
+                                <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Kode slot</p>
                                 <button
                                     type="button"
                                     onClick={() => setRevealed(!revealed)}
@@ -181,8 +200,8 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                     </form>
 
                     {!claim && (
-                        <Link href="/participant/papan" className="text-ink mt-4 block text-center text-[11px] font-semibold underline">
-                            Ambil slot dulu
+                        <Link href="/participant/scan" className="text-ink mt-4 block text-center text-[11px] font-semibold underline">
+                            Scan QR dan foto bungkus dulu
                         </Link>
                     )}
                 </main>

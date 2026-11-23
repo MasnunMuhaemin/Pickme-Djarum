@@ -50,6 +50,4 @@ return [
     // Tautan grup WhatsApp untuk kartu "Mau dapat update?" di halaman Kartu. Kosong: kartu disembunyikan.
     'whatsapp_group_url' => env('WHATSAPP_GROUP_URL'),
 
-    // Hanya untuk uji coba: tampilkan kode slot di layar. Di produksi kode hanya ada di balik slot fisik.
-    'reveal_slot_code' => (bool) env('PARTICIPANT_REVEAL_SLOT_CODE', env('APP_ENV') === 'local'),
 ];

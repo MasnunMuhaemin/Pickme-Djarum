@@ -68,6 +68,18 @@ class RewardPresenter
             'tone' => $tone,
             'action' => $action,
             'href' => $href,
+            // Pemberitahuan bila peserta masih harus mengisi form lanjutan supaya hadiah bisa dikirim.
+            'follow_up' => match (true) {
+                $needsDestination && $voucher->status === 'rejected' => [
+                    'title' => 'Nomor tujuan ditolak',
+                    'message' => 'Nomor meter atau ID pelanggan PLN sebelumnya tidak bisa diproses. Isi ulang supaya token bisa dikirim.',
+                ],
+                $needsDestination => [
+                    'title' => 'Lengkapi data token listrik',
+                    'message' => 'Isi nomor meter atau ID pelanggan PLN. Token baru diproses setelah nomor diisi.',
+                ],
+                default => null,
+            },
         ];
     }
 
@@ -101,8 +113,13 @@ class RewardPresenter
             'status' => $gift->status,
             'status_label' => $label,
             'tone' => $tone,
-            'action' => $needsAddress ? 'Isi alamat' : null,
-            'href' => $needsAddress ? route('participant.alamat', $gift->id) : null,
+            // Menunggu alamat: langsung ke form alamat. Selain itu ke halaman detail hadiah barang.
+            'action' => $needsAddress ? 'Isi alamat' : 'Lihat detail',
+            'href' => $needsAddress ? route('participant.alamat', $gift->id) : route('participant.hadiah-barang', $gift->id),
+            'follow_up' => $needsAddress ? [
+                'title' => 'Lengkapi alamat pengiriman',
+                'message' => 'Isi alamat dan area pengantaran. Hadiah baru dikirim setelah alamat diisi.',
+            ] : null,
         ];
     }
 

@@ -1,16 +1,16 @@
 import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { BackLink, LogoutButton } from '@/features/participant/components/ui';
+import { Head, router } from '@inertiajs/react';
 import { Camera, QrCode } from 'lucide-react';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-type Outlet = { code: string; name: string };
 type Area = { id: number; name: string };
 
 type Detector = new (options: { formats: string[] }) => {
     detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]>;
 };
 
-export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Outlet[]; modal?: string; areas?: Area[] }) {
+export default function Scan({ modal, areas = [] }: { modal?: string; areas?: Area[] }) {
     const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
     const authOpen = authMode !== null;
 
@@ -21,14 +21,6 @@ export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Ou
     const video = useRef<HTMLVideoElement>(null);
     const [cameraOn, setCameraOn] = useState(false);
     const [cameraError, setCameraError] = useState('');
-    const form = useForm({ code: outlets[0]?.code ?? 'W07' });
-
-    function submit(e?: FormEvent) {
-        e?.preventDefault();
-        if (!form.data.code) return;
-        // preserveState: false agar halaman di-mount ulang dan popup masuk muncul setelah redirect.
-        form.post('/participant/scan', { preserveScroll: true, preserveState: false });
-    }
 
     useEffect(() => {
         // Kamera dijeda selama popup masuk/daftar terbuka.
@@ -43,7 +35,7 @@ export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Ou
         async function start() {
             const Detector = (window as unknown as { BarcodeDetector?: Detector }).BarcodeDetector;
             if (!navigator.mediaDevices?.getUserMedia) {
-                setCameraError('Browser tidak mendukung kamera. Gunakan input kode titik di bawah.');
+                setCameraError('Browser tidak mendukung kamera. Buka halaman ini di Chrome atau Safari.');
                 return;
             }
             try {
@@ -53,25 +45,60 @@ export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Ou
                 await video.current.play();
                 setCameraOn(true);
                 setCameraError('');
-
-                if (!Detector) return;
-                const detector = new Detector({ formats: ['qr_code'] });
-                timer = window.setInterval(async () => {
-                    if (!video.current || video.current.readyState < 2) return;
-                    try {
-                        const codes = await detector.detect(video.current);
-                        if (codes[0]?.rawValue) {
-                            window.clearInterval(timer);
-                            form.setData('code', codes[0].rawValue);
-                            router.post('/participant/scan', { code: codes[0].rawValue }, { preserveScroll: true, preserveState: false });
-                        }
-                    } catch {
-                        // frame belum siap
-                    }
-                }, 500);
             } catch {
-                setCameraError('Izin kamera ditolak. Ketuk tombol di bawah untuk mengaktifkan, atau isi kode titik manual.');
+                setCameraError('Izin kamera ditolak. Ketuk tombol di bawah lalu izinkan kamera.');
+                return;
             }
+
+            // BarcodeDetector hanya ada di sebagian browser dan di sebagian HP Android ada tetapi tidak membaca.
+            // jsQR selalu dipakai sebagai pembaca cadangan untuk setiap frame.
+            let detector: InstanceType<Detector> | null = null;
+            try {
+                detector = Detector ? new Detector({ formats: ['qr_code'] }) : null;
+            } catch {
+                detector = null;
+            }
+            const jsQR = (await import('jsqr')).default;
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            async function readFrame(source: HTMLVideoElement): Promise<string | null> {
+                if (detector) {
+                    try {
+                        const codes = await detector.detect(source);
+                        if (codes[0]?.rawValue) return codes[0].rawValue;
+                    } catch {
+                        detector = null;
+                    }
+                }
+                if (!ctx || !source.videoWidth) return null;
+                // Ambil bagian tengah frame (area bingkai bidik), maksimal 800 px: QR tetap cukup besar untuk
+                // dibaca walau kamera HP beresolusi tinggi, dan tetap ringan.
+                const side = Math.min(source.videoWidth, source.videoHeight);
+                const sx = (source.videoWidth - side) / 2;
+                const sy = (source.videoHeight - side) / 2;
+                const size = Math.min(800, side);
+                canvas.width = size;
+                canvas.height = size;
+                ctx.drawImage(source, sx, sy, side, side, 0, 0, size, size);
+                const image = ctx.getImageData(0, 0, size, size);
+                return jsQR(image.data, size, size, { inversionAttempts: 'attemptBoth' })?.data ?? null;
+            }
+
+            if (stopped) return;
+            timer = window.setInterval(async () => {
+                if (!video.current || video.current.readyState < 2) return;
+                try {
+                    const value = await readFrame(video.current);
+                    if (value) {
+                        window.clearInterval(timer);
+                        // preserveState: false agar halaman di-mount ulang dan popup masuk muncul setelah redirect.
+                        router.post('/participant/scan', { code: value }, { preserveScroll: true, preserveState: false });
+                    }
+                } catch {
+                    // frame belum siap
+                }
+            }, 400);
         }
 
         start();
@@ -80,15 +107,14 @@ export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Ou
             if (timer) window.clearInterval(timer);
             stream?.getTracks().forEach((track) => track.stop());
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authOpen]);
 
     return (
         <div className="text-cream min-h-dvh bg-[#1b2b29]">
             <Head title="Scan QR" />
             <div className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-gradient-to-b from-[#1b2b29] via-[#162422] to-[#0f1c1a] shadow-2xl md:max-w-none md:shadow-none">
-                <header className="flex h-14 shrink-0 items-center gap-2 px-4">
-                    <Link href="/participant" aria-label="Kembali" className="text-cream/70 grid size-10 place-items-center rounded-full bg-white/10">
+                <header className="flex h-14 shrink-0 items-center justify-between gap-2 px-4">
+                    <BackLink fallback="/participant" className="text-cream/70 grid size-10 place-items-center rounded-full bg-white/10">
                         <svg
                             width="20"
                             height="20"
@@ -101,7 +127,9 @@ export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Ou
                         >
                             <path d="m15 18-6-6 6-6" />
                         </svg>
-                    </Link>
+                    </BackLink>
+                    {/* Hanya tampil saat sudah masuk. */}
+                    <LogoutButton dark className="bg-white/10" />
                 </header>
 
                 <div className="px-6 pt-2">
@@ -138,39 +166,6 @@ export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Ou
                             Aktifkan kamera
                         </button>
                     )}
-
-                    <form onSubmit={submit} className="border-cream/15 bg-cream/5 mt-6 w-full rounded-2xl border p-3">
-                        <p className="text-cream/60 text-[10px] font-bold tracking-widest uppercase">Kode titik manual</p>
-                        <div className="mt-2 flex gap-2">
-                            <input
-                                value={form.data.code}
-                                onChange={(e) => form.setData('code', e.target.value.toUpperCase())}
-                                placeholder="W07"
-                                className="border-cream/20 bg-cream/10 text-cream h-11 min-w-0 flex-1 rounded-lg border px-3 font-mono font-extrabold uppercase outline-none"
-                            />
-                            <button
-                                type="submit"
-                                disabled={form.processing}
-                                className="bg-lime text-ink rounded-lg px-4 text-[11px] font-bold disabled:opacity-50"
-                            >
-                                Buka
-                            </button>
-                        </div>
-                        {outlets.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                {outlets.map((outlet) => (
-                                    <button
-                                        key={outlet.code}
-                                        type="button"
-                                        onClick={() => form.setData('code', outlet.code)}
-                                        className="border-cream/20 rounded-full border px-2.5 py-1 text-[10px] font-semibold"
-                                    >
-                                        {outlet.code}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </form>
                 </div>
             </div>
 

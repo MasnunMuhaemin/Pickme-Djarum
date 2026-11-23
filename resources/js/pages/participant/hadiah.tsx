@@ -1,3 +1,6 @@
+import { FollowUpNotice } from '@/features/participant/components/follow-up-notice';
+import { limeLogoutClass } from '@/features/participant/components/lime-page';
+import { LogoutButton } from '@/features/participant/components/ui';
 import { type Reward, rewardIcons, rewardStub, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { useCaps } from '@/lib/participant';
@@ -66,12 +69,14 @@ export default function Hadiahku({ rewards = [], approvedClaims = 0 }: { rewards
     const caps = useCaps();
     // Kartu klaim (ditangguhkan atau ditolak) bukan hadiah, jadi tidak ikut dihitung.
     const rewardCount = rewards.filter((reward) => !reward.kind.startsWith('claim_')).length;
+    const followUps = rewards.filter((reward) => reward.follow_up && reward.href);
 
     return (
         <ParticipantLayout title="Hadiahku" nav="hadiah">
             <div className="bg-lime px-5 pt-4 pb-14 md:px-8 md:pt-6">
-                <div className="flex justify-end">
+                <div className="flex items-center justify-end gap-2">
                     <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
+                    <LogoutButton className={limeLogoutClass} />
                 </div>
                 <h1 className="mt-2 text-[36px] leading-none font-extrabold tracking-tight md:text-[44px]">Hadiahku</h1>
                 <p className="mt-2 text-[13px] font-semibold md:text-sm">
@@ -80,6 +85,15 @@ export default function Hadiahku({ rewards = [], approvedClaims = 0 }: { rewards
             </div>
 
             <div className="bg-cream relative -mt-7 flex-1 rounded-t-[2rem] px-5 pt-5 pb-6 md:px-8 md:pt-8 md:pb-10">
+                {/* Hadiah yang masih butuh form lanjutan (nomor meter token, alamat) ditampilkan paling atas. */}
+                {followUps.length > 0 && (
+                    <div className="mb-4 space-y-2">
+                        {followUps.map((reward) => (
+                            <FollowUpNotice key={`follow-${reward.kind}-${reward.id}`} reward={reward} />
+                        ))}
+                    </div>
+                )}
+
                 <div className="space-y-3 xl:grid xl:grid-cols-2 xl:gap-3 xl:space-y-0">
                     {rewards.map((reward) => (
                         <RewardTicket key={`${reward.kind}-${reward.id}`} reward={reward} />

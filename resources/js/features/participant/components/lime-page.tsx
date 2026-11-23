@@ -1,8 +1,17 @@
+import { BackLink, LogoutButton } from '@/features/participant/components/ui';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { cn } from '@/lib/utils';
-import { Link } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { ChevronLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
+
+/** Tombol keluar bulat hitam, serasi dengan tombol kembali di header lime. Hanya tampil saat sudah masuk. */
+export const limeLogoutClass = 'bg-ink text-lime hover:bg-ink/85 hover:text-lime md:hidden';
+
+export function useIsLoggedIn(): boolean {
+    const { props } = usePage();
+    return Boolean((props.auth as { participant?: unknown } | undefined)?.participant);
+}
 
 /**
  * Pola layar dari desain: bagian atas lime berisi tombol kembali bulat hitam, label kanan, judul besar, dan
@@ -32,22 +41,32 @@ export function LimePage({
     panelClassName?: string;
     children: ReactNode;
 }) {
+    const isLoggedIn = useIsLoggedIn();
+
     return (
         <ParticipantLayout title={tabTitle ?? (typeof title === 'string' ? title : undefined)} nav={nav} hideBottomNav={hideBottomNav}>
             <div className="bg-lime px-5 pt-4 pb-14 md:px-8 md:pt-6">
-                {(back || right) && (
+                {(back || right || isLoggedIn) && (
                     <div className="flex min-h-10 items-center justify-between gap-3">
                         {back ? (
-                            <Link href={back} aria-label="Kembali" className="bg-ink text-lime grid size-10 shrink-0 place-items-center rounded-full">
+                            <BackLink fallback={back} className="bg-ink text-lime grid size-10 shrink-0 place-items-center rounded-full">
                                 <ChevronLeft className="size-5" strokeWidth={2.5} />
-                            </Link>
+                            </BackLink>
                         ) : (
                             <span />
                         )}
-                        {right}
+                        <div className="flex items-center gap-2">
+                            {right}
+                            <LogoutButton className={limeLogoutClass} />
+                        </div>
                     </div>
                 )}
-                <h1 className={cn('text-[34px] leading-[1.05] font-extrabold tracking-tight md:text-[44px]', back || right ? 'mt-3' : 'mt-1')}>
+                <h1
+                    className={cn(
+                        'text-[34px] leading-[1.05] font-extrabold tracking-tight md:text-[44px]',
+                        back || right || isLoggedIn ? 'mt-3' : 'mt-1',
+                    )}
+                >
                     {title}
                 </h1>
                 {subtitle && <p className="mt-2 text-[13px] leading-snug font-semibold md:text-sm">{subtitle}</p>}

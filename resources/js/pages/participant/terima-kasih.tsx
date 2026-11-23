@@ -1,4 +1,4 @@
-import { Badge, OutlineButton, PageHeader, PrimaryButton } from '@/features/participant/components/ui';
+import { Badge, OutlineButton, PageHeader } from '@/features/participant/components/ui';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { useCaps } from '@/lib/participant';
 import { Check } from 'lucide-react';
@@ -8,7 +8,7 @@ export default function TerimaKasih() {
 
     return (
         <ParticipantLayout title="Terima kasih">
-            <PageHeader close="/participant" title="Terima kasih!" right={<Badge>Kartu {caps} / 10</Badge>} />
+            <PageHeader title="Terima kasih!" right={<Badge>Kartu {caps} / 10</Badge>} />
             <div className="flex-1 px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <div className="flex flex-col items-center py-4 text-center">
                     <span className="bg-lime grid size-20 place-items-center rounded-full">
@@ -46,7 +46,6 @@ export default function TerimaKasih() {
                 </div>
 
                 <div className="mt-6 space-y-2">
-                    <PrimaryButton href="/participant/papan">Kembali ke papan</PrimaryButton>
                     <OutlineButton href="/participant/kartu">Lihat kartu cap</OutlineButton>
                 </div>
             </div>

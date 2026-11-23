@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Participant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Outlet;
+use App\Models\Participant;
 use App\Models\Reject;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,11 +13,26 @@ use Inertia\Response;
 
 class ScanController extends Controller
 {
-    public function show(): Response
+    /**
+     * Peserta yang sudah masuk dan warungnya sudah diketahui langsung ke foto bungkus, tanpa scan ulang:
+     * warung dari QR yang terbaca di sesi ini, atau warung klaim terakhirnya. `?ganti` membuka kamera scan
+     * untuk pindah ke warung lain. Peserta yang belum pernah scan maupun klaim tetap scan QR dulu.
+     */
+    public function show(Request $request): Response|RedirectResponse
     {
-        return Inertia::render('participant/scan', [
-            'outlets' => Outlet::where('status', 'active')->get(['code', 'name']),
-        ]);
+        $participantId = $request->session()->get('participant_id');
+        if ($participantId && ! $request->has('ganti')) {
+            $code = $request->session()->get('outlet_scanned') ?: Participant::find($participantId)
+                ?->claims()->whereNotNull('submitted_at')->latest('submitted_at')->first()?->outlet?->code;
+
+            if ($code && Outlet::where('code', $code)->where('status', 'active')->exists()) {
+                $request->session()->put(['claim_outlet' => $code, 'outlet_scanned' => $code]);
+
+                return to_route('participant.foto', ['outlet' => $code]);
+            }
+        }
+
+        return Inertia::render('participant/scan');
     }
 
     /**
@@ -49,7 +65,7 @@ class ScanController extends Controller
             return to_route('participant.qr-tidak-dikenal');
         }
 
-        $request->session()->put('claim_outlet', $outlet->code);
+        $request->session()->put(['claim_outlet' => $outlet->code, 'outlet_scanned' => $outlet->code]);
 
         if ($request->session()->get('participant_id')) {
             return to_route('participant.foto', ['outlet' => $outlet->code]);

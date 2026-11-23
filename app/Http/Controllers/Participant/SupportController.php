@@ -60,6 +60,6 @@ class SupportController extends Controller
 
         return $participant && $outlet
             ? to_route('participant.foto', ['outlet' => $outlet])
-            : to_route('participant.papan');
+            : to_route('participant.scan');
     }
 }

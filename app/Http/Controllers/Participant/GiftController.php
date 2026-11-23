@@ -18,6 +18,27 @@ use Inertia\Response;
 
 class GiftController extends Controller
 {
+    /** Detail hadiah barang (merchandise, limited edition, bungkus gratis mystery gift) milik peserta. */
+    public function show(Request $request, int $giftId): Response
+    {
+        $gift = $this->gift($this->participant($request), $giftId)->load('claim.outlet');
+        // Alamat tersimpan sebagai "alamat Catatan: catatan" (lihat storeAddress).
+        [$address, $note] = array_pad(explode(' Catatan: ', (string) $gift->address, 2), 2, null);
+
+        return Inertia::render('participant/hadiah-barang', [
+            'gift' => [
+                'id' => $gift->id,
+                'area' => $gift->area,
+                'address' => $address ?: null,
+                'note' => $note ?: null,
+                'claim_code' => $gift->claim?->claim_code,
+                'outlet' => $gift->claim?->outlet?->code,
+                'received_at' => $gift->created_at?->translatedFormat('d M Y'),
+            ],
+            'reward' => RewardPresenter::gift($gift),
+        ]);
+    }
+
     /** Form alamat hanya untuk merchandise/limited edition yang menunggu alamat (PRD bagian 14). */
     public function showAddress(Request $request, ?int $giftId = null): Response|RedirectResponse
     {
@@ -27,12 +48,15 @@ class GiftController extends Controller
             return to_route('participant.hadiah');
         }
 
+        $areas = Area::where('is_delivery_area', true)->orderBy('name')->pluck('name');
+
         return Inertia::render('participant/alamat', [
             'gift' => $gift->only(['id', 'type', 'status']),
-            // Data yang sudah ada tidak ditanya lagi: nama peserta dipakai sebagai isian awal penerima,
-            // nomor WhatsApp untuk pengantar memakai nomor akun.
-            'defaults' => ['recipient' => $participant->name],
-            'areas' => Area::where('is_delivery_area', true)->orderBy('name')->pluck('name'),
+            // Data yang sudah ada tidak ditanya lagi (tetap bisa diubah): nama peserta sebagai penerima, area dari
+            // pendaftaran bila termasuk area antar, dan alamat yang pernah diisi untuk hadiah sebelumnya.
+            // Nomor WhatsApp untuk pengantar memakai nomor akun.
+            'defaults' => $this->addressDefaults($participant, $areas->all()),
+            'areas' => $areas,
         ]);
     }
 
@@ -89,6 +113,29 @@ class GiftController extends Controller
         ActivityLogger::log('voucher.destination_saved', 'voucher', $voucher->id, [], $participant);
 
         return to_route('participant.terima-kasih');
+    }
+
+    /**
+     * @param  list<string>  $deliveryAreas
+     * @return array{recipient: string, area: string, address: string, note: string}
+     */
+    private function addressDefaults(Participant $participant, array $deliveryAreas): array
+    {
+        $last = Gift::whereHas('claim', fn ($q) => $q->where('participant_id', $participant->id))
+            ->whereNotNull('address')->where('address', '!=', '')
+            ->latest('updated_at')->first();
+
+        // Alamat tersimpan sebagai "alamat Catatan: catatan" (lihat storeAddress).
+        [$address, $note] = array_pad(explode(' Catatan: ', (string) $last?->address, 2), 2, '');
+        $registeredArea = $participant->area?->name;
+        $area = $last?->area ?: $registeredArea;
+
+        return [
+            'recipient' => $participant->name,
+            'area' => in_array($area, $deliveryAreas, true) ? $area : (in_array($registeredArea, $deliveryAreas, true) ? $registeredArea : ''),
+            'address' => $address,
+            'note' => $note,
+        ];
     }
 
     private function canFillDestination(Voucher $voucher): bool

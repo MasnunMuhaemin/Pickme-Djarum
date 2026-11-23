@@ -31,7 +31,6 @@ class CustomerFlowTest extends TestCase
         config([
             'participant.flags.first_photo' => false,
             'participant.flags.random_sample_percent' => 0,
-            'participant.reveal_slot_code' => false,
         ]);
     }
 
@@ -144,9 +143,52 @@ class CustomerFlowTest extends TestCase
         }
     }
 
+    /** Hadiah semua slot papan W07 diganti, mis. token: klaim bertanda hanya ditahan untuk token listrik. */
+    private function prizesAre(string $type): void
+    {
+        Slot::query()->update(['prize_type' => $type]);
+    }
+
+    public function test_flagged_voucher_claim_is_approved_directly(): void
+    {
+        $this->readyParticipant();
+        $this->prizesAre('voucher');
+        $claim = $this->uploadPhoto(gray: 10);
+        $this->assertContains('dark_photo', $claim->flags());
+
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
+        $this->assertSame('approved', $claim->fresh()->status);
+        $this->assertContains('dark_photo', $claim->fresh()->flags());
+    }
+
+    public function test_token_reward_tells_participant_to_fill_meter_number(): void
+    {
+        $this->readyParticipant();
+        $this->prizesAre('token');
+        $claim = $this->uploadPhoto(seed: 31);
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
+
+        $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page
+            ->where('reward.follow_up.title', 'Lengkapi data token listrik')
+            ->where('reward.action', 'Isi nomor'));
+        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
+            ->where('rewards.0.follow_up.title', 'Lengkapi data token listrik'));
+    }
+
+    public function test_voucher_reward_needs_no_follow_up(): void
+    {
+        $this->readyParticipant();
+        $this->prizesAre('voucher');
+        $claim = $this->uploadPhoto(seed: 32);
+        $this->post('/participant/slot', ['code' => $claim->slot->code]);
+
+        $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page->where('reward.follow_up', null));
+    }
+
     public function test_flagged_claim_waits_for_admin_without_cap_or_reward(): void
     {
         $participant = $this->readyParticipant();
+        $this->prizesAre('token');
         $claim = $this->uploadPhoto(gray: 10);
         $this->assertSame(['dark_photo'], $claim->flags());
 
@@ -162,6 +204,7 @@ class CustomerFlowTest extends TestCase
     public function test_pending_and_rejected_claims_show_in_hadiahku_with_their_pages(): void
     {
         $this->readyParticipant();
+        $this->prizesAre('token');
         $pending = $this->uploadPhoto(gray: 10);
         $this->post('/participant/slot', ['code' => $pending->slot->code]);
         $rejected = $this->uploadPhoto(seed: 21);
@@ -206,6 +249,7 @@ class CustomerFlowTest extends TestCase
     public function test_slot_code_checks_follow_prd_rules(): void
     {
         $this->readyParticipant();
+        $this->prizesAre('token');
         $claim = $this->uploadPhoto(seed: 1);
         $board = $claim->outlet->board;
 
@@ -240,6 +284,7 @@ class CustomerFlowTest extends TestCase
     public function test_late_code_is_accepted_with_flag(): void
     {
         $this->readyParticipant();
+        $this->prizesAre('token');
         $claim = $this->uploadPhoto(seed: 2);
         $this->travel(31)->minutes();
 
@@ -247,12 +292,16 @@ class CustomerFlowTest extends TestCase
         $this->assertContains('late_code', $claim->fresh()->flags());
     }
 
-    public function test_slot_codes_are_not_sent_to_the_browser(): void
+    public function test_only_assigned_slot_code_is_sent_to_the_browser(): void
     {
         $this->readyParticipant();
         $this->uploadPhoto(seed: 3);
 
-        $this->get('/participant/slot')->assertInertia(fn ($page) => $page->where('claim.slot.code', null));
+        $claim = Claim::latest('id')->first();
+        // Hanya kode slot yang ditunjuk yang dikirim; papan tidak pernah mengirim kode slot lain.
+        $this->get('/participant/slot')->assertInertia(fn ($page) => $page
+            ->where('claim.slot.code', $claim->slot->code)
+            ->where('claim.claim_code', $claim->claim_code));
         $this->get('/participant/papan')->assertInertia(fn ($page) => $page->missing('slots.0.code'));
     }
 
@@ -273,9 +322,62 @@ class CustomerFlowTest extends TestCase
         $this->get('/participant/papan')->assertInertia(fn ($page) => $page->where('paused', true)->where('canClaim', false));
     }
 
-    public function test_qr_address_opens_the_outlet_board(): void
+    public function test_logged_in_participant_with_scanned_outlet_goes_straight_to_photo(): void
     {
-        $this->get('/w07')->assertRedirect('/participant/papan?outlet=W07');
+        $this->readyParticipant();
+
+        // Baru buka papan (warung default), belum pernah scan QR: halaman Scan tetap tampil.
+        $this->get('/participant/papan');
+        $this->get('/participant/scan')->assertOk();
+
+        // Setelah QR terbaca: menu Scan langsung ke foto, kecuali minta ganti warung.
+        $this->get('/w07');
+        $this->get('/participant/scan')->assertRedirect('/participant/foto?outlet=W07');
+        $this->get('/participant/scan?ganti=1')->assertOk();
+
+        // Setelah keluar, warung yang terbaca dilupakan.
+        $this->post('/participant/keluar');
+        $this->get('/participant/scan')->assertOk();
+    }
+
+    public function test_returning_participant_goes_to_photo_at_last_claimed_outlet(): void
+    {
+        $this->readyParticipant();
+        $claim = $this->uploadPhoto(seed: 41);
+        $this->post('/participant/slot', ['code' => $claim->slot->code]);
+
+        // Keluar lalu masuk lagi dari Beranda tanpa scan QR: warung klaim terakhir dipakai.
+        $this->post('/participant/keluar');
+        $this->post('/participant/masuk', ['whatsapp' => '081234567890', 'pin' => '4826']);
+        $this->get('/participant/scan')->assertRedirect('/participant/foto?outlet=W07');
+        $this->get('/participant/scan?ganti=1')->assertOk();
+    }
+
+    public function test_login_without_scan_never_lands_on_the_board(): void
+    {
+        // Tamu membuka foto: popup masuk, bukan papan.
+        $this->get('/participant/foto')->assertRedirect('/participant/masuk');
+
+        // Masuk dari beranda tanpa scan QR dan belum pernah klaim: ke Scan, bukan papan.
+        $this->readyParticipant();
+        $this->post('/participant/keluar');
+        $this->post('/participant/masuk', ['whatsapp' => '081234567890', 'pin' => '4826'])->assertRedirect('/participant/scan');
+        $this->get('/participant/scan')->assertOk();
+    }
+
+    public function test_qr_address_opens_login_then_photo(): void
+    {
+        // Belum masuk: popup masuk, titik diingat di session.
+        $this->get('/w07')->assertRedirect('/participant/masuk')->assertSessionHas('claim_outlet', 'W07');
+
+        // Sudah masuk: langsung ke foto bungkus.
+        $this->readyParticipant();
+        $this->get('/w07')->assertRedirect('/participant/foto?outlet=W07');
+
+        // Kembali ke halaman masuk/daftar setelah masuk: ke Scan tanpa popup supaya kamera tetap jalan.
+        $this->get('/participant/masuk')->assertRedirect('/participant/scan');
+        $this->get('/participant/daftar')->assertRedirect('/participant/scan');
+
         $this->get('/x99')->assertRedirect('/participant/qr-tidak-dikenal');
         $this->assertDatabaseHas('rejects', ['reason' => 'unknown_qr']);
     }
@@ -382,8 +484,25 @@ class CustomerFlowTest extends TestCase
         $payload = ['recipient' => 'Sakinah', 'whatsapp' => '081234567890', 'address' => 'Jl. Sukabirus No. 12, dekat masjid'];
         $this->post("/participant/alamat/{$gift->id}", [...$payload, 'area' => 'Dayeuhkolot'])
             ->assertSessionHasErrors(['area' => 'Hadiah hanya diantar di area yang tersedia.']);
-        $this->post("/participant/alamat/{$gift->id}", [...$payload, 'area' => 'Sukapura'])->assertRedirect('/participant/terima-kasih');
+        $this->post("/participant/alamat/{$gift->id}", [...$payload, 'area' => 'Sukapura', 'note' => 'titip satpam'])
+            ->assertRedirect('/participant/terima-kasih');
         $this->assertSame('ready_to_ship', $gift->fresh()->status);
+
+        // Setelah alamat dikirim, kartu hadiah membuka halaman detail yang menampilkan alamatnya.
+        $this->get("/participant/hadiah-barang/{$gift->id}")->assertInertia(fn ($page) => $page
+            ->component('participant/hadiah-barang')
+            ->where('gift.area', 'Sukapura')
+            ->where('gift.address', 'Jl. Sukabirus No. 12, dekat masjid')
+            ->where('gift.note', 'titip satpam')
+            ->where('reward.href', route('participant.hadiah-barang', $gift->id)));
+
+        // Hadiah berikutnya: form terisi dari data peserta dan alamat yang pernah diisi.
+        $next = Gift::create(['claim_id' => $claim->id, 'type' => 'merchandise', 'status' => 'pending_address']);
+        $this->get("/participant/alamat/{$next->id}")->assertInertia(fn ($page) => $page
+            ->where('defaults.recipient', 'Sakinah')
+            ->where('defaults.area', 'Sukapura')
+            ->where('defaults.address', 'Jl. Sukabirus No. 12, dekat masjid')
+            ->where('defaults.note', 'titip satpam'));
     }
 
     public function test_mystery_gift_at_fifth_cap_can_be_a_voucher(): void
@@ -494,7 +613,7 @@ class CustomerFlowTest extends TestCase
         $this->post('/participant/lupa-pin', ['whatsapp' => '081234567890']);
         $this->assertDatabaseHas('activity_logs', ['action' => 'pin_reset_requested']);
 
-        $this->post('/participant/mahasiswa', ['is_student' => true])->assertRedirect('/participant/papan');
+        $this->post('/participant/mahasiswa', ['is_student' => true])->assertRedirect('/participant/scan');
         $this->post('/participant/mahasiswa', ['is_student' => false])->assertRedirect('/participant/mahasiswa/khusus');
         $this->assertDatabaseHas('activity_logs', ['action' => 'student_confirmation']);
     }

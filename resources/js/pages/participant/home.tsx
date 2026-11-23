@@ -1,4 +1,5 @@
 import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
+import { LogoutButton } from '@/features/participant/components/ui';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { cn } from '@/lib/utils';
 import type { LucideIcon } from 'lucide-react';
@@ -36,6 +37,8 @@ export default function Home({ modal, areas = [], prizes = [] }: { modal?: strin
                     aria-hidden
                     className="pointer-events-none absolute inset-x-0 top-0 h-full w-full object-cover object-top select-none"
                 />
+                {/* Tombol keluar di pojok kanan atas, hanya saat sudah masuk. */}
+                <LogoutButton className="bg-ink/80 text-lime hover:bg-ink hover:text-lime absolute top-4 right-4 z-10 md:hidden" />
                 <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(43,29,12,0)_0%,rgba(43,29,12,0.15)_38%,rgba(43,29,12,0.8)_56%,#2b1d0c_74%)]" />
                 <span className="bg-lime text-ink relative inline-block rounded-full px-3.5 py-1.5 text-[13px] font-extrabold">
                     Scan QR di papan warung

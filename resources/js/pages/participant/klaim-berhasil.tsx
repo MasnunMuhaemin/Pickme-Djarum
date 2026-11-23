@@ -1,9 +1,10 @@
+import { FollowUpNotice } from '@/features/participant/components/follow-up-notice';
 import { Badge, OutlineButton, PageHeader, PrimaryButton, ProgressDots, Sheet } from '@/features/participant/components/ui';
 import { type Reward, rewardIcons, rewardStub, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
-import { Check, Gift, Sparkles } from 'lucide-react';
+import { Check, ClipboardList, Gift, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
 type ClaimInfo = { claim_code: string; outlet: string; submitted_at?: string | null };
@@ -22,6 +23,14 @@ export default function KlaimBerhasil({
     caps?: number;
 }) {
     const [mysteryOpen, setMysteryOpen] = useState(Boolean(mystery));
+    // Form lanjutan (nomor meter / alamat) diberitahukan lewat popup; bila ada mystery gift, sesudah popup itu ditutup.
+    const needsFollowUp = Boolean(reward?.follow_up && reward.href);
+    const [followUpOpen, setFollowUpOpen] = useState(needsFollowUp && !mystery);
+
+    function closeMystery() {
+        setMysteryOpen(false);
+        if (needsFollowUp) setFollowUpOpen(true);
+    }
     const Icon = reward ? (rewardIcons[reward.kind] ?? Gift) : Gift;
     const stub = rewardStub(reward?.kind ?? 'merch');
 
@@ -57,6 +66,8 @@ export default function KlaimBerhasil({
                         <span className="text-lime shrink-0 text-[12px] font-extrabold underline underline-offset-2">Lihat</span>
                     </Link>
                 )}
+
+                {reward && <FollowUpNotice reward={reward} className="mt-3" />}
 
                 <div className="mt-4 md:grid md:grid-cols-[minmax(0,1fr)_300px] md:items-start md:gap-6">
                     <div className="border-ink/10 overflow-hidden rounded-2xl border bg-white">
@@ -117,7 +128,7 @@ export default function KlaimBerhasil({
                 </div>
             </div>
             {mystery && (
-                <Sheet open={mysteryOpen} onClose={() => setMysteryOpen(false)}>
+                <Sheet open={mysteryOpen} onClose={closeMystery}>
                     <div className="py-2 text-center">
                         <span className="bg-lime text-ink relative mx-auto grid size-20 place-items-center rounded-full">
                             <Gift className="size-9" />
@@ -130,8 +141,30 @@ export default function KlaimBerhasil({
                     </div>
                     <div className="mt-5 space-y-2">
                         <PrimaryButton href={mystery.href ?? '/participant/hadiah'}>{mystery.action ?? 'Lihat di Hadiahku'}</PrimaryButton>
-                        <button type="button" onClick={() => setMysteryOpen(false)} className="text-ink-soft w-full py-2 text-[12px] font-bold">
+                        <button type="button" onClick={closeMystery} className="text-ink-soft w-full py-2 text-[12px] font-bold">
                             Nanti saja
+                        </button>
+                    </div>
+                </Sheet>
+            )}
+            {reward?.follow_up && reward.href && (
+                <Sheet open={followUpOpen} onClose={() => setFollowUpOpen(false)}>
+                    <div className="py-2 text-center">
+                        <span className="mx-auto grid size-20 place-items-center rounded-full bg-[#e9b949] text-[#3a2612]">
+                            <ClipboardList className="size-9" />
+                        </span>
+                        <p className="text-ink-soft mt-4 text-[11px] font-extrabold tracking-widest uppercase">Satu langkah lagi</p>
+                        <h2 className="mt-1 text-[22px] leading-tight font-extrabold tracking-tight">{reward.follow_up.title}</h2>
+                        <p className="text-ink-soft mt-2 text-[13px] leading-relaxed">{reward.follow_up.message}</p>
+                    </div>
+                    {/* Hanya informasi: form diisi dari Hadiahku, bukan dari popup ini. */}
+                    <div className="mt-5">
+                        <button
+                            type="button"
+                            onClick={() => setFollowUpOpen(false)}
+                            className="bg-ink text-lime h-12 w-full rounded-full text-[14px] font-extrabold"
+                        >
+                            Mengerti
                         </button>
                     </div>
                 </Sheet>

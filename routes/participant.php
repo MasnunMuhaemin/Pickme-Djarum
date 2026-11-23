@@ -59,6 +59,7 @@ Route::prefix('participant')->name('participant.')->group(function () {
         Route::get('voucher/{code?}', [VoucherController::class, 'show'])->name('voucher');
         Route::get('nomor-tujuan/{voucherId?}', [GiftController::class, 'showDestination'])->name('nomor-tujuan');
         Route::post('nomor-tujuan/{voucherId?}', [GiftController::class, 'storeDestination'])->name('nomor-tujuan.store');
+        Route::get('hadiah-barang/{giftId}', [GiftController::class, 'show'])->whereNumber('giftId')->name('hadiah-barang');
         Route::get('alamat/{giftId?}', [GiftController::class, 'showAddress'])->name('alamat');
         Route::post('alamat/{giftId?}', [GiftController::class, 'storeAddress'])->name('alamat.store');
     });

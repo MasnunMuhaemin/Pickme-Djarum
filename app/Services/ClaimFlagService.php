@@ -24,11 +24,7 @@ class ClaimFlagService
         $config = config('participant.flags');
         $flags = [];
 
-        $isFirstPhoto = ! ClaimPhoto::whereHas('claim', fn ($q) => $q
-            ->where('participant_id', $claim->participant_id)
-            ->where('id', '!=', $claim->id)
-        )->exists();
-        if ($config['first_photo'] && $isFirstPhoto) {
+        if ($config['first_photo'] && $this->isFirstPhoto($claim)) {
             $flags[] = 'first_photo';
         }
 
@@ -49,6 +45,14 @@ class ClaimFlagService
         }
 
         return $flags;
+    }
+
+    private function isFirstPhoto(Claim $claim): bool
+    {
+        return ! ClaimPhoto::whereHas('claim', fn ($q) => $q
+            ->where('participant_id', $claim->participant_id)
+            ->where('id', '!=', $claim->id)
+        )->exists();
     }
 
     /**

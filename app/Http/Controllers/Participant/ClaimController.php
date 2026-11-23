@@ -146,8 +146,8 @@ class ClaimController extends Controller
                 'held_until' => $claim->slot?->held_until?->toIso8601String(),
                 'slot' => $claim->slot ? [
                     'position' => $claim->slot->position,
-                    // Hanya untuk uji coba (lihat config participant.reveal_slot_code).
-                    'code' => config('participant.reveal_slot_code') ? $claim->slot->code : null,
+                    // Kode slot yang ditunjuk selalu ditampilkan, sama di lokal dan production.
+                    'code' => $claim->slot->code,
                 ] : null,
             ] : null,
             'board' => $outlet->board->slots->map(fn ($s) => [

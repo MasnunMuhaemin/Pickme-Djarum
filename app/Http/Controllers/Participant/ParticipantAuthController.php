@@ -20,21 +20,29 @@ use Inertia\Response;
 
 class ParticipantAuthController extends Controller
 {
-    public function showRegister(): Response
+    public function showRegister(Request $request): Response|RedirectResponse
     {
-        return Inertia::render('participant/scan', [
-            'modal' => 'register',
-            'areas' => Area::orderBy('name')->get(['id', 'name']),
-            'outlets' => Outlet::where('status', 'active')->get(['code', 'name']),
-        ]);
+        return $this->authPage($request, 'register');
     }
 
-    public function showLogin(): Response
+    public function showLogin(Request $request): Response|RedirectResponse
     {
+        return $this->authPage($request, 'login');
+    }
+
+    /**
+     * Popup masuk/daftar di atas halaman Scan. Peserta yang sudah masuk (mis. kembali lewat tombol back)
+     * langsung ke Scan tanpa popup, karena kamera dijeda selama popup terbuka.
+     */
+    private function authPage(Request $request, string $modal): Response|RedirectResponse
+    {
+        if ($request->session()->get('participant_id')) {
+            return to_route('participant.scan');
+        }
+
         return Inertia::render('participant/scan', [
-            'modal' => 'login',
+            'modal' => $modal,
             'areas' => Area::orderBy('name')->get(['id', 'name']),
-            'outlets' => Outlet::where('status', 'active')->get(['code', 'name']),
         ]);
     }
 
@@ -116,12 +124,13 @@ class ParticipantAuthController extends Controller
             return to_route('participant.foto', ['outlet' => $request->session()->get('claim_outlet')]);
         }
 
-        return to_route('participant.papan');
+        // Belum ada warung dari QR: ke Scan. Scan sendiri langsung ke foto bila warung klaim terakhir diketahui.
+        return to_route('participant.scan');
     }
 
     public function logout(Request $request): RedirectResponse
     {
-        $request->session()->forget(['participant_id', 'claim_outlet']);
+        $request->session()->forget(['participant_id', 'claim_outlet', 'outlet_scanned']);
 
         return to_route('participant.masuk');
     }

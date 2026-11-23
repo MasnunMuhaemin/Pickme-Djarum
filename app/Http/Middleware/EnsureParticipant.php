@@ -11,7 +11,8 @@ class EnsureParticipant
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->session()->get('participant_id')) {
-            return to_route('participant.papan')->withErrors(['auth' => 'Masuk dulu untuk melanjutkan.']);
+            // Belum masuk: popup masuk di atas Scan; setelah masuk lanjut ke foto bila warung sudah terbaca.
+            return to_route('participant.masuk')->withErrors(['auth' => 'Masuk dulu untuk melanjutkan.']);
         }
 
         return $next($request);

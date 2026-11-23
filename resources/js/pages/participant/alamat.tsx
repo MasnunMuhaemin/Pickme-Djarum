@@ -4,14 +4,20 @@ import { useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
 
 type Gift = { id: number; type: string; status: string };
-type Defaults = { recipient: string };
+type Defaults = { recipient: string; area?: string; address?: string; note?: string };
 
 /**
  * Alamat pengiriman merchandise dan limited edition: nama penerima (awal dari nama peserta), area dari daftar area
  * pengiriman, alamat lengkap dan patokan, catatan opsional (PRD bagian 14).
  */
 export default function Alamat({ gift, defaults, areas = [] }: { gift?: Gift; defaults?: Defaults; areas?: string[] }) {
-    const form = useForm({ recipient: defaults?.recipient ?? '', area: '', address: '', note: '' });
+    // Isian awal dari data peserta (nama, area pendaftaran, alamat yang pernah diisi); tetap bisa diubah.
+    const form = useForm({
+        recipient: defaults?.recipient ?? '',
+        area: defaults?.area ?? '',
+        address: defaults?.address ?? '',
+        note: defaults?.note ?? '',
+    });
 
     function submit(e?: FormEvent) {
         e?.preventDefault();

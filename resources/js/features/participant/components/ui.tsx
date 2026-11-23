@@ -1,3 +1,4 @@
+import { goBack } from '@/features/participant/nav-history';
 import { cn } from '@/lib/utils';
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { Link, router, usePage } from '@inertiajs/react';
@@ -45,6 +46,27 @@ export function LogoutButton({ dark, className }: { dark?: boolean; className?: 
     );
 }
 
+/**
+ * Tombol kembali: ke halaman peserta sebelumnya (lihat nav-history), atau ke `fallback` bila tidak ada riwayat.
+ * Tetap berupa tautan ke `fallback` supaya bisa dibuka di tab baru.
+ */
+export function BackLink({ fallback, className, children }: { fallback: string; className?: string; children: ReactNode }) {
+    return (
+        <Link
+            href={fallback}
+            aria-label="Kembali"
+            className={className}
+            onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                e.preventDefault();
+                goBack(fallback);
+            }}
+        >
+            {children}
+        </Link>
+    );
+}
+
 export function PageHeader({
     title,
     back,
@@ -72,9 +94,9 @@ export function PageHeader({
         >
             <div className="flex items-center">
                 {back && (
-                    <Link href={back} aria-label="Kembali" className="grid size-10 place-items-center rounded-full hover:bg-black/5">
+                    <BackLink fallback={back} className="grid size-10 place-items-center rounded-full hover:bg-black/5">
                         <ArrowLeft className="size-5" />
-                    </Link>
+                    </BackLink>
                 )}
                 {close && (
                     <Link href={close} aria-label="Tutup" className="grid size-10 place-items-center rounded-full hover:bg-black/5">
@@ -496,12 +518,13 @@ function SheetPanel({ onClose, title, children }: SheetProps) {
                 onTouchCancel={onTouchEnd}
                 style={{ transform: offset ? `translateY(${offset}px)` : undefined }}
                 className={cn(
-                    'animate-in slide-in-from-bottom bg-cream text-ink relative mx-auto max-h-[88dvh] w-full max-w-[430px] overscroll-contain rounded-t-3xl p-5 pb-8 shadow-2xl md:max-w-md md:rounded-3xl md:pb-6',
+                    'animate-in slide-in-from-bottom bg-cream text-ink relative mx-auto max-h-[88dvh] w-full max-w-[430px] overscroll-contain rounded-t-3xl px-5 pt-5 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl md:max-w-md md:rounded-3xl md:pb-6',
                     dragging ? 'overflow-hidden' : 'overflow-y-auto transition-transform duration-200 ease-out',
                 )}
             >
-                <div className="-mx-5 -mt-5 mb-2 flex justify-center pt-3 pb-2" aria-hidden>
-                    <span className="bg-ink/20 h-1 w-10 rounded-full" />
+                {/* Area pegangan untuk geser tutup: dibuat lega supaya mudah disentuh di HP. */}
+                <div className="-mx-5 -mt-5 mb-4 flex justify-center pt-4 pb-3 md:mb-2 md:pt-3 md:pb-2" aria-hidden>
+                    <span className="bg-ink/25 h-1.5 w-12 rounded-full" />
                 </div>
                 {title && <h2 className="text-ink mb-1 text-lg font-extrabold tracking-tight">{title}</h2>}
                 {children}

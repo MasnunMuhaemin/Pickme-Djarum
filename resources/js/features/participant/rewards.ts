@@ -18,6 +18,8 @@ export type Reward = {
     tone: RewardTone;
     action: string | null;
     href: string | null;
+    /** Ada form lanjutan yang wajib diisi peserta (nomor meter token, alamat merchandise). */
+    follow_up?: { title: string; message: string } | null;
 };
 
 export const rewardIcons: Record<string, LucideIcon> = {

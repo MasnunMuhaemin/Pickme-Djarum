@@ -1,4 +1,5 @@
-import { PrimaryButton } from '@/features/participant/components/ui';
+import { limeLogoutClass } from '@/features/participant/components/lime-page';
+import { LogoutButton, PrimaryButton } from '@/features/participant/components/ui';
 import { type Reward, rewardIcons, rewardStub, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { useCaps } from '@/lib/participant';
@@ -37,8 +38,9 @@ export default function VoucherPage({ voucher, reward }: { voucher: VoucherData;
     return (
         <ParticipantLayout title="Detail hadiah" nav="hadiah">
             <div className="bg-lime px-5 pt-4 pb-14 md:px-8 md:pt-6">
-                <div className="flex justify-end">
+                <div className="flex items-center justify-end gap-2">
                     <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
+                    <LogoutButton className={limeLogoutClass} />
                 </div>
                 <h1 className="mt-2 text-[32px] leading-none font-extrabold tracking-tight md:text-[44px]">{reward.title}</h1>
                 <p className="mt-2 text-[13px] font-semibold md:text-sm">{reward.description}</p>

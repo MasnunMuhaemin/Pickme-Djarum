@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Pemeriksaan saat kode slot dimasukkan (PRD bagian 18) dan penentuan status klaim:
- * tanpa tanda disetujui otomatis, bertanda masuk antrean admin (pending).
+ * tanpa tanda disetujui otomatis; bertanda hanya menunggu admin (pending) bila hadiahnya token listrik.
  */
 class ClaimVerificationService
 {
@@ -75,8 +75,10 @@ class ClaimVerificationService
             Claim::where('slot_id', $slot->id)->where('id', '!=', $claim->id)->where('status', 'draft')
                 ->update(['slot_id' => null, 'code' => null]);
 
+            // Hanya hadiah token listrik (perlu nomor meter dan diproses admin) yang menunggu pemeriksaan bila
+            // bertanda. Voucher kopi dan hadiah lain langsung disetujui; tandanya tetap disimpan untuk catatan admin.
             $flag = Claim::joinFlags($flags);
-            $status = $flag ? 'pending' : 'approved';
+            $status = $flag && $slot->prize_type === 'token' ? 'pending' : 'approved';
 
             $claim->update([
                 'slot_id' => $slot->id,

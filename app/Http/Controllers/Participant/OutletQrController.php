@@ -23,8 +23,14 @@ class OutletQrController extends Controller
             return to_route('participant.qr-tidak-dikenal');
         }
 
-        $request->session()->put('claim_outlet', $code);
+        $request->session()->put(['claim_outlet' => $code, 'outlet_scanned' => $code]);
 
-        return to_route('participant.papan', ['outlet' => $code]);
+        // Sama dengan hasil scan di aplikasi: belum masuk → popup masuk (setelah masuk lanjut ke foto),
+        // sudah masuk → langsung foto bungkus.
+        if ($request->session()->get('participant_id')) {
+            return to_route('participant.foto', ['outlet' => $code]);
+        }
+
+        return to_route('participant.masuk');
     }
 }
