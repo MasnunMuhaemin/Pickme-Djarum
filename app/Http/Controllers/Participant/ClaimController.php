@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Participant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PhotoUploadRequest;
 use App\Http\Requests\SlotCodeRequest;
+use App\Models\Area;
 use App\Models\Claim;
 use App\Models\Outlet;
 use App\Models\Participant;
@@ -48,6 +49,8 @@ class ClaimController extends Controller
             'totalSlots' => $outlet->board->slots->count(),
             'activeClaim' => $activeClaim?->only(['id', 'status', 'claim_code', 'slot_id']),
             'canClaim' => $outlet->isActive(),
+            'modal' => $request->query('modal'),
+            'areas' => Area::orderBy('name')->get(['id', 'name']),
         ]);
     }
 

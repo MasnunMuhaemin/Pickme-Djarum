@@ -21,7 +21,8 @@ class ParticipantAuthController extends Controller
 {
     public function showRegister(): Response
     {
-        return Inertia::render('participant/daftar', [
+        return Inertia::render('participant/home', [
+            'modal' => 'register',
             'areas' => Area::orderBy('name')->get(['id', 'name']),
             'outlet' => Outlet::where('code', 'W07')->first(),
         ]);
@@ -29,7 +30,11 @@ class ParticipantAuthController extends Controller
 
     public function showLogin(): Response
     {
-        return Inertia::render('participant/masuk');
+        return Inertia::render('participant/home', [
+            'modal' => 'login',
+            'areas' => Area::orderBy('name')->get(['id', 'name']),
+            'outlet' => Outlet::where('code', 'W07')->first(),
+        ]);
     }
 
     public function register(RegisterRequest $request, DeviceService $devices): RedirectResponse

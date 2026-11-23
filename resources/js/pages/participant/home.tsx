@@ -1,3 +1,4 @@
+import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
 import { Card, PageHeader, PrimaryButton } from '@/features/participant/components/ui';
 import { prizes } from '@/features/participant/data';
 import ParticipantLayout from '@/layouts/participant-layout';
@@ -13,8 +14,16 @@ const icons: Record<(typeof prizes)[number]['icon'], LucideIcon> = {
     fuel: Fuel,
 };
 
-export default function Home() {
+type Area = { id: number; name: string };
+
+export default function Home({ modal, areas = [] }: { modal?: string; areas?: Area[] }) {
     const [demoOpen, setDemoOpen] = useState(true);
+    const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
+
+    function closeAuth() {
+        setAuthMode(null);
+        if (modal) window.history.replaceState({}, '', '/participant');
+    }
 
     return (
         <ParticipantLayout nav="papan">
@@ -99,6 +108,7 @@ export default function Home() {
                     </Card>
                 </div>
             </div>
+            <AuthSheet mode={authMode} onClose={closeAuth} onModeChange={setAuthMode} areas={areas} />
         </ParticipantLayout>
     );
 }

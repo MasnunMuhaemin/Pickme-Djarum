@@ -1,4 +1,5 @@
-import { Badge, Checkbox, Input, OutlineButton, PageHeader, PrimaryButton, Sheet } from '@/features/participant/components/ui';
+import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
+import { Badge, OutlineButton, PageHeader, PrimaryButton, Sheet } from '@/features/participant/components/ui';
 import { boardSlots, pickerCodes } from '@/features/participant/data';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { deviceId } from '@/lib/device';
@@ -10,48 +11,49 @@ import { FormEvent, useEffect, useState } from 'react';
 
 const disabledCodes = ['A1', 'F6', 'J9', 'N3', 'T9', 'V2'];
 
+type Area = { id: number; name: string };
+
 type PapanProps = {
     outlet?: { id: number; code: string; name: string; status: string };
     slots?: { position: string; code: string; status: string }[];
     availableCount?: number;
     totalSlots?: number;
     activeClaim?: { id: number; status: string; slot_id: number } | null;
+    modal?: string;
+    areas?: Area[];
 };
 
-export default function Papan({ outlet, slots: serverSlots, availableCount = 15, totalSlots = 25, activeClaim }: PapanProps) {
+export default function Papan({ outlet, slots: serverSlots, availableCount = 15, totalSlots = 25, activeClaim, modal, areas = [] }: PapanProps) {
     const { url, props } = usePage();
     const params = new URLSearchParams(url.split('?')[1] ?? '');
     const isLoggedIn = Boolean((props.auth as { participant?: unknown })?.participant);
     const caps = useCaps();
     const slots = serverSlots?.length ? serverSlots : boardSlots.map((s) => ({ position: s.code, code: '', status: s.taken ? 'used' : 'empty' }));
     const startForm = useForm({ device_id: deviceId(), claim: '', outlet: outlet?.code ?? 'W07' });
-    const loginForm = useForm({ whatsapp: '', pin: '', device_id: deviceId() });
 
     function startClaim(e?: FormEvent) {
         e?.preventDefault();
         if (!isLoggedIn) {
-            setLogin(true);
+            setAuthMode('login');
             return;
         }
         startForm.post('/participant/klaim/mulai', { preserveScroll: true });
     }
 
-    function submitLogin(e: FormEvent) {
-        e.preventDefault();
-        loginForm.post('/participant/masuk', { preserveScroll: true, onSuccess: () => setLogin(false) });
-    }
-
     const [paused, setPaused] = useState(params.has('dijeda'));
     const [picker, setPicker] = useState(params.has('pilih'));
-    const [login, setLogin] = useState(params.has('masuk'));
+    const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
     const [selected, setSelected] = useState('C3');
-    const [agree, setAgree] = useState(false);
+
+    function closeAuth() {
+        setAuthMode(null);
+        if (modal) window.history.replaceState({}, '', '/participant/papan');
+    }
 
     useEffect(() => {
         const next = new URLSearchParams(url.split('?')[1] ?? '');
         setPaused(next.has('dijeda'));
         setPicker(next.has('pilih'));
-        setLogin(next.has('masuk'));
     }, [url]);
 
     return (
@@ -178,7 +180,7 @@ export default function Papan({ outlet, slots: serverSlots, availableCount = 15,
                 <PrimaryButton
                     onClick={() => {
                         setPicker(false);
-                        setLogin(true);
+                        setAuthMode('login');
                     }}
                     className="mt-4"
                 >
@@ -189,45 +191,7 @@ export default function Papan({ outlet, slots: serverSlots, availableCount = 15,
                 </p>
             </Sheet>
 
-            <Sheet open={login} onClose={() => setLogin(false)} title="Masuk dulu untuk klaim">
-                <p className="text-ink-soft text-[12px] leading-relaxed">Supaya hadiah dan kartu cap kamu aman. Lanjut dengan WhatsApp.</p>
-                <form onSubmit={submitLogin} className="mt-4 space-y-3">
-                    <div>
-                        <p className="mb-1.5 text-[11px] font-semibold">Nomor WhatsApp</p>
-                        <Input
-                            inputMode="tel"
-                            value={loginForm.data.whatsapp}
-                            onChange={(e) => loginForm.setData('whatsapp', e.target.value)}
-                            placeholder="08xx xxxx xxxx"
-                        />
-                    </div>
-                    <div>
-                        <p className="mb-1.5 text-[11px] font-semibold">PIN</p>
-                        <Input
-                            inputMode="numeric"
-                            maxLength={4}
-                            value={loginForm.data.pin}
-                            onChange={(e) => loginForm.setData('pin', e.target.value)}
-                            placeholder="4 angka"
-                        />
-                    </div>
-                    {loginForm.errors.pin && <span className="text-danger block text-[11px]">{loginForm.errors.pin}</span>}
-                    <Checkbox checked={agree} onChange={setAgree}>
-                        Saya setuju Syarat dan Ketentuan serta Kebijakan Privasi.
-                    </Checkbox>
-                    <PrimaryButton type="submit" disabled={!agree || loginForm.processing}>
-                        {loginForm.processing ? 'Memeriksa...' : 'Masuk dan klaim'}
-                    </PrimaryButton>
-                    <div className="flex items-center justify-between text-[11px]">
-                        <Link href="/participant/daftar" className="font-semibold underline underline-offset-2">
-                            Belum punya akun? Daftar
-                        </Link>
-                        <Link href="/participant/lupa-pin" className="font-semibold underline underline-offset-2">
-                            Lupa PIN?
-                        </Link>
-                    </div>
-                </form>
-            </Sheet>
+            <AuthSheet mode={authMode} onClose={closeAuth} onModeChange={setAuthMode} areas={areas} />
         </ParticipantLayout>
     );
 }
