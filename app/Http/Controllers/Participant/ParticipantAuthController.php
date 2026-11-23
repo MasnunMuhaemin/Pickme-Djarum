@@ -14,6 +14,7 @@ use App\Support\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,6 +40,12 @@ class ParticipantAuthController extends Controller
 
     public function register(RegisterRequest $request, DeviceService $devices): RedirectResponse
     {
+        // Batas pendaftaran per IP (PRD 2.4). IP hanya sinyal: dibatasi, bukan diblokir permanen.
+        $registerKey = 'participant-register:'.$request->ip();
+        if (RateLimiter::tooManyAttempts($registerKey, config('participant.register_per_ip_per_day'))) {
+            return back()->withErrors(['whatsapp' => 'Terlalu banyak pendaftaran dari jaringan ini. Coba lagi besok atau hubungi admin.']);
+        }
+
         $data = $request->validated();
         $outlet = Outlet::where('code', 'W07')->first();
         $age = now()->parse($data['birth_date'])->diffInYears(now());
@@ -54,6 +61,8 @@ class ParticipantAuthController extends Controller
 
             return to_route('participant.daftar.belum-bisa');
         }
+
+        RateLimiter::hit($registerKey, 24 * 60 * 60);
 
         $participant = Participant::create([
             'name' => $data['name'],
@@ -74,9 +83,21 @@ class ParticipantAuthController extends Controller
     public function login(LoginRequest $request, DeviceService $devices): RedirectResponse
     {
         $data = $request->validated();
+
+        // PIN 4 angka hanya 10.000 kombinasi: percobaan salah wajib dibatasi (PRD 2.1 dan FR-02).
+        $loginKey = 'participant-login:'.$data['whatsapp'].'|'.$request->ip();
+        if (RateLimiter::tooManyAttempts($loginKey, config('participant.login_max_attempts'))) {
+            $minutes = (int) ceil(RateLimiter::availableIn($loginKey) / 60);
+            ActivityLogger::log('participant.login_locked', 'participant', null, ['whatsapp' => substr($data['whatsapp'], -4)]);
+
+            return back()->withErrors(['pin' => "Terlalu banyak percobaan. Coba lagi dalam {$minutes} menit atau hubungi admin."]);
+        }
+
         $participant = Participant::where('whatsapp', $data['whatsapp'])->first();
 
         if (! $participant || ! Hash::check($data['pin'], $participant->pin_hash)) {
+            RateLimiter::hit($loginKey, config('participant.login_lock_minutes') * 60);
+
             Reject::create([
                 'reason' => 'invalid_login',
                 'outlet_id' => Outlet::where('code', 'W07')->value('id'),
@@ -86,6 +107,7 @@ class ParticipantAuthController extends Controller
             return back()->withErrors(['pin' => 'Nomor atau PIN belum cocok. Lupa PIN? Hubungi admin.']);
         }
 
+        RateLimiter::clear($loginKey);
         $request->session()->put('participant_id', $participant->id);
         $devices->track($request, $participant, 'login');
         ActivityLogger::log('participant.login', 'participant', $participant->id, [], $participant);

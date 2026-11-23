@@ -11,12 +11,13 @@ import { FormEvent, useState } from 'react';
 type Area = { id: number; name: string };
 
 type PapanProps = {
-    outlet?: { id: number; code: string; name: string; status: string };
-    slots?: { position: string; code: string; status: string }[];
+    outlet?: { id: number; code: string; name: string; status: string; area?: string | null };
+    slots?: { position: string; status: string }[];
     availableCount?: number;
     totalSlots?: number;
     activeClaim?: { id: number; status: string; slot_id: number } | null;
     canClaim?: boolean;
+    paused?: boolean;
     board?: { week_label: string; status: string } | null;
     modal?: string;
     areas?: Area[];
@@ -29,19 +30,22 @@ export default function Papan({
     totalSlots = 0,
     activeClaim,
     canClaim = false,
+    paused = false,
     board,
     modal,
     areas = [],
 }: PapanProps) {
     const { props } = usePage();
     const isLoggedIn = Boolean((props.auth as { participant?: unknown })?.participant);
+    const serverError = (props.errors as Record<string, string> | undefined)?.claim;
+    const full = !paused && availableCount === 0;
     const caps = useCaps();
     const startForm = useForm({ device_id: deviceId(), claim: '', outlet: outlet?.code ?? 'W07' });
 
     function startClaim(e?: FormEvent) {
         e?.preventDefault();
         if (!canClaim) {
-            setPaused(true);
+            setInfoOpen(true);
             return;
         }
         if (!isLoggedIn) {
@@ -51,7 +55,7 @@ export default function Papan({
         startForm.post('/participant/klaim/mulai', { preserveScroll: true });
     }
 
-    const [paused, setPaused] = useState(false);
+    const [infoOpen, setInfoOpen] = useState(false);
     const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
 
     function closeAuth() {
@@ -68,10 +72,10 @@ export default function Papan({
                     <p className="text-[11px] font-bold">{board ? `Papan minggu ${board.week_label}` : 'Papan belum tersedia'}</p>
                     <p className="text-cream/70 flex items-center gap-1.5 text-[10px]">
                         <span className={cn('size-1.5 rounded-full', canClaim ? 'bg-lime' : 'bg-danger')} />
-                        {canClaim ? 'Sedang berjalan' : 'Sedang dijeda'}
+                        {paused ? 'Sedang dijeda' : full ? 'Papan penuh' : 'Sedang berjalan'}
                     </p>
                 </div>
-                <button onClick={() => setPaused(true)} className="border-cream/25 rounded-full border px-2.5 py-1 text-[10px] font-semibold">
+                <button onClick={() => setInfoOpen(true)} className="border-cream/25 rounded-full border px-2.5 py-1 text-[10px] font-semibold">
                     Status program
                 </button>
             </div>
@@ -80,6 +84,12 @@ export default function Papan({
                 <div className="flex items-start justify-between">
                     <div>
                         <h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">Papan {outlet?.code ?? 'W07'}</h2>
+                        {outlet && (
+                            <p className="mt-0.5 text-[12px] font-semibold md:text-sm">
+                                {outlet.name}
+                                {outlet.area ? ` · ${outlet.area}` : ''}
+                            </p>
+                        )}
                         <p className="text-ink-soft mt-0.5 text-[11px] md:text-xs">
                             {availableCount} tersedia dari {totalSlots} slot mingguan.
                         </p>
@@ -109,20 +119,31 @@ export default function Papan({
 
                 {activeClaim && (
                     <div className="mt-4 rounded-2xl bg-[#fbe3e0] p-3.5 md:mt-6 md:p-4">
-                        <p className="text-danger text-[12px] font-extrabold md:text-[13px]">Kamu belum isi slot</p>
+                        <p className="text-danger text-[12px] font-extrabold md:text-[13px]">Kamu belum isi kode slot</p>
                         <p className="text-danger/80 mt-0.5 text-[11px] leading-relaxed">
-                            Kamu akan diblokir 10 menit dari papan kalau keluar tanpa klaim.
+                            Slot ditahan untukmu sementara. Lanjutkan klaim sebelum masa tahannya habis.
                         </p>
                     </div>
                 )}
                 {slots.length === 0 && <p className="text-ink-soft mt-4 text-center text-[11px]">Slot papan belum tersedia.</p>}
 
-                <PrimaryButton onClick={() => startClaim()} disabled={startForm.processing} className="mt-4">
-                    {startForm.processing ? 'Mengambil slot...' : 'Klaim sekarang'}
-                </PrimaryButton>
-                {startForm.errors.claim && <span className="text-danger mt-1 block text-[11px]">{startForm.errors.claim}</span>}
+                {/* Saat dijeda tombol diganti pesan jeda; saat penuh tombol nonaktif (PRD P1 dan P4). */}
+                {paused ? (
+                    <div className="border-ink/25 text-ink-soft mt-4 rounded-2xl border-2 border-dashed p-4 text-center text-[12px] leading-relaxed">
+                        <p className="text-ink font-extrabold">Program sedang dijeda</p>
+                        Klaim belum bisa dibuat. Hadiah dan kartumu tetap aman.
+                    </div>
+                ) : (
+                    <PrimaryButton onClick={() => startClaim()} disabled={startForm.processing || full} className="mt-4">
+                        {full ? 'Papan penuh' : startForm.processing ? 'Mengambil slot...' : 'Klaim sekarang'}
+                    </PrimaryButton>
+                )}
+                {full && <p className="text-ink-soft mt-1 text-center text-[11px]">Semua slot sudah diambil. Coba klaim di titik lain.</p>}
+                {(startForm.errors.claim || serverError) && (
+                    <span className="text-danger mt-1 block text-[11px]">{startForm.errors.claim ?? serverError}</span>
+                )}
                 {activeClaim && (
-                    <Link href="/participant/foto" className="text-ink mt-2 block text-center text-[11px] font-bold underline underline-offset-2">
+                    <Link href="/participant/slot" className="text-ink mt-2 block text-center text-[11px] font-bold underline underline-offset-2">
                         Lanjutkan klaim yang ditahan
                     </Link>
                 )}
@@ -133,14 +154,20 @@ export default function Papan({
                 </div>
             </div>
 
-            <Sheet open={paused} onClose={() => setPaused(false)}>
+            <Sheet open={infoOpen} onClose={() => setInfoOpen(false)}>
                 <div className="py-2 text-center">
                     <span className="bg-lime mx-auto grid size-16 place-items-center rounded-full">
                         <Pause className="text-ink size-7" />
                     </span>
-                    <h2 className="mt-4 text-xl font-extrabold tracking-tight">Program sedang dijeda</h2>
+                    <h2 className="mt-4 text-xl font-extrabold tracking-tight">
+                        {paused ? 'Program sedang dijeda' : full ? 'Papan penuh' : 'Program sedang berjalan'}
+                    </h2>
                     <p className="text-ink-soft mt-1 text-[12px] leading-relaxed">
-                        Kamu belum bisa daftar. Hadiah dan kartu tetap aman dan bisa dilihat.
+                        {paused
+                            ? 'Kamu belum bisa klaim. Hadiah dan kartu tetap aman dan bisa dilihat.'
+                            : full
+                              ? 'Semua slot di titik ini sudah diambil dan tidak diisi ulang. Coba klaim di titik lain.'
+                              : `${availableCount} slot masih tersedia di titik ini.`}
                     </p>
                 </div>
                 <div className="mt-4 space-y-2">
@@ -148,7 +175,7 @@ export default function Papan({
                         {isLoggedIn ? 'Lihat hadiah' : 'Kembali'}
                     </PrimaryButton>
                     <OutlineButton href="/participant/kartu">Kartu dan peringkat</OutlineButton>
-                    <button onClick={() => setPaused(false)} className="text-ink-soft w-full py-2 text-[11px] font-bold">
+                    <button onClick={() => setInfoOpen(false)} className="text-ink-soft w-full py-2 text-[11px] font-bold">
                         Kembali
                     </button>
                 </div>

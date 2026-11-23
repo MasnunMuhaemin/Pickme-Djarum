@@ -6,8 +6,11 @@ import { FormEvent } from 'react';
 
 type Gift = { id: number; type: string; status: string };
 
-export default function Alamat({ gift }: { gift?: Gift }) {
-    const form = useForm({ recipient: '', whatsapp: '', area: '', address: '', note: '' });
+type Defaults = { recipient: string; whatsapp: string };
+
+export default function Alamat({ gift, defaults, areas = [] }: { gift?: Gift; defaults?: Defaults; areas?: string[] }) {
+    // Nama dan WhatsApp peserta dipakai sebagai isian awal (PRD bagian 14).
+    const form = useForm({ recipient: defaults?.recipient ?? '', whatsapp: defaults?.whatsapp ?? '', area: '', address: '', note: '' });
 
     function submit(e: FormEvent) {
         e.preventDefault();
@@ -29,10 +32,7 @@ export default function Alamat({ gift }: { gift?: Gift }) {
                         <Select
                             value={form.data.area}
                             onChange={(v) => form.setData('area', v)}
-                            options={[
-                                { value: 'Sukabirus', label: 'Sukabirus' },
-                                { value: 'Sukapura', label: 'Sukapura' },
-                            ]}
+                            options={areas.map((area) => ({ value: area, label: area }))}
                             placeholder="Pilih area pengiriman"
                         />
                         {form.errors.area && <span className="text-danger mt-1 block text-[11px]">{form.errors.area}</span>}

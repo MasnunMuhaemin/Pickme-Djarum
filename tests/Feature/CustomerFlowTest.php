@@ -3,8 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Area;
+use App\Models\Board;
 use App\Models\Claim;
+use App\Models\Gift;
+use App\Models\Outlet;
 use App\Models\Participant;
+use App\Models\Setting;
+use App\Models\Slot;
 use App\Models\Voucher;
 use Database\Seeders\CustomerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,19 +26,64 @@ class CustomerFlowTest extends TestCase
         parent::setUp();
         $this->seed(CustomerSeeder::class);
         Storage::fake('local');
+
+        // Tanda acak dan foto pertama dimatikan supaya hasil test pasti; tiap tanda diuji tersendiri.
+        config([
+            'participant.flags.first_photo' => false,
+            'participant.flags.random_sample_percent' => 0,
+            'participant.reveal_slot_code' => false,
+        ]);
     }
 
-    private function register(string $birthDate = '2000-01-01'): array
+    private function register(string $birthDate = '2000-01-01', string $whatsapp = '081234567890'): array
     {
         return [
             'name' => 'Sakinah',
-            'whatsapp' => '081234567890',
+            'whatsapp' => $whatsapp,
             'birth_date' => $birthDate,
             'area_id' => Area::first()->id,
-            'pin' => '1234',
-            'pin_confirmation' => '1234',
-            'device_id' => 'test-device-1',
+            'pin' => '4826',
+            'pin_confirmation' => '4826',
+            'device_id' => 'test-device-'.$whatsapp,
         ];
+    }
+
+    /** Peserta yang sudah daftar, setuju, dan menjawab mahasiswa. */
+    private function readyParticipant(string $whatsapp = '081234567890'): Participant
+    {
+        $this->post('/participant/daftar', $this->register(whatsapp: $whatsapp));
+        $this->post('/participant/persetujuan', ['accepted' => true]);
+        $this->post('/participant/mahasiswa', ['is_student' => true]);
+
+        return Participant::where('whatsapp', $whatsapp)->firstOrFail();
+    }
+
+    private function photo(int $gray = 120, int $seed = 0): UploadedFile
+    {
+        $png = imagecreatetruecolor(200, 200);
+        imagefill($png, 0, 0, imagecolorallocate($png, $gray, $gray, $gray));
+        if ($seed) {
+            // Pola berbeda supaya hash visual tidak mirip foto lain.
+            mt_srand($seed);
+            for ($i = 0; $i < 40; $i++) {
+                $c = imagecolorallocate($png, mt_rand(0, 255), mt_rand(0, 255), mt_rand(0, 255));
+                imagefilledrectangle($png, mt_rand(0, 180), mt_rand(0, 180), mt_rand(20, 200), mt_rand(20, 200), $c);
+            }
+        }
+        ob_start();
+        imagepng($png);
+        $bytes = ob_get_clean();
+        imagedestroy($png);
+
+        return UploadedFile::fake()->createWithContent('bungkus.png', $bytes)->mimeType('image/png');
+    }
+
+    private function uploadPhoto(int $gray = 120, int $seed = 0): Claim
+    {
+        $this->get('/participant/foto');
+        $this->post('/participant/foto', ['photo' => $this->photo($gray, $seed), 'outlet' => 'W07'])->assertRedirect('/participant/slot');
+
+        return Claim::latest('id')->firstOrFail();
     }
 
     public function test_underage_registration_is_rejected_without_saving_participant(): void
@@ -59,52 +109,144 @@ class CustomerFlowTest extends TestCase
         $this->post('/participant/klaim/mulai', ['outlet' => 'W07'])->assertRedirect('/participant/foto?outlet=W07');
 
         $this->assertDatabaseCount('claims', 0);
+        $claim = $this->uploadPhoto();
 
-        $png = imagecreatetruecolor(200, 200);
-        imagefill($png, 0, 0, imagecolorallocate($png, 120, 120, 120));
-        ob_start();
-        imagepng($png);
-        $bytes = ob_get_clean();
-        imagedestroy($png);
-
-        $this->post('/participant/foto', [
-            'photo' => UploadedFile::fake()->createWithContent('bungkus.png', $bytes)->mimeType('image/png'),
-            'outlet' => 'W07',
-        ])->assertRedirect('/participant/slot');
-
-        $claim = Claim::firstOrFail();
         $this->assertSame('draft', $claim->status);
+        $this->assertNull($claim->flag);
         $this->assertMatchesRegularExpression('/^KLM-\d{4}$/', $claim->claim_code);
-        $this->assertNotNull($claim->slot_id);
         $this->assertSame('held', $claim->slot->status);
         $this->assertDatabaseHas('claim_photos', ['claim_id' => $claim->id]);
 
         $this->post('/participant/slot', ['code' => 'ZZZZZZ'])->assertSessionHasErrors('code');
         $this->assertSame('held', $claim->fresh()->slot->status);
 
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect();
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
         $this->assertSame('approved', $claim->fresh()->status);
         $this->assertSame('used', $claim->fresh()->slot->status);
         $this->assertSame(1, $participant->fresh()->caps);
 
-        $this->assertTrue(
-            Voucher::where('claim_id', $claim->id)->exists() || $claim->fresh()->gifts()->exists()
+        $this->get('/participant/klaim/berhasil')->assertOk()->assertInertia(fn ($page) => $page
+            ->component('participant/klaim-berhasil')
+            ->has('reward.status_label')
+            ->where('claim.claim_code', $claim->claim_code)
         );
         $this->get('/participant/hadiah')->assertOk()->assertInertia(fn ($page) => $page
             ->component('participant/hadiah')
             ->where('approvedClaims', 1)
-            ->has('rewards', 1, fn ($reward) => $reward
-                ->hasAll(['id', 'kind', 'title', 'description', 'status', 'status_label', 'tone', 'action', 'href'])
-                ->etc()
-            )
+            ->has('rewards', 1)
         );
         if ($voucher = Voucher::where('claim_id', $claim->id)->first()) {
             $this->get("/participant/voucher/{$voucher->code}")->assertOk()->assertInertia(fn ($page) => $page
                 ->component('participant/voucher')
-                ->where('voucher.code', $voucher->code)
                 ->has('reward.status_label')
             );
         }
+    }
+
+    public function test_flagged_claim_waits_for_admin_without_cap_or_reward(): void
+    {
+        $participant = $this->readyParticipant();
+        $claim = $this->uploadPhoto(gray: 10);
+        $this->assertSame(['dark_photo'], $claim->flags());
+
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/diperiksa');
+
+        $claim->refresh();
+        $this->assertSame('pending', $claim->status);
+        $this->assertSame('used', $claim->slot->status);
+        $this->assertSame(0, $participant->fresh()->caps);
+        $this->assertFalse(Voucher::where('claim_id', $claim->id)->exists() || $claim->gifts()->exists());
+    }
+
+    public function test_first_photo_and_similar_photo_are_flagged(): void
+    {
+        config(['participant.flags.first_photo' => true]);
+        $this->readyParticipant();
+
+        $first = $this->uploadPhoto(seed: 7);
+        $this->assertContains('first_photo', $first->flags());
+        $this->post('/participant/slot', ['code' => $first->slot->code]);
+
+        $second = $this->uploadPhoto(seed: 7);
+        $this->assertNotContains('first_photo', $second->flags());
+        $this->assertContains('similar_photo', $second->flags());
+    }
+
+    public function test_slot_code_checks_follow_prd_rules(): void
+    {
+        $this->readyParticipant();
+        $claim = $this->uploadPhoto(seed: 1);
+        $board = $claim->outlet->board;
+
+        // Kode dari papan titik lain.
+        $other = Outlet::create(['code' => 'W08', 'name' => 'Warung Lain', 'area_id' => Area::first()->id, 'status' => 'active']);
+        $otherBoard = Board::create(['outlet_id' => $other->id, 'code' => 'W08-BOARD', 'week_label' => 'W08', 'status' => 'active']);
+        Slot::create(['board_id' => $otherBoard->id, 'position' => 'A1', 'code' => 'QWERTY', 'prize_type' => 'voucher', 'status' => 'empty']);
+        $this->post('/participant/slot', ['code' => 'QWERTY'])->assertSessionHasErrors(['code' => 'Kode ini dari papan titik lain. Ambil slot di papan W07.']);
+
+        // Kode yang sudah dipakai.
+        $used = $board->slots()->where('status', 'used')->first();
+        $this->post('/participant/slot', ['code' => $used->code])->assertSessionHasErrors(['code' => 'Kode ini sudah pernah dipakai. Ambil slot yang ditunjuk untukmu.']);
+
+        // Slot yang sedang ditahan peserta lain.
+        $otherParticipant = Participant::create(['name' => 'Lain', 'whatsapp' => '081111111111', 'birth_date' => '2000-01-01', 'area_id' => Area::first()->id, 'pin_hash' => 'x']);
+        $heldByOther = $board->slots()->where('status', 'empty')->first();
+        $heldByOther->update(['status' => 'held', 'holder_id' => $otherParticipant->id, 'held_until' => now()->addMinutes(10)]);
+        $this->post('/participant/slot', ['code' => $heldByOther->code])->assertSessionHasErrors('code');
+
+        // Slot kosong lain di papan yang sama: diterima dengan tanda, slot yang ditunjuk dilepas.
+        $assigned = $claim->slot;
+        $different = $board->slots()->where('status', 'empty')->first();
+        $this->post('/participant/slot', ['code' => $different->code])->assertRedirect('/participant/klaim/diperiksa');
+        $claim->refresh();
+        $this->assertContains('different_slot', $claim->flags());
+        $this->assertSame($different->id, $claim->slot_id);
+        $this->assertSame('empty', $assigned->fresh()->status);
+        $this->assertDatabaseHas('rejects', ['reason' => 'wrong_board']);
+        $this->assertDatabaseHas('rejects', ['reason' => 'slot_used']);
+    }
+
+    public function test_late_code_is_accepted_with_flag(): void
+    {
+        $this->readyParticipant();
+        $claim = $this->uploadPhoto(seed: 2);
+        $this->travel(31)->minutes();
+
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/diperiksa');
+        $this->assertContains('late_code', $claim->fresh()->flags());
+    }
+
+    public function test_slot_codes_are_not_sent_to_the_browser(): void
+    {
+        $this->readyParticipant();
+        $this->uploadPhoto(seed: 3);
+
+        $this->get('/participant/slot')->assertInertia(fn ($page) => $page->where('claim.slot.code', null));
+        $this->get('/participant/papan')->assertInertia(fn ($page) => $page->missing('slots.0.code'));
+    }
+
+    public function test_consent_is_required_before_claiming(): void
+    {
+        $this->post('/participant/daftar', $this->register());
+        Participant::first()->update(['is_student' => true]);
+
+        $this->post('/participant/klaim/mulai', ['outlet' => 'W07'])->assertRedirect('/participant/persetujuan');
+    }
+
+    public function test_paused_program_blocks_claim_screens(): void
+    {
+        $this->readyParticipant();
+        Setting::put('program_paused', '1');
+
+        $this->get('/participant/foto')->assertRedirect('/participant/papan?outlet=W07');
+        $this->get('/participant/papan')->assertInertia(fn ($page) => $page->where('paused', true)->where('canClaim', false));
+    }
+
+    public function test_qr_address_opens_the_outlet_board(): void
+    {
+        $this->get('/w07')->assertRedirect('/participant/papan?outlet=W07');
+        $this->get('/x99')->assertRedirect('/participant/qr-tidak-dikenal');
+        $this->assertDatabaseHas('rejects', ['reason' => 'unknown_qr']);
     }
 
     public function test_scan_resolves_known_outlet_and_rejects_unknown_code(): void
@@ -124,6 +266,113 @@ class CustomerFlowTest extends TestCase
 
         $this->post('/participant/klaim/mulai')->assertRedirect('/participant/mahasiswa/khusus');
         $this->assertDatabaseMissing('claims', ['participant_id' => Participant::first()->id]);
+    }
+
+    public function test_weak_pin_is_rejected(): void
+    {
+        $this->post('/participant/daftar', [...$this->register(), 'pin' => '1234', 'pin_confirmation' => '1234'])
+            ->assertSessionHasErrors(['pin' => 'PIN harus 4 angka dan tidak boleh mudah ditebak.']);
+        $this->assertDatabaseCount('participants', 0);
+    }
+
+    public function test_login_is_rate_limited_after_repeated_wrong_pins(): void
+    {
+        $this->post('/participant/daftar', $this->register());
+        $this->post('/participant/keluar');
+
+        foreach (range(1, config('participant.login_max_attempts')) as $i) {
+            $this->post('/participant/masuk', ['whatsapp' => '081234567890', 'pin' => '9999'])
+                ->assertSessionHasErrors(['pin' => 'Nomor atau PIN belum cocok. Lupa PIN? Hubungi admin.']);
+        }
+
+        // PIN benar pun ditahan sampai jeda habis.
+        $response = $this->post('/participant/masuk', ['whatsapp' => '081234567890', 'pin' => '4826']);
+        $this->assertStringContainsString('Terlalu banyak percobaan', session('errors')->first('pin'));
+        $this->assertNull(session('participant_id'));
+        $response->assertRedirect();
+    }
+
+    public function test_registration_is_limited_per_ip(): void
+    {
+        config(['participant.register_per_ip_per_day' => 2]);
+        $this->post('/participant/daftar', $this->register(whatsapp: '081200000001'));
+        $this->post('/participant/daftar', $this->register(whatsapp: '081200000002'));
+
+        $this->post('/participant/daftar', $this->register(whatsapp: '081200000003'))->assertSessionHasErrors('whatsapp');
+        $this->assertDatabaseCount('participants', 2);
+    }
+
+    public function test_token_destination_must_be_entered_twice(): void
+    {
+        $participant = $this->readyParticipant();
+        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM-0001', 'status' => 'approved']);
+        $voucher = Voucher::create(['claim_id' => $claim->id, 'code' => 'KGR-TOKEN1', 'type' => 'token', 'status' => 'pending_data']);
+
+        $this->post("/participant/nomor-tujuan/{$voucher->id}", ['destination' => '12345678901', 'destination_confirmation' => '12345678900'])
+            ->assertSessionHasErrors(['destination' => 'Kedua isian nomor belum sama.']);
+        $this->post("/participant/nomor-tujuan/{$voucher->id}", ['destination' => '1234-5678-901', 'destination_confirmation' => '12345678901'])
+            ->assertRedirect('/participant/terima-kasih');
+        $this->assertSame('pending_process', $voucher->fresh()->status);
+        $this->assertSame('12345678901', $voucher->fresh()->destination);
+
+        // Setelah diproses, form tidak bisa dibuka lagi; setelah 3 kali ditolak: perlu bantuan admin.
+        $this->get("/participant/nomor-tujuan/{$voucher->id}")->assertRedirect('/participant/hadiah');
+        $voucher->update(['status' => 'rejected', 'failed_attempts' => 3]);
+        $this->get("/participant/nomor-tujuan/{$voucher->id}")->assertRedirect('/participant/hadiah');
+    }
+
+    public function test_bensin_has_no_form_and_no_action(): void
+    {
+        $participant = $this->readyParticipant();
+        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM-0002', 'status' => 'approved']);
+        Voucher::create(['claim_id' => $claim->id, 'code' => 'KGR-BENSIN', 'type' => 'bensin', 'status' => 'pending']);
+
+        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
+            ->where('rewards.0.kind', 'bensin')
+            ->where('rewards.0.status_label', 'Menunggu admin')
+            ->where('rewards.0.action', null)
+            ->where('rewards.0.href', null)
+        );
+    }
+
+    public function test_address_must_be_in_delivery_area(): void
+    {
+        $participant = $this->readyParticipant();
+        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM-0003', 'status' => 'approved']);
+        $gift = Gift::create(['claim_id' => $claim->id, 'type' => 'merchandise', 'status' => 'pending_address']);
+        Area::create(['name' => 'Dayeuhkolot', 'is_delivery_area' => false]);
+
+        $payload = ['recipient' => 'Sakinah', 'whatsapp' => '081234567890', 'address' => 'Jl. Sukabirus No. 12, dekat masjid'];
+        $this->post("/participant/alamat/{$gift->id}", [...$payload, 'area' => 'Dayeuhkolot'])
+            ->assertSessionHasErrors(['area' => 'Hadiah hanya diantar di area yang tersedia.']);
+        $this->post("/participant/alamat/{$gift->id}", [...$payload, 'area' => 'Sukapura'])->assertRedirect('/participant/terima-kasih');
+        $this->assertSame('ready_to_ship', $gift->fresh()->status);
+    }
+
+    public function test_mystery_gift_at_fifth_cap_can_be_a_voucher(): void
+    {
+        config(['participant.mystery_voucher_chance' => 100]);
+        $participant = $this->readyParticipant();
+
+        foreach (range(1, 5) as $i) {
+            $claim = $this->uploadPhoto(seed: 10 + $i);
+            $this->post('/participant/slot', ['code' => $claim->slot->code]);
+        }
+
+        $this->assertSame(5, $participant->fresh()->caps);
+        $this->assertSame(1, Voucher::where('source', 'mystery')->count());
+        $this->assertSame(0, Gift::where('type', 'mystery_pack')->count());
+    }
+
+    public function test_sent_voucher_expires_after_validity(): void
+    {
+        $participant = $this->readyParticipant();
+        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM-0004', 'status' => 'approved']);
+        $voucher = Voucher::create(['claim_id' => $claim->id, 'code' => 'KGR-OLD001', 'type' => 'voucher', 'status' => 'sent', 'expires_at' => now()->subDay()]);
+
+        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page->where('rewards.0.status_label', 'Kadaluarsa'));
+        $this->artisan('vouchers:expire')->assertSuccessful();
+        $this->assertSame('expired', $voucher->fresh()->status);
     }
 
     public function test_home_lists_prizes_from_active_board(): void

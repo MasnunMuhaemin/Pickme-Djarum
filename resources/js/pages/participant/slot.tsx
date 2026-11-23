@@ -2,12 +2,13 @@ import { Link, useForm } from '@inertiajs/react';
 import { AlertCircle, Check, Copy, Eye, EyeOff } from 'lucide-react';
 import { FormEvent, useRef, useState } from 'react';
 
-type Slot = { code: string; position: string };
-type Claim = { id: number; status: string; claim_code?: string; slot?: Slot } | null;
+type Slot = { code: string | null; position: string };
+type Claim = { id: number; status: string; claim_code?: string; held_until?: string | null; slot?: Slot | null } | null;
 type BoardSlot = { position: string; status: string };
 
 export default function Slot({ claim, board = [] }: { claim?: Claim; board?: BoardSlot[] }) {
-    const position = claim?.slot?.position ?? 'C3';
+    const position = claim?.slot?.position ?? '';
+    const heldUntil = claim?.held_until ? new Date(claim.held_until).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : null;
     const slotCode = claim?.slot?.code ?? '';
     const [revealed, setRevealed] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -97,13 +98,15 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                                 </div>
                             ))}
                         </div>
-                        <p className="text-ink mt-4 text-[12px] leading-relaxed">Slot {position} ditahan untuk kamu. Ambil slot ini di papan.</p>
+                        <p className="text-ink mt-4 text-[12px] leading-relaxed">
+                            Slot {position} ditahan untuk kamu{heldUntil ? ` sampai ${heldUntil}` : ''}. Ambil slot ini di papan.
+                        </p>
                     </div>
 
                     {slotCode && (
                         <div className="border-ink/25 mt-5 rounded-2xl border border-dashed p-3">
                             <div className="flex items-center justify-between">
-                                <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Kode slot kamu</p>
+                                <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Mode uji coba · kode slot</p>
                                 <button
                                     type="button"
                                     onClick={() => setRevealed(!revealed)}

@@ -1,16 +1,15 @@
 import { Badge, OutlineButton, PageHeader, PrimaryButton, ProgressDots } from '@/features/participant/components/ui';
-import { claimVariants, type ClaimVariant } from '@/features/participant/data';
+import { type Reward, rewardIcons, rewardStub, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
-import { useCaps } from '@/lib/participant';
-import type { LucideIcon } from 'lucide-react';
-import { Check, Coffee, Fuel, Package, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Check, Gift } from 'lucide-react';
 
-const icons: Record<string, LucideIcon> = { coffee: Coffee, zap: Zap, package: Package, fuel: Fuel };
+type ClaimInfo = { claim_code: string; outlet: string; submitted_at?: string | null };
 
-export default function KlaimBerhasil({ variant = 'voucher' }: { variant?: ClaimVariant }) {
-    const data = claimVariants[variant] ?? claimVariants.voucher;
-    const Icon = icons[data.icon];
-    const caps = useCaps();
+/** P7: hasil klaim. Jenis dan nilai diisi dari data hadiah yang terbentuk (PRD bagian 11). */
+export default function KlaimBerhasil({ reward, claim, caps = 0 }: { reward: Reward | null; claim: ClaimInfo; caps?: number }) {
+    const Icon = reward ? (rewardIcons[reward.kind] ?? Gift) : Gift;
+    const stub = rewardStub(reward?.kind ?? 'merch');
 
     return (
         <ParticipantLayout nav="hadiah" hideBottomNav>
@@ -28,20 +27,40 @@ export default function KlaimBerhasil({ variant = 'voucher' }: { variant?: Claim
                 </div>
 
                 <div className="mt-4 md:grid md:grid-cols-[minmax(0,1fr)_300px] md:items-start md:gap-6">
-                    <div className="border-ink/10 bg-cream-soft overflow-hidden rounded-2xl border">
-                        <div className="bg-cream-deep relative grid h-32 place-items-center md:h-40">
-                            <Icon className="text-ink/70 size-10" />
-                            <span className="bg-cream/80 absolute top-2 right-2 rounded-full px-2 py-1 text-[10px] font-bold">{data.value}</span>
+                    <div className="border-ink/10 overflow-hidden rounded-2xl border bg-white">
+                        <div className={cn('relative grid h-32 place-items-center md:h-40', stub.bg)}>
+                            <Icon className={cn('size-10', stub.icon)} />
+                            {reward?.value && (
+                                <span className="text-ink absolute top-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold">
+                                    {reward.value}
+                                </span>
+                            )}
                         </div>
                         <div className="p-4">
-                            <p className="text-[14px] font-extrabold">{data.title}</p>
-                            <div className="mt-3 space-y-2">
-                                {data.rows.map((row) => (
-                                    <div key={row.label} className="flex items-center justify-between gap-3 text-[11px]">
-                                        <span className="text-ink-soft">{row.label}</span>
-                                        <span className="text-right font-bold">{row.value}</span>
+                            <div className="flex items-start justify-between gap-2">
+                                <p className="text-[14px] font-extrabold">{reward?.title ?? 'Hadiah'}</p>
+                                {reward && (
+                                    <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold', rewardToneClass[reward.tone])}>
+                                        {reward.status_label}
+                                    </span>
+                                )}
+                            </div>
+                            {reward && <p className="text-ink-soft mt-1 text-[12px]">{reward.description}</p>}
+                            <div className="divide-ink/8 mt-3 divide-y text-[11px]">
+                                <div className="flex justify-between py-2">
+                                    <span className="text-ink-soft">Kode klaim</span>
+                                    <span className="font-mono font-bold">{claim.claim_code}</span>
+                                </div>
+                                <div className="flex justify-between py-2">
+                                    <span className="text-ink-soft">Titik</span>
+                                    <span className="font-bold">{claim.outlet}</span>
+                                </div>
+                                {claim.submitted_at && (
+                                    <div className="flex justify-between py-2">
+                                        <span className="text-ink-soft">Waktu</span>
+                                        <span className="font-bold">{claim.submitted_at}</span>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
                     </div>
@@ -50,13 +69,17 @@ export default function KlaimBerhasil({ variant = 'voucher' }: { variant?: Claim
                         <div className="mt-5 md:mt-0">
                             <p className="text-[11px] font-bold">Kartu cap</p>
                             <div className="mt-2 overflow-x-auto">
-                                <ProgressDots value={4} />
+                                <ProgressDots value={Math.min(caps, 10)} />
                             </div>
                         </div>
 
                         <div className="mt-6 space-y-2">
-                            <PrimaryButton href={data.href}>{data.cta}</PrimaryButton>
-                            <OutlineButton href="/participant/hadiah">{data.second ?? 'Kembali ke papan'}</OutlineButton>
+                            {reward?.href && reward.action ? (
+                                <PrimaryButton href={reward.href}>{reward.action}</PrimaryButton>
+                            ) : (
+                                <PrimaryButton href="/participant/hadiah">Lihat Hadiahku</PrimaryButton>
+                            )}
+                            <OutlineButton href="/participant/hadiah">{reward?.href ? 'Lihat Hadiahku' : 'Kembali ke Hadiahku'}</OutlineButton>
                         </div>
                     </div>
                 </div>

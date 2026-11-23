@@ -17,6 +17,10 @@ class CustomerSeeder extends Seeder
     {
         DB::transaction(function () {
             $area = Area::firstOrCreate(['name' => 'Sukabirus'], ['is_delivery_area' => true]);
+            // Area pengiriman prototipe (PRD bagian 3); daftar final menunggu admin.
+            foreach (['Sukapura', 'PGA'] as $name) {
+                Area::firstOrCreate(['name' => $name], ['is_delivery_area' => true]);
+            }
             $outlet = Outlet::firstOrCreate(['code' => 'W07'], ['name' => 'Warung Djarum', 'area_id' => $area->id, 'status' => 'active']);
             $board = Board::firstOrCreate(['outlet_id' => $outlet->id], ['code' => 'W07-BOARD', 'week_label' => 'W07', 'status' => 'active']);
 

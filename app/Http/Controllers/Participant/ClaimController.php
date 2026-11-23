@@ -9,12 +9,15 @@ use App\Models\Area;
 use App\Models\Claim;
 use App\Models\Outlet;
 use App\Models\Participant;
+use App\Services\ClaimFlagService;
 use App\Services\ClaimVerificationService;
 use App\Services\PhotoService;
 use App\Services\RewardCreationService;
 use App\Services\SlotAssignmentService;
+use App\Support\RewardPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -30,25 +33,28 @@ class ClaimController extends Controller
         return strtoupper((string) ($request->input('outlet') ?: $request->session()->get('claim_outlet') ?: 'W07'));
     }
 
+    /** P1/P4: beranda dan papan titik. */
     public function showBoard(Request $request): Response
     {
         $code = $this->outletCode($request);
         $request->session()->put('claim_outlet', $code);
-        $outlet = Outlet::with('board.slots')->where('code', $code)->firstOrFail();
+        $outlet = Outlet::with(['board.slots', 'area'])->where('code', $code)->firstOrFail();
         $participant = $request->session()->get('participant_id') ? $this->participant($request) : null;
-        $activeClaim = $participant?->claims()->whereIn('status', ['draft', 'pending'])->latest()->first();
+        $activeClaim = $participant?->claims()->where('status', 'draft')->latest()->first();
+        $available = $outlet->board->slots->where('status', 'empty')->count();
 
         return Inertia::render('participant/papan', [
-            'outlet' => $outlet->only(['id', 'code', 'name', 'status']),
+            'outlet' => [...$outlet->only(['id', 'code', 'name', 'status']), 'area' => $outlet->area?->name],
+            // Kode slot tidak dikirim ke browser: kode hanya ada di balik slot fisik.
             'slots' => $outlet->board->slots->map(fn ($s) => [
                 'position' => $s->position,
-                'code' => $s->code,
                 'status' => $s->status,
             ]),
-            'availableCount' => $outlet->board->slots->where('status', 'empty')->count(),
+            'availableCount' => $available,
             'totalSlots' => $outlet->board->slots->count(),
             'activeClaim' => $activeClaim?->only(['id', 'status', 'claim_code', 'slot_id']),
-            'canClaim' => $outlet->isActive() && $outlet->board?->status === 'active',
+            'canClaim' => $outlet->isActive() && $outlet->board?->status === 'active' && $available > 0,
+            'paused' => ! $outlet->isActive() || $outlet->board?->status !== 'active',
             'board' => $outlet->board?->only(['week_label', 'status']),
             'modal' => $request->query('modal'),
             'areas' => Area::orderBy('name')->get(['id', 'name']),
@@ -59,19 +65,27 @@ class ClaimController extends Controller
     {
         $code = $this->outletCode($request);
         $request->session()->put('claim_outlet', $code);
-        $outlet = Outlet::where('code', $code)->firstOrFail();
+        $outlet = Outlet::with('board')->where('code', $code)->firstOrFail();
 
         if (! $outlet->isActive()) {
             return back()->withErrors(['claim' => 'Papan sedang dijeda. Coba lagi nanti.']);
+        }
+        if (! $outlet->board->slots()->where('status', 'empty')->exists()) {
+            return back()->withErrors(['claim' => 'Papan ini sudah penuh. Coba klaim di titik lain.']);
         }
 
         return to_route('participant.foto', ['outlet' => $code]);
     }
 
+    /** P5: foto bungkus. Jam server saat kamera dibuka dipakai untuk watermark (PRD FR-35). */
     public function showPhoto(Request $request): Response
     {
+        $openedAt = now();
+        $request->session()->put('photo_opened_at', $openedAt->toIso8601String());
+
         return Inertia::render('participant/foto', [
             'outlet' => $this->outletCode($request),
+            'openedAt' => $openedAt->format('H:i:s'),
             'claim' => null,
         ]);
     }
@@ -80,43 +94,60 @@ class ClaimController extends Controller
         Request $request,
         PhotoUploadRequest $form,
         PhotoService $photos,
-        SlotAssignmentService $slots
+        SlotAssignmentService $slots,
+        ClaimFlagService $flagger,
     ): RedirectResponse {
         $participant = $this->participant($request);
-        $code = $this->outletCode($request);
-        $outlet = Outlet::where('code', $code)->firstOrFail();
+        $outlet = Outlet::where('code', $this->outletCode($request))->firstOrFail();
+        $openedAt = $request->session()->pull('photo_opened_at');
+        $openedAt = $openedAt ? Carbon::parse($openedAt) : null;
 
         $claim = $slots->createClaim($participant, $outlet);
-        $result = $photos->store($claim, $request->file('photo'));
 
-        if ($result['is_dark']) {
-            $claim->update(['flag' => 'dark_photo', 'status' => 'pending']);
+        try {
+            $result = $photos->store($claim, $request->file('photo'), $openedAt);
+        } catch (\RuntimeException) {
+            $claim->delete();
+
+            return back()->withErrors(['photo' => 'Foto belum terbaca, coba ambil ulang.']);
         }
+
+        $claim->update(['flag' => Claim::joinFlags($flagger->photoFlags($claim, $result, $openedAt))]);
 
         $assigned = $slots->assignToClaim($claim);
         if (isset($assigned['error'])) {
-            return to_route('participant.slot')->withErrors(['claim' => $assigned['error']]);
+            return to_route('participant.papan')->withErrors(['claim' => $assigned['error']]);
         }
 
         return to_route('participant.slot');
     }
 
-    public function showSlot(Request $request): Response
+    /** P6: slot yang ditunjuk dan input kode. */
+    public function showSlot(Request $request): Response|RedirectResponse
     {
         $claim = $this->activeDraft($request);
         if ($claim && ! $claim->slot_id) {
-            $slots = app(SlotAssignmentService::class);
-            $assigned = $slots->assignToClaim($claim);
+            $assigned = app(SlotAssignmentService::class)->assignToClaim($claim);
             if (isset($assigned['error'])) {
                 return to_route('participant.papan')->withErrors(['claim' => $assigned['error']]);
             }
-            $claim = $claim->fresh();
+            $claim = $claim->fresh('slot');
         }
 
         $outlet = Outlet::with('board.slots')->where('code', $this->outletCode($request))->firstOrFail();
 
         return Inertia::render('participant/slot', [
-            'claim' => $claim?->load('slot')->only(['id', 'status', 'claim_code', 'slot']),
+            'claim' => $claim ? [
+                'id' => $claim->id,
+                'status' => $claim->status,
+                'claim_code' => $claim->claim_code,
+                'held_until' => $claim->slot?->held_until?->toIso8601String(),
+                'slot' => $claim->slot ? [
+                    'position' => $claim->slot->position,
+                    // Hanya untuk uji coba (lihat config participant.reveal_slot_code).
+                    'code' => config('participant.reveal_slot_code') ? $claim->slot->code : null,
+                ] : null,
+            ] : null,
             'board' => $outlet->board->slots->map(fn ($s) => [
                 'position' => $s->position,
                 'status' => $s->status,
@@ -140,17 +171,45 @@ class ClaimController extends Controller
             return back()->withErrors(['code' => $result['error']]);
         }
 
-        $rewards->create($result['claim']);
-        $variant = $claim->slot->prize_type;
+        // Klaim bertanda menunggu admin: cap dan hadiah baru dibuat saat disetujui (PRD bagian 6).
+        if (! $result['claim']->isApproved()) {
+            return to_route('participant.klaim.diperiksa');
+        }
 
-        return to_route('participant.klaim.berhasil', ['variant' => $variant]);
+        $rewards->create($result['claim']);
+
+        return to_route('participant.klaim.berhasil');
+    }
+
+    /** P7: hasil klaim, diisi dari data hadiah klaim terakhir yang disetujui. */
+    public function showSuccess(Request $request): Response|RedirectResponse
+    {
+        $participant = $this->participant($request);
+        $claim = $participant->claims()->where('status', 'approved')->with(['voucher', 'gifts', 'outlet'])->latest('submitted_at')->first();
+        if (! $claim) {
+            return to_route('participant.hadiah');
+        }
+
+        $reward = $claim->voucher
+            ? RewardPresenter::voucher($claim->voucher)
+            : ($claim->gifts->first() ? RewardPresenter::gift($claim->gifts->first()) : null);
+
+        return Inertia::render('participant/klaim-berhasil', [
+            'reward' => $reward,
+            'claim' => [
+                'claim_code' => $claim->claim_code,
+                'outlet' => $claim->outlet->code,
+                'submitted_at' => $claim->submitted_at?->format('d M Y H:i'),
+            ],
+            'caps' => $participant->fresh()->caps,
+        ]);
     }
 
     private function activeDraft(Request $request): ?Claim
     {
         return $this->participant($request)
             ->claims()
-            ->whereIn('status', ['draft', 'pending'])
+            ->where('status', 'draft')
             ->with('slot')
             ->latest()
             ->first();

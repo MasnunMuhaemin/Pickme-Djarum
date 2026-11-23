@@ -14,12 +14,13 @@ class RewardController extends Controller
     public function index(Request $request): Response
     {
         $participant = Participant::findOrFail($request->session()->get('participant_id'));
-        $claims = $participant->claims()->where('status', 'approved')->with(['voucher', 'gifts', 'slot'])->get();
+        $claims = $participant->claims()->where('status', 'approved')->with(['vouchers', 'gifts', 'slot'])->get();
 
         $rewards = $claims->flatMap(function ($claim) {
             $items = [];
-            if ($claim->voucher) {
-                $items[] = RewardPresenter::voucher($claim->voucher);
+            // Termasuk voucher mystery gift yang menempel ke klaim ini.
+            foreach ($claim->vouchers as $voucher) {
+                $items[] = RewardPresenter::voucher($voucher);
             }
             foreach ($claim->gifts as $gift) {
                 $items[] = RewardPresenter::gift($gift);

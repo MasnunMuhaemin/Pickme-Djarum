@@ -1,9 +1,13 @@
 <?php
 
+use App\Http\Controllers\Participant\OutletQrController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::redirect('/', '/participant')->name('home');
+
+// QR per titik: satu alamat tetap yang tidak berubah setelah dicetak, mis. /w07 (PRD FR-06).
+Route::get('{outlet}', OutletQrController::class)->where('outlet', '[A-Za-z][0-9]{2}')->name('qr.outlet');
 
 Route::middleware(['auth'])->group(function () {
     Route::get('dashboard', function () {

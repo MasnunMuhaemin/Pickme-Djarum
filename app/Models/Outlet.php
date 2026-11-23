@@ -28,6 +28,6 @@ class Outlet extends Model
 
     public function isActive(): bool
     {
-        return $this->status === 'active';
+        return $this->status === 'active' && ! Setting::programPaused();
     }
 }

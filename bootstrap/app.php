@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\EnsureParticipant;
+use App\Http\Middleware\EnsureClaimOpen;
+use App\Http\Middleware\EnsureConsent;
 use App\Http\Middleware\EnsureStudent;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -19,7 +21,12 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
-        $middleware->alias(['participant' => EnsureParticipant::class, 'student' => EnsureStudent::class]);
+        $middleware->alias([
+            'participant' => EnsureParticipant::class,
+            'student' => EnsureStudent::class,
+            'consented' => EnsureConsent::class,
+            'claim-open' => EnsureClaimOpen::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

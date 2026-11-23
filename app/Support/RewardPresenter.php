@@ -12,24 +12,46 @@ use App\Models\Voucher;
  */
 class RewardPresenter
 {
+    /**
+     * Status per jenis pemenuhan (PRD bagian 17):
+     * voucher mitra: sent, redeemed, expired. Token: pending_data, pending_process, rejected (nomor ditolak),
+     * needs_admin (3 kali ditolak), sent. Bensin tunai: pending, contacted, handed_over (tanpa tombol aksi).
+     */
     public static function voucher(Voucher $voucher): array
     {
         $value = self::rupiah((int) config("participant.prize_values.{$voucher->type}", 0));
-        $needsDestination = $voucher->status === 'pending_data';
         $daysLeft = self::daysLeft($voucher);
+        $expired = $voucher->isExpired();
+        $needsDestination = $voucher->type === 'token' && in_array($voucher->status, ['pending_data', 'rejected'], true);
 
         [$title, $description] = match ($voucher->type) {
-            'voucher' => ['Voucher Kopi Grosir', "{$value} · berlaku {$daysLeft} hari"],
+            'voucher' => ['Voucher Kopi Grosir', $expired ? "{$value} · masa berlaku habis" : "{$value} · berlaku {$daysLeft} hari"],
             'token' => ['Token listrik', "{$value} · kode dikirim lewat WhatsApp"],
             'bensin' => ['Bensin motor', "Tunai {$value} · admin hubungi lewat WhatsApp"],
             default => ['Hadiah', $value],
         };
+        if ($voucher->source === 'mystery') {
+            $title = "Mystery gift: {$title}";
+        }
 
         [$label, $tone] = match (true) {
-            $voucher->status === 'sent' => ['Terkirim', 'done'],
-            $needsDestination => ['Isi nomor tujuan', 'progress'],
-            $voucher->type === 'token' => ['Diproses 1×24 jam', 'progress'],
+            $expired => ['Kadaluarsa', 'waiting'],
+            $voucher->status === 'redeemed' => ['Sudah ditukar', 'done'],
+            $needsDestination && $voucher->status === 'pending_data' => ['Isi nomor tujuan', 'progress'],
+            $needsDestination => ['Nomor ditolak, isi ulang', 'progress'],
+            $voucher->status === 'needs_admin' => ['Perlu bantuan admin', 'waiting'],
+            $voucher->status === 'pending_process' => ['Diproses 1×24 jam', 'progress'],
+            $voucher->status === 'contacted' => ['Dihubungi admin', 'progress'],
+            in_array($voucher->status, ['sent', 'handed_over', 'done'], true) => [$voucher->type === 'bensin' ? 'Diserahkan' : 'Terkirim', 'done'],
             default => ['Menunggu admin', 'waiting'],
+        };
+
+        // Tombol aksi hanya bila peserta perlu bertindak. Bensin tunai tidak punya tombol (PRD P8).
+        [$action, $href] = match (true) {
+            $needsDestination => ['Isi nomor', route('participant.nomor-tujuan', $voucher->id)],
+            $voucher->type === 'voucher' => ['Lihat kode', route('participant.voucher', $voucher->code)],
+            $voucher->type === 'token' => ['Lihat status', route('participant.voucher', $voucher->code)],
+            default => [null, null],
         };
 
         return [
@@ -39,35 +61,37 @@ class RewardPresenter
             'description' => $description,
             'value' => $value,
             'days_left' => $daysLeft,
-            'status' => $voucher->status,
+            'status' => $expired ? 'expired' : $voucher->status,
             'status_label' => $label,
             'tone' => $tone,
-            'action' => match (true) {
-                $needsDestination => 'Isi nomor',
-                $voucher->type === 'voucher' => 'Lihat kode',
-                default => 'Lihat status',
-            },
-            'href' => $needsDestination
-                ? route('participant.nomor-tujuan', $voucher->id)
-                : route('participant.voucher', $voucher->code),
+            'action' => $action,
+            'href' => $href,
         ];
     }
 
+    /**
+     * Hadiah fisik: pending_address, ready_to_ship, shipping, done. Bungkus gratis dari mystery gift:
+     * pending, contacted, done (cara serah diputuskan admin).
+     */
     public static function gift(Gift $gift): array
     {
-        $needsAddress = $gift->status === 'pending_address';
+        $isFreePack = $gift->type === 'mystery_pack';
+        $needsAddress = ! $isFreePack && $gift->status === 'pending_address';
 
         [$label, $tone] = match ($gift->status) {
             'pending_address' => ['Menunggu alamat', 'progress'],
             'ready_to_ship' => ['Siap dikirim', 'waiting'],
-            default => ['Terkirim', 'done'],
+            'shipping' => ['Sedang diantar', 'progress'],
+            'contacted' => ['Dihubungi admin', 'progress'],
+            'done', 'completed' => ['Selesai', 'done'],
+            default => ['Menunggu admin', 'waiting'],
         };
 
         return [
             'id' => $gift->id,
-            'kind' => $gift->type === 'mystery_pack' ? 'mystery' : 'merch',
-            'title' => $gift->type === 'mystery_pack' ? 'Mystery gift' : 'Merchandise',
-            'description' => $gift->type === 'mystery_pack' ? 'Hadiah kejutan, diantar ke alamatmu' : 'Diantar ke alamatmu',
+            'kind' => $isFreePack ? 'mystery' : 'merch',
+            'title' => $isFreePack ? 'Mystery gift: 1 bungkus gratis' : 'Merchandise',
+            'description' => $isFreePack ? 'Admin hubungi lewat WhatsApp untuk penyerahan' : 'Diantar ke alamatmu',
             'status' => $gift->status,
             'status_label' => $label,
             'tone' => $tone,

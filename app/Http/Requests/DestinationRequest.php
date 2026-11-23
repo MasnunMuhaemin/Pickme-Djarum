@@ -4,6 +4,10 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Nomor meter atau ID pelanggan PLN, diisi dua kali dan harus sama (PRD bagian 14).
+ * Panjang final dipastikan bersama agregator; sementara 8 sampai 20 angka.
+ */
 class DestinationRequest extends FormRequest
 {
     public function authorize(): bool
@@ -14,9 +18,7 @@ class DestinationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'destination' => ['required', 'string', 'min:8', 'max:30'],
-            'name' => ['required', 'string', 'min:2', 'max:60'],
-            'whatsapp' => ['required', 'string', 'regex:/^08[0-9]{8,11}$/'],
+            'destination' => ['required', 'regex:/^[0-9]{8,20}$/', 'confirmed'],
         ];
     }
 
@@ -24,9 +26,16 @@ class DestinationRequest extends FormRequest
     {
         return [
             'destination.required' => 'Isi nomor meter atau ID pelanggan.',
-            'destination.min' => 'Isi nomor meter atau ID pelanggan.',
-            'name.required' => 'Isi nama sesuai meteran.',
-            'whatsapp.regex' => 'Nomor WhatsApp harus diawali 08 dan 10 sampai 13 angka.',
+            'destination.regex' => 'Nomor meter atau ID pelanggan hanya angka, 8 sampai 20 digit.',
+            'destination.confirmed' => 'Kedua isian nomor belum sama.',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'destination' => preg_replace('/\D/', '', (string) $this->destination),
+            'destination_confirmation' => preg_replace('/\D/', '', (string) $this->destination_confirmation),
+        ]);
     }
 }

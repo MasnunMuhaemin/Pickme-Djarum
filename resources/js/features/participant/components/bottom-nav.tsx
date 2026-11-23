@@ -144,8 +144,8 @@ export function BottomNav() {
 
     // Pil hitam melayang: menu aktif melebar jadi pil lime berisi ikon dan label.
     return (
-        <nav className="pointer-events-none sticky bottom-0 z-30 mt-auto px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
-            <div className="pointer-events-auto flex h-16 items-center justify-between gap-1 rounded-full bg-[#0b0b0b] px-2 shadow-[0_12px_30px_-8px_rgba(0,0,0,0.45)]">
+        <nav className="pointer-events-none sticky bottom-0 z-30 mt-auto px-5 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+            <div className="pointer-events-auto mx-auto flex h-14 max-w-[360px] items-center justify-between gap-1 rounded-full bg-[#0b0b0b] px-1.5 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.45)]">
                 {visibleItems.map((item) => {
                     const isActive = active === item.key;
                     const Icon = item.icon;
@@ -156,11 +156,12 @@ export function BottomNav() {
                             aria-label={item.label}
                             aria-current={isActive ? 'page' : undefined}
                             className={cn(
-                                'flex h-12 items-center justify-center rounded-full transition-all duration-200',
-                                isActive ? 'bg-lime text-ink gap-2 px-5 text-[14px] font-extrabold' : 'text-cream w-12 hover:bg-white/10',
+                                // Tinggi 44px tetap nyaman untuk jempol (PRD bagian 14).
+                                'flex h-11 items-center justify-center rounded-full transition-all duration-200',
+                                isActive ? 'bg-lime text-ink gap-1.5 px-4 text-[13px] font-extrabold' : 'text-cream w-11 hover:bg-white/10',
                             )}
                         >
-                            <Icon className="size-6 shrink-0" strokeWidth={isActive ? 2.25 : 1.75} />
+                            <Icon className="size-5 shrink-0" strokeWidth={isActive ? 2.25 : 1.75} />
                             {isActive && <span className="whitespace-nowrap">{item.label}</span>}
                         </Link>
                     );

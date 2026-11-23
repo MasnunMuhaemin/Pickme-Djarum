@@ -4,7 +4,11 @@ import { useForm } from '@inertiajs/react';
 import { Camera, RotateCcw } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
-export default function FotoBungkus({ outlet = 'W07' }: { outlet?: string }) {
+/**
+ * P5: foto hanya dari kamera langsung, tanpa pilihan galeri (PRD FR-35). Jam watermark adalah jam server saat
+ * layar ini dibuka (openedAt); server menandai klaim bila foto diterima terlalu lama setelahnya.
+ */
+export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: string; openedAt?: string }) {
     const video = useRef<HTMLVideoElement>(null);
     const stream = useRef<MediaStream | null>(null);
     const [cameraOn, setCameraOn] = useState(false);
@@ -17,7 +21,7 @@ export default function FotoBungkus({ outlet = 'W07' }: { outlet?: string }) {
 
         async function start() {
             if (!navigator.mediaDevices?.getUserMedia) {
-                setCameraError('Browser tidak mendukung kamera. Gunakan unggah manual di bawah.');
+                setCameraError('unsupported');
                 return;
             }
             try {
@@ -37,7 +41,7 @@ export default function FotoBungkus({ outlet = 'W07' }: { outlet?: string }) {
                 setCameraOn(true);
                 setCameraError('');
             } catch {
-                setCameraError('Izin kamera ditolak atau kamera tidak tersedia. Gunakan unggah manual di bawah.');
+                setCameraError('denied');
             }
         }
 
@@ -77,7 +81,7 @@ export default function FotoBungkus({ outlet = 'W07' }: { outlet?: string }) {
         form.post('/participant/foto', { forceFormData: true, preserveScroll: true });
     }
 
-    const stamp = `${new Date().toLocaleTimeString('id-ID', { hour12: false })} · ${outlet} · kode klaim muncul setelah foto`;
+    const stamp = `${openedAt ?? '--:--:--'} · ${outlet} · kode klaim muncul setelah foto`;
 
     return (
         <ParticipantLayout hideBottomNav>
@@ -124,7 +128,26 @@ export default function FotoBungkus({ outlet = 'W07' }: { outlet?: string }) {
                     </div>
                 </div>
 
-                {cameraError && <p className="text-danger mt-2 px-4 text-center text-[11px]">{cameraError}</p>}
+                {cameraError && (
+                    <div className="mx-4 mt-3 rounded-2xl bg-[#fbe3e0] p-3.5 text-[11px] leading-relaxed md:mx-auto md:w-full md:max-w-[600px]">
+                        <p className="text-danger font-extrabold">
+                            {cameraError === 'unsupported' ? 'Browser ini tidak bisa membuka kamera' : 'Kamera belum diizinkan'}
+                        </p>
+                        <ol className="text-ink mt-1.5 list-decimal space-y-1 pl-4">
+                            <li>Buka halaman ini di Chrome atau Safari, bukan dari dalam Instagram atau WhatsApp.</li>
+                            <li>Ketuk ikon gembok di kolom alamat, lalu izinkan Kamera.</li>
+                            <li>Muat ulang halaman ini.</li>
+                        </ol>
+                        <p className="text-ink-soft mt-1.5">Masih gagal? Hubungi admin lewat WhatsApp. Foto dari galeri tidak bisa dipakai.</p>
+                        <button
+                            type="button"
+                            onClick={() => window.location.reload()}
+                            className="bg-ink text-cream mt-2.5 rounded-full px-3.5 py-1.5 text-[11px] font-bold"
+                        >
+                            Coba lagi
+                        </button>
+                    </div>
+                )}
 
                 <div className="flex flex-col items-center gap-2 px-4 py-5">
                     <div className="flex items-center gap-6">
@@ -150,26 +173,6 @@ export default function FotoBungkus({ outlet = 'W07' }: { outlet?: string }) {
                             >
                                 <span className="bg-ink size-12 rounded-full" />
                             </button>
-                        )}
-
-                        {cameraError && !preview && (
-                            <label className="text-cream/80 flex cursor-pointer flex-col items-center gap-1 text-[10px] font-semibold">
-                                <span className="border-cream/40 grid size-12 place-items-center rounded-full border">
-                                    <Camera className="size-5" />
-                                </span>
-                                Unggah manual
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    capture="environment"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] ?? null;
-                                        form.setData('photo', file);
-                                        setPreview(file ? URL.createObjectURL(file) : null);
-                                    }}
-                                />
-                            </label>
                         )}
                     </div>
 

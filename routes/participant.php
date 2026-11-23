@@ -35,21 +35,21 @@ Route::prefix('participant')->name('participant.')->group(function () {
     Route::middleware('participant')->group(function () {
         Route::post('persetujuan', [ConsentController::class, 'store'])->name('persetujuan.store');
 
-        // Program khusus mahasiswa: klaim hanya untuk peserta yang sudah menjawab "Ya, saya mahasiswa".
-        Route::middleware('student')->group(function () {
+        // Langkah klaim (P4 sampai P6): wajib sudah menyetujui teks versi terbaru, wajib mahasiswa, dan
+        // tidak bisa dibuka saat program atau titik dijeda (PRD bagian 10).
+        Route::middleware(['consented', 'student', 'claim-open'])->group(function () {
             Route::post('klaim/mulai', [ClaimController::class, 'start'])->name('klaim.mulai');
             Route::get('foto', [ClaimController::class, 'showPhoto'])->name('foto');
             Route::post('foto', [ClaimController::class, 'storePhoto'])->name('foto.store');
             Route::get('slot', [ClaimController::class, 'showSlot'])->name('slot');
             Route::post('slot', [ClaimController::class, 'submitCode'])->name('slot.store');
         });
+
+        Route::get('klaim/berhasil', [ClaimController::class, 'showSuccess'])->name('klaim.berhasil');
     });
 
     Route::get('papan', [ClaimController::class, 'showBoard'])->name('papan');
 
-    Route::get('klaim/berhasil/{variant}', fn (string $variant) => Inertia::render('participant/klaim-berhasil', ['variant' => $variant]))
-        ->whereIn('variant', ['voucher', 'token', 'merch', 'bensin'])
-        ->name('klaim.berhasil');
     Route::get('klaim/diperiksa', [SupportController::class, 'showClaimStatus', 'status' => 'pending'])->name('klaim.diperiksa');
     Route::get('klaim/ditolak', [SupportController::class, 'showClaimStatus', 'status' => 'rejected'])->name('klaim.ditolak');
 

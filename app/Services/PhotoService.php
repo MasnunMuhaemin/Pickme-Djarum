@@ -3,12 +3,16 @@
 namespace App\Services;
 
 use App\Models\Claim;
+use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 class PhotoService
 {
-    public function store(Claim $claim, UploadedFile $file): array
+    /**
+     * Watermark memakai jam server saat kamera dibuka (bukan jam HP), id titik, dan kode klaim (PRD FR-35).
+     */
+    public function store(Claim $claim, UploadedFile $file, ?CarbonInterface $cameraOpenedAt = null): array
     {
         $image = imagecreatefromstring($file->getContent());
         if ($image === false) {
@@ -20,7 +24,7 @@ class PhotoService
         $brightness = $this->brightness($image, $width, $height);
         $hash = $this->hash($image, $width, $height);
 
-        $stamp = now()->format('H:i:s').' - '.$claim->outlet->code.' - '.$claim->claim_code;
+        $stamp = ($cameraOpenedAt ?? now())->format('d/m H:i:s').' - '.$claim->outlet->code.' - '.$claim->claim_code;
         $font = 5;
         $tw = imagefontwidth($font) * strlen($stamp);
         $th = imagefontheight($font);

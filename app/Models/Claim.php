@@ -35,9 +35,16 @@ class Claim extends Model
         return $this->hasOne(ClaimPhoto::class);
     }
 
+    /** Voucher hasil klaim ini sendiri (bukan dari mystery gift). */
     public function voucher(): HasOne
     {
-        return $this->hasOne(Voucher::class);
+        return $this->hasOne(Voucher::class)->where('source', 'claim');
+    }
+
+    /** Semua voucher yang menempel ke klaim ini, termasuk voucher mystery gift. */
+    public function vouchers(): HasMany
+    {
+        return $this->hasMany(Voucher::class);
     }
 
     public function gifts(): HasMany
@@ -48,5 +55,19 @@ class Claim extends Model
     public function isApproved(): bool
     {
         return $this->status === 'approved';
+    }
+
+    /** @return list<string> */
+    public function flags(): array
+    {
+        return array_values(array_filter(explode(',', (string) $this->flag)));
+    }
+
+    /** @param  list<string>  $flags */
+    public static function joinFlags(array $flags): ?string
+    {
+        $flags = array_values(array_unique(array_filter($flags)));
+
+        return $flags ? implode(',', $flags) : null;
     }
 }
