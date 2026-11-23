@@ -64,16 +64,18 @@ function TicketBody({ reward, Icon, stub }: { reward: Reward; Icon: LucideIcon; 
 
 export default function Hadiahku({ rewards = [], approvedClaims = 0 }: { rewards?: Reward[]; approvedClaims?: number }) {
     const caps = useCaps();
+    // Kartu klaim (ditangguhkan atau ditolak) bukan hadiah, jadi tidak ikut dihitung.
+    const rewardCount = rewards.filter((reward) => !reward.kind.startsWith('claim_')).length;
 
     return (
-        <ParticipantLayout nav="hadiah">
+        <ParticipantLayout title="Hadiahku" nav="hadiah">
             <div className="bg-lime px-5 pt-4 pb-14 md:px-8 md:pt-6">
                 <div className="flex justify-end">
                     <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
                 </div>
                 <h1 className="mt-2 text-[36px] leading-none font-extrabold tracking-tight md:text-[44px]">Hadiahku</h1>
                 <p className="mt-2 text-[13px] font-semibold md:text-sm">
-                    {rewards.length} hadiah dari {approvedClaims} klaim disetujui.
+                    {rewardCount} hadiah dari {approvedClaims} klaim disetujui.
                 </p>
             </div>
 
@@ -87,15 +89,6 @@ export default function Hadiahku({ rewards = [], approvedClaims = 0 }: { rewards
                 {rewards.length === 0 && (
                     <p className="text-ink-soft rounded-2xl bg-white/60 p-4 text-center text-[12px]">Belum ada hadiah. Selesaikan klaim dulu.</p>
                 )}
-
-                <div className="text-ink-soft mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] font-semibold">
-                    <Link href="/participant/klaim/diperiksa" className="underline underline-offset-2">
-                        Klaim sedang diperiksa
-                    </Link>
-                    <Link href="/participant/klaim/ditolak" className="underline underline-offset-2">
-                        Klaim ditolak
-                    </Link>
-                </div>
             </div>
         </ParticipantLayout>
     );

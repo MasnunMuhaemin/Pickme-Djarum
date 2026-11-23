@@ -29,8 +29,9 @@ class GiftController extends Controller
 
         return Inertia::render('participant/alamat', [
             'gift' => $gift->only(['id', 'type', 'status']),
-            // Data yang sudah ada tidak ditanya lagi: nama dan WhatsApp dipakai sebagai isian awal.
-            'defaults' => ['recipient' => $participant->name, 'whatsapp' => $participant->whatsapp],
+            // Data yang sudah ada tidak ditanya lagi: nama peserta dipakai sebagai isian awal penerima,
+            // nomor WhatsApp untuk pengantar memakai nomor akun.
+            'defaults' => ['recipient' => $participant->name],
             'areas' => Area::where('is_delivery_area', true)->orderBy('name')->pluck('name'),
         ]);
     }

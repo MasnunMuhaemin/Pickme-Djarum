@@ -62,22 +62,4 @@ class SupportController extends Controller
             ? to_route('participant.foto', ['outlet' => $outlet])
             : to_route('participant.papan');
     }
-
-    public function showClaimStatus(Request $request, string $status = 'pending'): Response
-    {
-        $participant = $request->session()->get('participant_id')
-            ? Participant::find($request->session()->get('participant_id'))
-            : null;
-
-        $claim = $participant?->claims()
-            ->where('status', $status === 'pending' ? 'pending' : 'rejected')
-            ->with('slot')
-            ->latest()
-            ->first();
-
-        return Inertia::render($status === 'pending' ? 'participant/klaim-diperiksa' : 'participant/klaim-ditolak', [
-            'claim' => $claim?->only(['id', 'status', 'submitted_at', 'slot']),
-            'caps' => $participant?->caps ?? 0,
-        ]);
-    }
 }

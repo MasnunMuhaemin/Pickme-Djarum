@@ -64,7 +64,7 @@ export default function Papan({
     }
 
     return (
-        <ParticipantLayout nav="papan">
+        <ParticipantLayout title={`Papan ${outlet?.code ?? ''}`.trim()} nav="papan">
             <PageHeader back="/participant" title={`Papan ${outlet?.code ?? 'W07'}`} right={<Badge>Kartu {caps} / 10</Badge>} />
 
             <div className="bg-night text-cream flex items-center justify-between px-4 py-2.5">

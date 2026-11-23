@@ -44,6 +44,12 @@ return [
     // Nomor tujuan ditolak sebanyak ini: status perlu bantuan admin.
     'destination_max_failures' => (int) env('DESTINATION_MAX_FAILURES', 3),
 
+    // Nomor WhatsApp admin untuk tombol "Hubungi admin" (format internasional tanpa +, mis. 62812xxxx).
+    'admin_whatsapp' => env('ADMIN_WHATSAPP'),
+
+    // Tautan grup WhatsApp untuk kartu "Mau dapat update?" di halaman Kartu. Kosong: kartu disembunyikan.
+    'whatsapp_group_url' => env('WHATSAPP_GROUP_URL'),
+
     // Hanya untuk uji coba: tampilkan kode slot di layar. Di produksi kode hanya ada di balik slot fisik.
     'reveal_slot_code' => (bool) env('PARTICIPANT_REVEAL_SLOT_CODE', env('APP_ENV') === 'local'),
 ];

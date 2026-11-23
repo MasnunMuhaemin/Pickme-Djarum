@@ -4,8 +4,8 @@ import { QrCode } from 'lucide-react';
 
 export default function QrTidakDikenal() {
     return (
-        <ParticipantLayout>
-            <PageHeader back="/participant/scan" title="QR tidak dikenal" />
+        <ParticipantLayout title="QR tidak dikenal" hideBottomNav>
+            <PageHeader title="QR tidak dikenal" />
             <div className="flex flex-1 flex-col px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <div className="flex flex-1 flex-col items-center justify-center text-center">
                     <span className="bg-cream-deep relative grid size-24 place-items-center rounded-full">
@@ -23,11 +23,6 @@ export default function QrTidakDikenal() {
                 <div className="space-y-2">
                     <PrimaryButton href="/participant">Ke beranda</PrimaryButton>
                     <OutlineButton href="/participant/scan">Scan ulang</OutlineButton>
-                    <p className="pt-1 text-center">
-                        <a href="/participant" className="text-ink-soft text-[11px] font-semibold underline underline-offset-2">
-                            Tutup
-                        </a>
-                    </p>
                 </div>
             </div>
         </ParticipantLayout>

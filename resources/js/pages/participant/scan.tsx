@@ -1,7 +1,6 @@
 import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
-import { LogoutButton } from '@/features/participant/components/ui';
-import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { Camera, Gift, LayoutGrid, QrCode, Trophy } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Camera, QrCode } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Outlet = { code: string; name: string };
@@ -11,12 +10,7 @@ type Detector = new (options: { formats: string[] }) => {
     detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]>;
 };
 
-function isScanPath(url: string): boolean {
-    return ['/participant/scan', '/participant/masuk', '/participant/daftar'].includes(url.split('?')[0]);
-}
-
 export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Outlet[]; modal?: string; areas?: Area[] }) {
-    const { url } = usePage();
     const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
     const authOpen = authMode !== null;
 
@@ -89,18 +83,11 @@ export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Ou
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authOpen]);
 
-    const compactNav = isScanPath(url);
-    const navItems = [
-        { key: 'papan', href: '/participant/papan', icon: LayoutGrid },
-        { key: 'hadiah', href: '/participant/hadiah', icon: Gift },
-        { key: 'kartu', href: '/participant/kartu', icon: Trophy },
-    ];
-
     return (
         <div className="text-cream min-h-dvh bg-[#1b2b29]">
+            <Head title="Scan QR" />
             <div className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-gradient-to-b from-[#1b2b29] via-[#162422] to-[#0f1c1a] shadow-2xl md:max-w-none md:shadow-none">
                 <header className="flex h-14 shrink-0 items-center gap-2 px-4">
-                    <LogoutButton dark className="text-cream/70 bg-white/10 hover:bg-white/20" />
                     <Link href="/participant" aria-label="Kembali" className="text-cream/70 grid size-10 place-items-center rounded-full bg-white/10">
                         <svg
                             width="20"
@@ -184,21 +171,7 @@ export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Ou
                             </div>
                         )}
                     </form>
-
-                    <Link href="/participant/qr-tidak-dikenal" className="text-lime mt-3 text-[11px] font-semibold underline underline-offset-2">
-                        QR tidak terdaftar? Lihat contoh
-                    </Link>
                 </div>
-
-                {compactNav && (
-                    <nav className="bg-night mt-auto flex items-center justify-around border-t border-white/10 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
-                        {navItems.map((item) => (
-                            <Link key={item.key} href={item.href} className="text-cream/70 flex size-11 items-center justify-center">
-                                <item.icon className="size-6" />
-                            </Link>
-                        ))}
-                    </nav>
-                )}
             </div>
 
             <AuthSheet mode={authMode} onClose={closeAuth} onModeChange={setAuthMode} areas={areas} />

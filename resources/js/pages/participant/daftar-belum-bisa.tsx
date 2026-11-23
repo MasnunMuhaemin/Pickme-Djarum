@@ -4,7 +4,7 @@ import { ShieldX } from 'lucide-react';
 
 export default function BelumBisaIkut() {
     return (
-        <ParticipantLayout>
+        <ParticipantLayout title="Belum bisa daftar">
             <div className="bg-night text-cream flex flex-1 flex-col">
                 <div className="px-5 pt-6 pb-10 md:mx-auto md:w-full md:max-w-[720px] md:px-8 md:pt-10">
                     <span className="bg-cream/10 grid size-11 place-items-center rounded-full">

@@ -7,8 +7,10 @@ use App\Http\Requests\PhotoUploadRequest;
 use App\Http\Requests\SlotCodeRequest;
 use App\Models\Area;
 use App\Models\Claim;
+use App\Models\Gift;
 use App\Models\Outlet;
 use App\Models\Participant;
+use App\Models\Voucher;
 use App\Services\ClaimFlagService;
 use App\Services\ClaimVerificationService;
 use App\Services\PhotoService;
@@ -173,7 +175,7 @@ class ClaimController extends Controller
 
         // Klaim bertanda menunggu admin: cap dan hadiah baru dibuat saat disetujui (PRD bagian 6).
         if (! $result['claim']->isApproved()) {
-            return to_route('participant.klaim.diperiksa');
+            return to_route('participant.klaim.diperiksa', $result['claim']->id);
         }
 
         $rewards->create($result['claim']);
@@ -190,12 +192,15 @@ class ClaimController extends Controller
             return to_route('participant.hadiah');
         }
 
+        // Hadiah klaim ini sendiri; mystery gift bisa menempel ke klaim yang sama dan dipisah di bawah.
+        $ownGift = $claim->gifts->firstWhere('type', '!=', 'mystery_pack');
         $reward = $claim->voucher
             ? RewardPresenter::voucher($claim->voucher)
-            : ($claim->gifts->first() ? RewardPresenter::gift($claim->gifts->first()) : null);
+            : ($ownGift ? RewardPresenter::gift($ownGift) : null);
 
         return Inertia::render('participant/klaim-berhasil', [
             'reward' => $reward,
+            'mystery' => $this->mysteryEarnedBy($claim),
             'claim' => [
                 'claim_code' => $claim->claim_code,
                 'outlet' => $claim->outlet->code,
@@ -203,6 +208,29 @@ class ClaimController extends Controller
             ],
             'caps' => $participant->fresh()->caps,
         ]);
+    }
+
+    /**
+     * Mystery gift yang terbentuk karena klaim ini (cap ke-5), untuk pemberitahuan di layar hasil klaim.
+     * Mystery gift dibuat dalam transaksi yang sama segera setelah klaim disetujui.
+     */
+    private function mysteryEarnedBy(Claim $claim): ?array
+    {
+        if (! $claim->submitted_at) {
+            return null;
+        }
+
+        $claimIds = Claim::where('participant_id', $claim->participant_id)->pluck('id');
+        $since = $claim->submitted_at->copy()->subSeconds(5);
+
+        $voucher = Voucher::whereIn('claim_id', $claimIds)->where('source', 'mystery')->where('created_at', '>=', $since)->first();
+        if ($voucher) {
+            return RewardPresenter::voucher($voucher);
+        }
+
+        $gift = Gift::whereIn('claim_id', $claimIds)->where('type', 'mystery_pack')->where('created_at', '>=', $since)->first();
+
+        return $gift ? RewardPresenter::gift($gift) : null;
     }
 
     private function activeDraft(Request $request): ?Claim

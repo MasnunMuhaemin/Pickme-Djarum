@@ -1,4 +1,4 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { AlertCircle, Check, Copy, Eye, EyeOff } from 'lucide-react';
 import { FormEvent, useRef, useState } from 'react';
 
@@ -53,6 +53,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
 
     return (
         <div className="bg-lime text-ink min-h-dvh">
+            <Head title="Ambil slot" />
             <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col md:max-w-[720px]">
                 <header className="px-6 pt-8 pb-4">
                     <h1 className="text-[34px] leading-none font-extrabold tracking-tight">Ambil slot</h1>

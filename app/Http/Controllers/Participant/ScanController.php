@@ -19,9 +19,24 @@ class ScanController extends Controller
         ]);
     }
 
+    /**
+     * QR papan berisi alamat tetap titik, mis. https://domain/w07 (PRD FR-06). Kode manual berisi kode saja (W07).
+     * Dari alamat diambil segmen terakhir path; isi lain dikembalikan apa adanya supaya tercatat sebagai QR tidak dikenal.
+     */
+    public static function outletCodeFrom(string $scanned): string
+    {
+        $value = trim($scanned);
+        if (preg_match('#^https?://#i', $value)) {
+            $path = trim((string) parse_url($value, PHP_URL_PATH), '/');
+            $value = $path === '' ? $value : basename($path);
+        }
+
+        return strtoupper($value);
+    }
+
     public function resolve(Request $request): RedirectResponse
     {
-        $code = strtoupper(trim((string) $request->input('code')));
+        $code = self::outletCodeFrom((string) $request->input('code'));
         $outlet = Outlet::where('code', $code)->where('status', 'active')->first();
 
         if (! $outlet) {

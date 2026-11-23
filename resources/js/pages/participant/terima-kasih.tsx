@@ -7,7 +7,7 @@ export default function TerimaKasih() {
     const caps = useCaps();
 
     return (
-        <ParticipantLayout>
+        <ParticipantLayout title="Terima kasih">
             <PageHeader close="/participant" title="Terima kasih!" right={<Badge>Kartu {caps} / 10</Badge>} />
             <div className="flex-1 px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <div className="flex flex-col items-center py-4 text-center">

@@ -84,7 +84,7 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
     const stamp = `${openedAt ?? '--:--:--'} · ${outlet} · kode klaim muncul setelah foto`;
 
     return (
-        <ParticipantLayout hideBottomNav>
+        <ParticipantLayout title="Foto bungkus" hideBottomNav>
             <PageHeader back="/participant/papan" title="Foto bungkus" />
             <form onSubmit={submit} className="flex flex-1 flex-col">
                 <div className="px-4 md:mx-auto md:w-full md:max-w-[600px] md:px-8">

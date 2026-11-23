@@ -1,117 +1,187 @@
-import { Badge, PageHeader } from '@/features/participant/components/ui';
-import ParticipantLayout from '@/layouts/participant-layout';
-import { useCaps } from '@/lib/participant';
+import { HeaderPill, LimePage } from '@/features/participant/components/lime-page';
 import { cn } from '@/lib/utils';
-import { usePage } from '@inertiajs/react';
-import { Check, MessageCircle } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { Check, Gift, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 
-type LeaderRow = { rank: number; name: string; caps: number };
+type Prize = 'golden_slot' | 'limited_edition' | null;
+type LeaderRow = { rank: number; name: string; caps: number; prize: Prize; is_me: boolean };
+type Position = { rank: number; caps: number; prize: Prize } | null;
+type Tab = 'total' | 'weekly';
 
-export default function Kartu({ caps: capsProp, leaderboard = [] }: { caps?: number; leaderboard?: LeaderRow[] }) {
-    const { props } = usePage();
-    const isLoggedIn = Boolean((props.auth as { participant?: unknown } | undefined)?.participant);
-    const sharedCaps = useCaps();
-    const caps = isLoggedIn ? (capsProp ?? sharedCaps) : 0;
-    const [tab, setTab] = useState<'mingguan' | 'bulanan'>('mingguan');
-    const [following, setFollowing] = useState(false);
+const prizeBadge: Record<Exclude<Prize, null>, { label: string; className: string }> = {
+    golden_slot: { label: 'Golden slot', className: 'bg-lime text-ink' },
+    limited_edition: { label: 'Limited edition', className: 'bg-[#e9e2bf] text-ink' },
+};
+
+function capsHint(caps: number, mysteryAt: number): string {
+    if (caps < mysteryAt) return `${mysteryAt - caps} cap lagi buka mystery gift di cap ke-${mysteryAt}.`;
+    if (caps < 10) return `Mystery gift sudah terbuka. ${10 - caps} cap lagi kartu penuh.`;
+    return 'Kartu penuh. Pembelian berikutnya tetap dihitung untuk peringkat.';
+}
+
+/** Kartu 10 cap: cap terkumpul hitam bercentang, cap mystery gift lime dengan ikon hadiah. */
+function CapCard({ caps, mysteryAt }: { caps: number; mysteryAt: number }) {
+    return (
+        <section>
+            <div className="flex items-end justify-between">
+                <p className="text-[56px] leading-none font-extrabold tracking-tight md:text-[64px]">{Math.min(caps, 10)} / 10</p>
+                <p className="text-ink-soft pb-1 text-[13px]">cap terkumpul</p>
+            </div>
+            <div className="mt-4 grid grid-cols-5 gap-2.5">
+                {Array.from({ length: 10 }, (_, i) => {
+                    const number = i + 1;
+                    const filled = number <= caps;
+                    const mystery = number === mysteryAt;
+                    return (
+                        <span
+                            key={number}
+                            className={cn(
+                                'grid h-11 place-items-center rounded-full text-[13px] font-extrabold md:h-12',
+                                filled
+                                    ? 'bg-ink text-lime'
+                                    : mystery
+                                      ? 'bg-lime text-ink ring-ink ring-2 ring-inset'
+                                      : 'text-ink-soft/60 bg-[#ece4c4]',
+                            )}
+                        >
+                            {mystery ? <Gift className="size-5" /> : filled ? <Check className="size-5" strokeWidth={2.75} /> : number}
+                        </span>
+                    );
+                })}
+            </div>
+            <p className="text-ink-soft mt-3 text-[13px] font-semibold">
+                {capsHint(caps, mysteryAt)}
+                {caps >= mysteryAt && (
+                    <>
+                        {' '}
+                        <Link href="/participant/hadiah" className="text-ink underline underline-offset-2">
+                            Lihat mystery gift
+                        </Link>
+                    </>
+                )}
+            </p>
+        </section>
+    );
+}
+
+function RankCircle({ rank, dark }: { rank: number; dark?: boolean }) {
+    return (
+        <span
+            className={cn('grid size-9 shrink-0 place-items-center rounded-full text-[13px] font-extrabold', dark ? 'bg-ink text-lime' : 'bg-white')}
+        >
+            {rank}
+        </span>
+    );
+}
+
+export default function Kartu({
+    caps = 0,
+    name,
+    mysteryAt = 5,
+    leaderboard = { total: [], weekly: [] },
+    me,
+    whatsappGroup,
+}: {
+    caps?: number;
+    name?: string | null;
+    mysteryAt?: number;
+    leaderboard?: Record<Tab, LeaderRow[]>;
+    me?: Record<Tab, Position> | null;
+    whatsappGroup?: string | null;
+}) {
+    const [tab, setTab] = useState<Tab>('total');
+    const rows = leaderboard[tab] ?? [];
+    const myPosition = me?.[tab] ?? null;
+    const meInTop = rows.some((row) => row.is_me);
 
     return (
-        <ParticipantLayout nav="kartu">
-            <PageHeader title="Kartu dan peringkat" right={isLoggedIn ? <Badge>{caps} / 10</Badge> : null} />
-            <div className="flex-1 px-4 pb-6 md:px-8 md:pt-2 md:pb-10">
-                <div className={cn(isLoggedIn ? 'md:grid md:grid-cols-2 md:items-start md:gap-6' : 'md:mx-auto md:max-w-[560px]')}>
-                    {isLoggedIn && (
-                        <div className="bg-lime text-ink rounded-3xl p-4 md:p-6">
-                            <div className="flex items-end justify-between">
-                                <div>
-                                    <p className="text-ink/60 text-[10px] font-bold tracking-widest uppercase">Kartu cap</p>
-                                    <p className="text-3xl font-extrabold tracking-tight">{caps} / 10</p>
-                                </div>
-                                <p className="text-ink/70 pb-1 text-[10px] font-semibold">Reset tiap Senin</p>
-                            </div>
+        <LimePage title="Kartu dan peringkat" nav="kartu" right={name ? <HeaderPill>Kartu cap {name}</HeaderPill> : undefined}>
+            {name && <CapCard caps={caps} mysteryAt={mysteryAt} />}
 
-                            <div className="mt-4 grid grid-cols-5 gap-2">
-                                {Array.from({ length: 10 }, (_, i) => (
-                                    <span
-                                        key={i}
-                                        className={cn(
-                                            'grid aspect-square place-items-center rounded-full text-[10px] font-bold',
-                                            i < caps ? 'bg-ink text-lime' : 'border-ink/25 bg-cream/40 text-ink/50 border',
-                                        )}
-                                    >
-                                        {i < caps ? <Check className="size-3.5" /> : i + 1}
-                                    </span>
-                                ))}
-                            </div>
+            <section className={cn(name && 'mt-6')}>
+                <h2 className="text-[18px] font-extrabold tracking-tight">Peringkat</h2>
+                <div className="mt-3 flex gap-2">
+                    {(
+                        [
+                            ['total', 'Total'],
+                            ['weekly', 'Mingguan'],
+                        ] as const
+                    ).map(([key, label]) => (
+                        <button
+                            key={key}
+                            type="button"
+                            onClick={() => setTab(key)}
+                            aria-pressed={tab === key}
+                            className={cn(
+                                'h-10 rounded-full px-5 text-[14px] font-extrabold transition-colors',
+                                tab === key ? 'bg-ink text-lime' : 'text-ink-soft bg-white',
+                            )}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
 
-                            <div className="mt-4">
-                                <div className="bg-ink/15 h-1.5 overflow-hidden rounded-full">
-                                    <div className="bg-ink h-full w-[40%] rounded-full" />
-                                </div>
-                                <p className="mt-1.5 text-[10px] font-semibold">1 cap lagi buka mystery gift di cap ke-5.</p>
-                            </div>
+                <div className="mt-3">
+                    {rows.map((row) => (
+                        <div
+                            key={row.rank}
+                            className={cn(
+                                'flex items-center gap-3 py-2.5',
+                                row.is_me ? 'bg-lime -mx-2 my-1 rounded-2xl px-2' : 'border-b border-[#e8e1c4]',
+                            )}
+                        >
+                            <RankCircle rank={row.rank} dark={row.is_me} />
+                            <p className="min-w-0 flex-1 truncate text-[15px] font-extrabold">{row.is_me ? `Kamu · ${row.name}` : row.name}</p>
+                            {row.prize && (
+                                <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold', prizeBadge[row.prize].className)}>
+                                    {prizeBadge[row.prize].label}
+                                </span>
+                            )}
+                            <span className="w-14 shrink-0 text-right text-[14px] font-extrabold">{row.caps} cap</span>
+                        </div>
+                    ))}
+
+                    {/* Posisi peserta sendiri bila di luar 10 teratas. */}
+                    {name && !meInTop && (
+                        <div className="bg-lime mt-2 flex items-center gap-3 rounded-2xl px-3 py-2.5">
+                            <RankCircle rank={myPosition?.rank ?? 0} dark />
+                            <p className="min-w-0 flex-1 truncate text-[15px] font-extrabold">Kamu · {name}</p>
+                            <span className="text-[14px] font-extrabold">{myPosition?.caps ?? 0} cap</span>
                         </div>
                     )}
 
-                    <div className="mt-4 md:mt-0">
-                        <div className="bg-cream-deep flex rounded-full p-1">
-                            {(['mingguan', 'bulanan'] as const).map((item) => (
-                                <button
-                                    key={item}
-                                    onClick={() => setTab(item)}
-                                    className={cn(
-                                        'flex-1 rounded-full py-2 text-[11px] font-bold capitalize',
-                                        tab === item ? 'bg-ink text-cream' : 'text-ink-soft',
-                                    )}
-                                >
-                                    {item}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="mt-3 space-y-1.5">
-                            {leaderboard.map((row) => (
-                                <div key={row.rank} className="bg-cream-soft flex items-center gap-3 rounded-xl px-3 py-2.5">
-                                    <span
-                                        className={cn(
-                                            'grid size-7 place-items-center rounded-full text-[11px] font-extrabold',
-                                            row.rank === 1 ? 'bg-lime text-ink' : 'bg-cream-deep text-ink-soft',
-                                        )}
-                                    >
-                                        {row.rank}
-                                    </span>
-                                    <p className="flex-1 text-[12px] font-bold">{row.name}</p>
-                                    {isLoggedIn && row.rank === 5 && (
-                                        <span className="bg-lime rounded-full px-2 py-0.5 text-[9px] font-bold">Kamu</span>
-                                    )}
-                                    <span className="text-ink-soft text-[11px] font-semibold">{row.caps} cap</span>
-                                </div>
-                            ))}
-                        </div>
-
-                        <p className="text-ink-soft mt-3 text-[10px] leading-relaxed">
-                            10 hadiah mingguan. Peringkat dihitung dari jumlah cap yang sah.
+                    {rows.length === 0 && (
+                        <p className="text-ink-soft rounded-2xl bg-white/60 p-4 text-center text-[12px]">
+                            {tab === 'weekly' ? 'Belum ada klaim disetujui minggu ini.' : 'Belum ada klaim disetujui.'}
                         </p>
-
-                        <div className="border-ink/10 bg-cream-soft mt-4 flex items-center gap-3 rounded-2xl border p-3">
-                            <span className="bg-lime-soft grid size-9 place-items-center rounded-full">
-                                <MessageCircle className="size-4" />
-                            </span>
-                            <div className="flex-1">
-                                <p className="text-[11px] font-extrabold">Mau dapat update?</p>
-                                <p className="text-ink-soft text-[10px]">Ikuti WhatsApp Channel.</p>
-                            </div>
-                            <button
-                                onClick={() => setFollowing(true)}
-                                className={cn('rounded-full px-3 py-1.5 text-[10px] font-bold', following ? 'bg-lime text-ink' : 'bg-ink text-cream')}
-                            >
-                                {following ? 'Mengikuti' : 'Ikuti'}
-                            </button>
-                        </div>
-                    </div>
+                    )}
                 </div>
-            </div>
-        </ParticipantLayout>
+
+                <p className="text-ink-soft mt-3 text-[12px] leading-relaxed">
+                    10 teratas dapat merchandise limited edition, 4 teratas dapat golden slot Laga Kosan. Urutan: cap terbanyak, lalu yang lebih dulu
+                    mencapai jumlah itu.
+                </p>
+            </section>
+
+            {whatsappGroup && (
+                <a
+                    href={whatsappGroup}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 flex items-center gap-3 rounded-3xl bg-white p-3.5 transition active:scale-[0.99]"
+                >
+                    <span className="bg-ink text-lime grid size-11 shrink-0 place-items-center rounded-full">
+                        <MessageSquare className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-extrabold">Mau dapat update?</span>
+                        <span className="text-ink-soft block text-[12px] leading-snug">Masuk grup WhatsApp untuk info hadiah dan acara</span>
+                    </span>
+                    <span className="bg-ink text-lime shrink-0 rounded-full px-4 py-2.5 text-[13px] font-extrabold">Masuk grup</span>
+                </a>
+            )}
+        </LimePage>
     );
 }

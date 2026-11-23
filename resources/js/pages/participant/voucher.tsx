@@ -35,7 +35,7 @@ export default function VoucherPage({ voucher, reward }: { voucher: VoucherData;
     }
 
     return (
-        <ParticipantLayout nav="hadiah">
+        <ParticipantLayout title="Detail hadiah" nav="hadiah">
             <div className="bg-lime px-5 pt-4 pb-14 md:px-8 md:pt-6">
                 <div className="flex justify-end">
                     <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>

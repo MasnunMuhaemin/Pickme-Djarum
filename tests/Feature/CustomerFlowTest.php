@@ -127,6 +127,7 @@ class CustomerFlowTest extends TestCase
 
         $this->get('/participant/klaim/berhasil')->assertOk()->assertInertia(fn ($page) => $page
             ->component('participant/klaim-berhasil')
+            ->where('mystery', null)
             ->has('reward.status_label')
             ->where('claim.claim_code', $claim->claim_code)
         );
@@ -149,13 +150,43 @@ class CustomerFlowTest extends TestCase
         $claim = $this->uploadPhoto(gray: 10);
         $this->assertSame(['dark_photo'], $claim->flags());
 
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/diperiksa');
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirectContains('/participant/klaim/diperiksa/');
 
         $claim->refresh();
         $this->assertSame('pending', $claim->status);
         $this->assertSame('used', $claim->slot->status);
         $this->assertSame(0, $participant->fresh()->caps);
         $this->assertFalse(Voucher::where('claim_id', $claim->id)->exists() || $claim->gifts()->exists());
+    }
+
+    public function test_pending_and_rejected_claims_show_in_hadiahku_with_their_pages(): void
+    {
+        $this->readyParticipant();
+        $pending = $this->uploadPhoto(gray: 10);
+        $this->post('/participant/slot', ['code' => $pending->slot->code]);
+        $rejected = $this->uploadPhoto(seed: 21);
+        $rejected->update(['status' => 'rejected', 'submitted_at' => now()]);
+
+        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
+            ->where('rewards.0.kind', 'claim_pending')
+            ->where('rewards.0.status_label', 'Sedang diperiksa')
+            ->where('rewards.0.href', route('participant.klaim.diperiksa', $pending->id))
+            ->where('rewards.1.kind', 'claim_rejected')
+            ->where('rewards.1.href', route('participant.klaim.ditolak', $rejected->id))
+        );
+
+        $this->get("/participant/klaim/diperiksa/{$pending->id}")->assertInertia(fn ($page) => $page
+            ->component('participant/klaim-diperiksa')
+            ->where('claim.claim_code', $pending->claim_code)
+        );
+        $this->get("/participant/klaim/ditolak/{$rejected->id}")->assertInertia(fn ($page) => $page
+            ->component('participant/klaim-ditolak')
+            ->where('claim.claim_code', $rejected->claim_code)
+        );
+
+        // Klaim yang sudah diputuskan tidak lagi tampil sebagai ditangguhkan.
+        $pending->update(['status' => 'approved']);
+        $this->get("/participant/klaim/diperiksa/{$pending->id}")->assertRedirect('/participant/hadiah');
     }
 
     public function test_first_photo_and_similar_photo_are_flagged(): void
@@ -197,7 +228,7 @@ class CustomerFlowTest extends TestCase
         // Slot kosong lain di papan yang sama: diterima dengan tanda, slot yang ditunjuk dilepas.
         $assigned = $claim->slot;
         $different = $board->slots()->where('status', 'empty')->first();
-        $this->post('/participant/slot', ['code' => $different->code])->assertRedirect('/participant/klaim/diperiksa');
+        $this->post('/participant/slot', ['code' => $different->code])->assertRedirectContains('/participant/klaim/diperiksa/');
         $claim->refresh();
         $this->assertContains('different_slot', $claim->flags());
         $this->assertSame($different->id, $claim->slot_id);
@@ -212,7 +243,7 @@ class CustomerFlowTest extends TestCase
         $claim = $this->uploadPhoto(seed: 2);
         $this->travel(31)->minutes();
 
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/diperiksa');
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirectContains('/participant/klaim/diperiksa/');
         $this->assertContains('late_code', $claim->fresh()->flags());
     }
 
@@ -255,6 +286,12 @@ class CustomerFlowTest extends TestCase
             ->assertRedirect('/participant/masuk');
 
         $this->post('/participant/scan', ['code' => 'XX99'])
+            ->assertRedirect('/participant/qr-tidak-dikenal');
+
+        // QR asli berisi alamat titik (PRD FR-06).
+        $this->post('/participant/scan', ['code' => 'https://pickme.example/w07'])
+            ->assertRedirect('/participant/masuk');
+        $this->post('/participant/scan', ['code' => 'https://toko-lain.example/promo'])
             ->assertRedirect('/participant/qr-tidak-dikenal');
     }
 
@@ -362,6 +399,32 @@ class CustomerFlowTest extends TestCase
         $this->assertSame(5, $participant->fresh()->caps);
         $this->assertSame(1, Voucher::where('source', 'mystery')->count());
         $this->assertSame(0, Gift::where('type', 'mystery_pack')->count());
+        // Mystery gift tampil paling atas di Hadiahku.
+        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
+            ->where('rewards.0.mystery', true)
+            ->has('rewards', 6)
+        );
+    }
+
+    public function test_free_pack_mystery_gift_waits_for_admin(): void
+    {
+        config(['participant.mystery_voucher_chance' => 0]);
+        $participant = $this->readyParticipant();
+
+        foreach (range(1, 5) as $i) {
+            $claim = $this->uploadPhoto(seed: 30 + $i);
+            $this->post('/participant/slot', ['code' => $claim->slot->code]);
+        }
+
+        $this->assertSame(5, $participant->fresh()->caps);
+        // Pemberitahuan di layar hasil klaim cap ke-5.
+        $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page
+            ->where('mystery.title', 'Mystery gift: 1 bungkus gratis')
+        );
+        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
+            ->where('rewards.0.title', 'Mystery gift: 1 bungkus gratis')
+            ->where('rewards.0.status_label', 'Menunggu admin')
+        );
     }
 
     public function test_sent_voucher_expires_after_validity(): void
@@ -373,6 +436,43 @@ class CustomerFlowTest extends TestCase
         $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page->where('rewards.0.status_label', 'Kadaluarsa'));
         $this->artisan('vouchers:expire')->assertSuccessful();
         $this->assertSame('expired', $voucher->fresh()->status);
+    }
+
+    public function test_leaderboard_ranks_by_approved_claims_then_who_reached_first(): void
+    {
+        $outlet = Outlet::first();
+        $area = Area::first()->id;
+        $make = function (string $name, string $wa, array $times) use ($outlet, $area) {
+            $p = Participant::create(['name' => $name, 'whatsapp' => $wa, 'birth_date' => '2000-01-01', 'area_id' => $area, 'pin_hash' => 'x', 'caps' => count($times)]);
+            foreach ($times as $i => $time) {
+                Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM-{$wa}{$i}", 'status' => 'approved', 'submitted_at' => $time]);
+            }
+            // Klaim antre dan ditolak tidak dihitung.
+            Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM-{$wa}X", 'status' => 'rejected', 'submitted_at' => now()]);
+
+            return $p;
+        };
+        $make('Rani', '081100000001', [now()->subDays(20), now()->subHours(2)]);
+        $make('Dimas', '081100000002', [now()->subDays(20), now()->subHours(5)]);
+        $make('Bayu', '081100000003', [now()->subHour()]);
+
+        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page
+            ->component('participant/kartu')
+            ->where('leaderboard.total.0.name', 'Dimas')
+            ->where('leaderboard.total.0.caps', 2)
+            ->where('leaderboard.total.0.prize', 'golden_slot')
+            ->where('leaderboard.total.1.name', 'Rani')
+            ->where('leaderboard.total.2.name', 'Bayu')
+            ->has('leaderboard.weekly', 3)
+            ->where('leaderboard.weekly.0.caps', 1)
+            ->where('me', null)
+        );
+
+        $participant = $this->readyParticipant();
+        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page
+            ->where('name', $participant->name)
+            ->where('me.total', null)
+        );
     }
 
     public function test_home_lists_prizes_from_active_board(): void

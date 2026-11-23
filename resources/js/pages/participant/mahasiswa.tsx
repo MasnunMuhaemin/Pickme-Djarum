@@ -8,7 +8,7 @@ export default function Mahasiswa() {
     const no = useForm({ is_student: false });
 
     return (
-        <ParticipantLayout>
+        <ParticipantLayout title="Kamu mahasiswa?">
             <PageHeader back="/participant/papan" title="Kamu mahasiswa?" />
             <div className="flex flex-1 flex-col px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <p className="text-ink-soft text-[12px] leading-relaxed">

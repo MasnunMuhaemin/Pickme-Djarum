@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Participant\CardController;
 use App\Http\Controllers\Participant\ClaimController;
+use App\Http\Controllers\Participant\ClaimStatusController;
 use App\Http\Controllers\Participant\ConsentController;
 use App\Http\Controllers\Participant\GiftController;
 use App\Http\Controllers\Participant\HomeController;
@@ -46,12 +47,12 @@ Route::prefix('participant')->name('participant.')->group(function () {
         });
 
         Route::get('klaim/berhasil', [ClaimController::class, 'showSuccess'])->name('klaim.berhasil');
+        Route::get('klaim/diperiksa/{claim?}', [ClaimStatusController::class, 'pending'])->whereNumber('claim')->name('klaim.diperiksa');
+        Route::get('klaim/ditolak/{claim?}', [ClaimStatusController::class, 'rejected'])->whereNumber('claim')->name('klaim.ditolak');
     });
 
     Route::get('papan', [ClaimController::class, 'showBoard'])->name('papan');
 
-    Route::get('klaim/diperiksa', [SupportController::class, 'showClaimStatus', 'status' => 'pending'])->name('klaim.diperiksa');
-    Route::get('klaim/ditolak', [SupportController::class, 'showClaimStatus', 'status' => 'rejected'])->name('klaim.ditolak');
 
     Route::middleware('participant')->group(function () {
         Route::get('hadiah', [RewardController::class, 'index'])->name('hadiah');

@@ -27,10 +27,20 @@ class RewardController extends Controller
             }
 
             return $items;
-        })->values();
+        })
+            // Mystery gift cap ke-5 ditaruh paling atas supaya mudah ditemukan.
+            ->sortBy(fn ($reward) => ($reward['mystery'] ?? false) ? 0 : 1)
+            ->values();
+
+        // Klaim yang ditangguhkan (antre admin) dan ditolak tampil di atas, menuju halaman statusnya.
+        $claimCards = $participant->claims()->whereIn('status', ['pending', 'rejected'])
+            ->with('outlet')->latest('submitted_at')->get()
+            ->sortBy(fn ($claim) => $claim->status === 'pending' ? 0 : 1)
+            ->map(fn ($claim) => RewardPresenter::claim($claim))
+            ->values();
 
         return Inertia::render('participant/hadiah', [
-            'rewards' => $rewards,
+            'rewards' => $claimCards->concat($rewards)->values(),
             'approvedClaims' => $claims->count(),
         ]);
     }

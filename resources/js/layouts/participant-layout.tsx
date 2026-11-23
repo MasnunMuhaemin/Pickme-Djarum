@@ -1,15 +1,19 @@
 import { BottomNav, DesktopNav } from '@/features/participant/components/bottom-nav';
 import { DesktopAside } from '@/features/participant/components/desktop-aside';
 import { cn } from '@/lib/utils';
+import { Head } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 
 export default function ParticipantLayout({
     children,
+    title,
     dark,
     className,
     hideBottomNav,
 }: {
     children: ReactNode;
+    /** Judul tab browser, mis. "Hadiahku" menjadi "Hadiahku · PICKME". */
+    title?: string;
     nav?: string;
     dark?: boolean;
     className?: string;
@@ -17,6 +21,7 @@ export default function ParticipantLayout({
 }) {
     return (
         <div className="md:bg-cream min-h-dvh bg-[#e6e0cd]">
+            <Head title={title} />
             <div className="bg-cream text-ink relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col shadow-2xl sm:my-6 sm:min-h-[calc(100dvh-3rem)] sm:rounded-[2rem] md:my-0 md:min-h-dvh md:max-w-[1440px] md:rounded-none md:shadow-none lg:flex-row">
                 <DesktopAside />
                 <div

@@ -4,7 +4,7 @@ import { GraduationCap } from 'lucide-react';
 
 export default function KhususMahasiswa() {
     return (
-        <ParticipantLayout>
+        <ParticipantLayout title="Khusus mahasiswa">
             <PageHeader back="/participant/mahasiswa" title="Khusus mahasiswa" />
             <div className="flex flex-1 flex-col px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <div className="flex flex-1 flex-col items-center justify-center text-center">

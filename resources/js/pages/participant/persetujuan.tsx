@@ -48,7 +48,7 @@ export default function Persetujuan({ consent, guest = false }: { consent: Conse
     }
 
     return (
-        <ParticipantLayout hideBottomNav className="bg-lime">
+        <ParticipantLayout title="Persetujuan data" hideBottomNav className="bg-lime">
             {/* Tinggi dikunci ke layar di HP supaya kotak teks mengisi sisa ruang dan tombol menempel di bawah. */}
             <div className="flex h-dvh flex-col sm:h-[calc(100dvh-3rem)] md:h-auto md:flex-1">
                 <div className="shrink-0 px-5 pt-4 pb-6 md:px-8">

@@ -12,8 +12,8 @@ export default function LupaPin({ sent }: { sent?: boolean }) {
     }
 
     return (
-        <ParticipantLayout>
-            <PageHeader back="/login" title="Lupa PIN?" />
+        <ParticipantLayout title="Lupa PIN">
+            <PageHeader back="/participant/masuk" title="Lupa PIN?" />
             <div className="flex-1 px-4 pb-8 md:mx-auto md:w-full md:max-w-[620px] md:px-8 md:pt-2 md:pb-10">
                 <h2 className="text-xl font-extrabold tracking-tight">Admin bantu buatkan PIN sementara.</h2>
                 <p className="text-ink-soft mt-2 text-[12px] leading-relaxed">

@@ -61,19 +61,29 @@ export function PageHeader({
     className?: string;
 }) {
     return (
-        <header className={cn('flex h-14 shrink-0 items-center gap-2 px-3 md:px-8', dark ? 'text-cream' : 'text-ink', className)}>
-            {back && (
-                <Link href={back} aria-label="Kembali" className="grid size-10 place-items-center rounded-full hover:bg-black/5">
-                    <ArrowLeft className="size-5" />
-                </Link>
+        // Tiga kolom dengan sisi kiri dan kanan sama lebar, supaya judul tetap di tengah layar
+        // walau hanya ada tombol di satu sisi (mis. tombol kembali tanpa tombol keluar).
+        <header
+            className={cn(
+                'grid h-14 shrink-0 grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2 px-3 md:px-8',
+                dark ? 'text-cream' : 'text-ink',
+                className,
             )}
-            {close && (
-                <Link href={close} aria-label="Tutup" className="grid size-10 place-items-center rounded-full hover:bg-black/5">
-                    <X className="size-5" />
-                </Link>
-            )}
-            <h1 className="min-w-0 flex-1 truncate text-center text-sm font-bold">{title}</h1>
-            <div className="flex items-center gap-1">
+        >
+            <div className="flex items-center">
+                {back && (
+                    <Link href={back} aria-label="Kembali" className="grid size-10 place-items-center rounded-full hover:bg-black/5">
+                        <ArrowLeft className="size-5" />
+                    </Link>
+                )}
+                {close && (
+                    <Link href={close} aria-label="Tutup" className="grid size-10 place-items-center rounded-full hover:bg-black/5">
+                        <X className="size-5" />
+                    </Link>
+                )}
+            </div>
+            <h1 className="min-w-0 truncate text-center text-sm font-bold">{title}</h1>
+            <div className="flex items-center justify-end gap-1">
                 {right}
                 <LogoutButton dark={dark} />
             </div>

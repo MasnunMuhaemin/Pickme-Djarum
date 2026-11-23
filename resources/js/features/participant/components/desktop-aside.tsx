@@ -10,9 +10,7 @@ export function DesktopAside() {
 
             <Link href="/participant" className="relative flex items-center gap-2.5">
                 <span className="bg-lime text-ink grid size-9 place-items-center rounded-xl text-sm font-extrabold">P</span>
-                <span className="text-sm font-extrabold tracking-tight">
-                    PICKME <span className="text-lime">×</span> DJARUM
-                </span>
+                <span className="text-sm font-extrabold tracking-tight">PICKME</span>
             </Link>
 
             <div className="relative mt-12 xl:mt-16">

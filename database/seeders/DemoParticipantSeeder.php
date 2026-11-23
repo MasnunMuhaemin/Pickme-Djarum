@@ -26,7 +26,9 @@ class DemoParticipantSeeder extends Seeder
                 'birth_date' => '1998-06-15',
                 'area_id' => $area->id,
                 'pin_hash' => Hash::make('1234'),
-                'caps' => 4,
+                // Cap = jumlah klaim disetujui (PRD bagian 3); dihitung ulang di bawah.
+                'caps' => 0,
+                'is_student' => true,
                 'registered_at' => now()->subDays(12),
             ],
         );
@@ -43,6 +45,8 @@ class DemoParticipantSeeder extends Seeder
         $this->approvedClaim($participant, $outlet, 'voucher', 'KGR-DEMO001');
         $this->approvedClaim($participant, $outlet, 'token', null);
         $this->approvedClaim($participant, $outlet, 'merch', null);
+
+        $participant->update(['caps' => $participant->claims()->where('status', 'approved')->count()]);
     }
 
     private function approvedClaim(Participant $participant, Outlet $outlet, string $type, ?string $code): void
@@ -57,6 +61,7 @@ class DemoParticipantSeeder extends Seeder
             'outlet_id' => $outlet->id,
             'slot_id' => $slot->id,
             'code' => $slot->code,
+            'claim_code' => 'KLM-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
             'status' => 'approved',
             'submitted_at' => now()->subDays(3),
         ]);
@@ -77,9 +82,10 @@ class DemoParticipantSeeder extends Seeder
             'claim_id' => $claim->id,
             'code' => $code ?? 'KGR-'.strtoupper(bin2hex(random_bytes(3))),
             'type' => $type,
-            'status' => 'sent',
-            'expires_at' => now()->addDays(14),
-            'sent_at' => now()->subDays(2),
+            // Token menunggu nomor tujuan; voucher mitra langsung terkirim (PRD bagian 17).
+            'status' => $type === 'token' ? 'pending_data' : 'sent',
+            'expires_at' => $type === 'voucher' ? now()->addDays(14) : null,
+            'sent_at' => $type === 'voucher' ? now()->subDays(2) : null,
         ]);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Claim;
 use App\Models\Gift;
 use App\Models\Voucher;
 
@@ -61,6 +62,7 @@ class RewardPresenter
             'description' => $description,
             'value' => $value,
             'days_left' => $daysLeft,
+            'mystery' => $voucher->source === 'mystery',
             'status' => $expired ? 'expired' : $voucher->status,
             'status_label' => $label,
             'tone' => $tone,
@@ -78,13 +80,16 @@ class RewardPresenter
         $isFreePack = $gift->type === 'mystery_pack';
         $needsAddress = ! $isFreePack && $gift->status === 'pending_address';
 
-        [$label, $tone] = match ($gift->status) {
+        [$label, $tone] = match (true) {
+            $isFreePack && in_array($gift->status, ['pending', 'pending_address'], true) => ['Menunggu admin', 'waiting'],
+            default => match ($gift->status) {
             'pending_address' => ['Menunggu alamat', 'progress'],
             'ready_to_ship' => ['Siap dikirim', 'waiting'],
             'shipping' => ['Sedang diantar', 'progress'],
             'contacted' => ['Dihubungi admin', 'progress'],
             'done', 'completed' => ['Selesai', 'done'],
             default => ['Menunggu admin', 'waiting'],
+            },
         };
 
         return [
@@ -92,11 +97,34 @@ class RewardPresenter
             'kind' => $isFreePack ? 'mystery' : 'merch',
             'title' => $isFreePack ? 'Mystery gift: 1 bungkus gratis' : 'Merchandise',
             'description' => $isFreePack ? 'Admin hubungi lewat WhatsApp untuk penyerahan' : 'Diantar ke alamatmu',
+            'mystery' => $isFreePack,
             'status' => $gift->status,
             'status_label' => $label,
             'tone' => $tone,
             'action' => $needsAddress ? 'Isi alamat' : null,
             'href' => $needsAddress ? route('participant.alamat', $gift->id) : null,
+        ];
+    }
+
+    /**
+     * Kartu klaim yang belum menjadi hadiah: ditangguhkan untuk pemeriksaan admin, atau ditolak.
+     * Alasan tanda tidak ditampilkan ke peserta (PRD P7).
+     */
+    public static function claim(Claim $claim): array
+    {
+        $pending = $claim->status === 'pending';
+        $when = $claim->submitted_at?->format('d M H:i');
+
+        return [
+            'id' => $claim->id,
+            'kind' => $pending ? 'claim_pending' : 'claim_rejected',
+            'title' => "Klaim {$claim->claim_code}",
+            'description' => 'Titik '.($claim->outlet?->code ?? '-').($when ? " · {$when}" : ''),
+            'status' => $claim->status,
+            'status_label' => $pending ? 'Sedang diperiksa' : 'Ditolak',
+            'tone' => $pending ? 'waiting' : 'rejected',
+            'action' => $pending ? 'Lihat status' : 'Lihat alasan',
+            'href' => route($pending ? 'participant.klaim.diperiksa' : 'participant.klaim.ditolak', $claim->id),
         ];
     }
 
