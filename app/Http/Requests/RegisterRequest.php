@@ -18,7 +18,7 @@ class RegisterRequest extends FormRequest
             'whatsapp' => ['required', 'string', 'regex:/^08[0-9]{8,11}$/', 'unique:participants,whatsapp'],
             'birth_date' => ['required', 'date', 'before:today'],
             'area_id' => ['required', 'exists:areas,id'],
-            'pin' => ['required', 'digits:4'],
+            'pin' => ['required', 'digits:4', 'confirmed'],
             'device_id' => ['sometimes', 'string', 'max:64'],
         ];
     }
@@ -36,6 +36,7 @@ class RegisterRequest extends FormRequest
             'area_id.required' => 'Pilih area kosmu.',
             'area_id.exists' => 'Pilih area kosmu.',
             'pin.digits' => 'PIN harus 4 angka dan tidak boleh mudah ditebak.',
+            'pin.confirmed' => 'Ulangi PIN belum sama dengan PIN.',
         ];
     }
 

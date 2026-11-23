@@ -23,6 +23,7 @@ class ConsentController extends Controller
                 'body' => config('participant.consent_body'),
                 'accepted' => $participant?->hasAcceptedConsent(config('participant.consent_version')) ?? false,
             ],
+            'guest' => $participant === null,
         ]);
     }
 

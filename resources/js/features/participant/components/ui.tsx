@@ -1,8 +1,8 @@
 import { cn } from '@/lib/utils';
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, LogOut, X } from 'lucide-react';
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
+import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, LogOut, X } from 'lucide-react';
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes, TouchEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
 type Tone = 'lime' | 'amber' | 'muted' | 'danger' | 'violet';
@@ -154,6 +154,40 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
     return <input {...props} className={cn(inputClass, props.className)} />;
 }
 
+export const WHATSAPP_MAX = 13;
+
+/** Hanya angka, maksimal 13 digit. Awalan 62 (mis. hasil tempel +62...) diubah jadi 0. */
+export function toWhatsapp(value: string): string {
+    let digits = value.replace(/\D/g, '');
+    if (digits.startsWith('62')) digits = `0${digits.slice(2)}`;
+    return digits.slice(0, WHATSAPP_MAX);
+}
+
+export function PinInput({ className, ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+    const [visible, setVisible] = useState(false);
+    return (
+        <div className="relative">
+            <input
+                {...props}
+                type={visible ? 'text' : 'password'}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                autoComplete="off"
+                className={cn(inputClass, 'pr-12', className)}
+            />
+            <button
+                type="button"
+                onClick={() => setVisible(!visible)}
+                aria-label={visible ? 'Sembunyikan PIN' : 'Lihat PIN'}
+                className="text-ink-soft hover:text-ink absolute inset-y-0 right-0 grid w-12 place-items-center"
+            >
+                {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+        </div>
+    );
+}
+
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
     return <textarea {...props} className={cn(inputClass, 'h-24 resize-none py-3', props.className)} />;
 }
@@ -213,7 +247,9 @@ export function DateField({
     placeholder?: string;
 }) {
     const [open, setOpen] = useState(false);
+    const [mode, setMode] = useState<'day' | 'year'>('day');
     const box = useRef<HTMLDivElement>(null);
+    const yearList = useRef<HTMLDivElement>(null);
     const parsed = value ? new Date(`${value}T00:00:00`) : null;
     const [view, setView] = useState(() => {
         const d = parsed ?? new Date();
@@ -229,12 +265,30 @@ export function DateField({
         return () => document.removeEventListener('mousedown', close);
     }, [open]);
 
+    useEffect(() => {
+        if (!open || mode !== 'year') return;
+        yearList.current?.querySelector('[data-active="true"]')?.scrollIntoView({ block: 'center' });
+    }, [open, mode]);
+
     const year = view.getFullYear();
     const month = view.getMonth();
     const first = (new Date(year, month, 1).getDay() + 6) % 7;
     const total = new Date(year, month + 1, 0).getDate();
     const today = new Date();
     const label = parsed ? `${pad(parsed.getDate())} ${monthNames[parsed.getMonth()].slice(0, 3)} ${parsed.getFullYear()}` : placeholder;
+
+    const years = Array.from({ length: 101 }, (_, i) => today.getFullYear() - i);
+
+    function toggle() {
+        // Belum ada tanggal: langsung buka pilihan tahun supaya tidak perlu mundur per bulan.
+        if (!open) setMode(parsed ? 'day' : 'year');
+        setOpen(!open);
+    }
+
+    function pickYear(y: number) {
+        setView(new Date(y, Math.min(month, y === today.getFullYear() ? today.getMonth() : 11), 1));
+        setMode('day');
+    }
 
     function pick(day: number) {
         onChange(`${year}-${pad(month + 1)}-${pad(day)}`);
@@ -243,12 +297,12 @@ export function DateField({
 
     return (
         <div className="relative" ref={box}>
-            <button type="button" onClick={() => setOpen(!open)} className={cn(inputClass, 'flex items-center justify-between text-left')}>
+            <button type="button" onClick={toggle} className={cn(inputClass, 'flex items-center justify-between text-left')}>
                 <span className={parsed ? 'text-ink' : 'text-ink-soft/70'}>{label}</span>
                 <CalendarDays className="text-ink-soft size-4 shrink-0" />
             </button>
             {open && (
-                <div className="border-ink/10 bg-cream absolute top-full left-0 z-50 mt-1 w-full min-w-[260px] rounded-2xl border p-3 shadow-xl">
+                <div className="border-ink/10 bg-cream text-ink absolute top-full left-0 z-50 mt-1 w-full min-w-[260px] rounded-2xl border p-3 shadow-xl">
                     <div className="flex items-center justify-between">
                         <button
                             type="button"
@@ -258,9 +312,14 @@ export function DateField({
                         >
                             <ChevronLeft className="size-4" />
                         </button>
-                        <p className="text-[12px] font-extrabold">
+                        <button
+                            type="button"
+                            onClick={() => setMode(mode === 'year' ? 'day' : 'year')}
+                            className="hover:bg-cream-deep text-ink flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-extrabold"
+                        >
                             {monthNames[month]} {year}
-                        </p>
+                            <ChevronDown className={cn('size-3.5 transition-transform', mode === 'year' && 'rotate-180')} />
+                        </button>
                         <button
                             type="button"
                             aria-label="Bulan berikutnya"
@@ -270,38 +329,57 @@ export function DateField({
                             <ChevronRight className="size-4" />
                         </button>
                     </div>
-                    <div className="mt-2 grid grid-cols-7 gap-1 text-center">
-                        {dayNames.map((d) => (
-                            <span key={d} className="text-ink-soft py-1 text-[9px] font-bold">
-                                {d}
-                            </span>
-                        ))}
-                        {Array.from({ length: first }, (_, i) => (
-                            <span key={`e${i}`} />
-                        ))}
-                        {Array.from({ length: total }, (_, i) => {
-                            const day = i + 1;
-                            const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
-                            const isSelected = parsed?.getFullYear() === year && parsed.getMonth() === month && parsed.getDate() === day;
-                            const future = new Date(year, month, day) > today;
-                            return (
+                    {mode === 'year' ? (
+                        <div ref={yearList} className="mt-2 grid max-h-56 grid-cols-4 gap-1.5 overflow-y-auto">
+                            {years.map((y) => (
                                 <button
-                                    key={day}
+                                    key={y}
                                     type="button"
-                                    disabled={future}
-                                    onClick={() => pick(day)}
+                                    data-active={y === year}
+                                    onClick={() => pickYear(y)}
                                     className={cn(
-                                        'grid size-8 place-items-center rounded-full text-[11px] font-semibold',
-                                        isSelected ? 'bg-ink text-cream' : 'text-ink hover:bg-cream-deep',
-                                        isToday && !isSelected && 'ring-ink/30 ring-1',
-                                        future && 'text-ink/25',
+                                        'h-9 rounded-lg text-[12px] font-semibold',
+                                        y === year ? 'bg-ink text-cream' : 'text-ink hover:bg-cream-deep',
                                     )}
                                 >
-                                    {day}
+                                    {y}
                                 </button>
-                            );
-                        })}
-                    </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="mt-2 grid grid-cols-7 gap-1 text-center">
+                            {dayNames.map((d) => (
+                                <span key={d} className="text-ink-soft py-1 text-[9px] font-bold">
+                                    {d}
+                                </span>
+                            ))}
+                            {Array.from({ length: first }, (_, i) => (
+                                <span key={`e${i}`} />
+                            ))}
+                            {Array.from({ length: total }, (_, i) => {
+                                const day = i + 1;
+                                const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
+                                const isSelected = parsed?.getFullYear() === year && parsed.getMonth() === month && parsed.getDate() === day;
+                                const future = new Date(year, month, day) > today;
+                                return (
+                                    <button
+                                        key={day}
+                                        type="button"
+                                        disabled={future}
+                                        onClick={() => pick(day)}
+                                        className={cn(
+                                            'grid size-8 place-items-center rounded-full text-[11px] font-semibold',
+                                            isSelected ? 'bg-ink text-cream' : 'text-ink hover:bg-cream-deep',
+                                            isToday && !isSelected && 'ring-ink/30 ring-1',
+                                            future && 'text-ink/25',
+                                        )}
+                                    >
+                                        {day}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -328,13 +406,93 @@ export function Checkbox({ checked, onChange, children }: { checked: boolean; on
     );
 }
 
-export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string; children: ReactNode }) {
-    if (!open) return null;
+type SheetProps = { open: boolean; onClose: () => void; title?: string; children: ReactNode };
+
+export function Sheet(props: SheetProps) {
+    if (!props.open) return null;
+    return <SheetPanel {...props} />;
+}
+
+const CLOSE_DISTANCE = 120; // px
+const CLOSE_VELOCITY = 0.6; // px per ms
+
+/** Apakah sentuhan dimulai di elemen yang sedang di-scroll (mis. daftar tahun), sehingga gesture tidak boleh menutup sheet. */
+function insideScrolled(target: EventTarget | null, panel: HTMLElement): boolean {
+    let el = target as HTMLElement | null;
+    while (el && el !== panel) {
+        if (el.scrollTop > 0) return true;
+        el = el.parentElement;
+    }
+    return panel.scrollTop > 0;
+}
+
+function SheetPanel({ onClose, title, children }: SheetProps) {
+    const panel = useRef<HTMLDivElement>(null);
+    const drag = useRef<{ y: number; t: number; active: boolean } | null>(null);
+    const [offset, setOffset] = useState(0);
+    const [dragging, setDragging] = useState(false);
+    const [closing, setClosing] = useState(false);
+
+    function close() {
+        setClosing(true);
+        setOffset(panel.current?.offsetHeight ?? window.innerHeight);
+        window.setTimeout(onClose, 200);
+    }
+
+    function onTouchStart(e: TouchEvent) {
+        if (!panel.current || closing) return;
+        drag.current = { y: e.touches[0].clientY, t: Date.now(), active: !insideScrolled(e.target, panel.current) };
+    }
+
+    function onTouchMove(e: TouchEvent) {
+        const d = drag.current;
+        if (!d?.active) return;
+        const dy = e.touches[0].clientY - d.y;
+        if (dy <= 0 && !dragging) {
+            // Geser ke atas: biarkan konten di-scroll seperti biasa.
+            d.active = false;
+            return;
+        }
+        setDragging(true);
+        setOffset(Math.max(0, dy));
+    }
+
+    function onTouchEnd() {
+        const d = drag.current;
+        drag.current = null;
+        if (!dragging || !d) return;
+        setDragging(false);
+        const velocity = offset / Math.max(1, Date.now() - d.t);
+        if (offset > CLOSE_DISTANCE || velocity > CLOSE_VELOCITY) close();
+        else setOffset(0);
+    }
+
+    const height = panel.current?.offsetHeight || 1;
+    const backdrop = 0.55 * (1 - Math.min(1, offset / height));
+
     return (
         <div className="fixed inset-0 z-50 flex flex-col justify-end md:items-center md:justify-center md:p-6">
-            <button aria-label="Tutup" onClick={onClose} className="absolute inset-0 bg-black/55" />
-            <div className="animate-in slide-in-from-bottom bg-cream relative mx-auto max-h-[88dvh] w-full max-w-[430px] overflow-y-auto rounded-t-3xl p-5 pb-8 shadow-2xl md:max-w-md md:rounded-3xl md:pb-6">
-                <div className="bg-ink/20 mx-auto mb-4 h-1 w-10 rounded-full" />
+            <button
+                aria-label="Tutup"
+                onClick={close}
+                className="absolute inset-0 transition-colors duration-200"
+                style={{ backgroundColor: `rgba(0,0,0,${backdrop})` }}
+            />
+            <div
+                ref={panel}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+                onTouchCancel={onTouchEnd}
+                style={{ transform: offset ? `translateY(${offset}px)` : undefined }}
+                className={cn(
+                    'animate-in slide-in-from-bottom bg-cream text-ink relative mx-auto max-h-[88dvh] w-full max-w-[430px] overscroll-contain rounded-t-3xl p-5 pb-8 shadow-2xl md:max-w-md md:rounded-3xl md:pb-6',
+                    dragging ? 'overflow-hidden' : 'overflow-y-auto transition-transform duration-200 ease-out',
+                )}
+            >
+                <div className="-mx-5 -mt-5 mb-2 flex justify-center pt-3 pb-2" aria-hidden>
+                    <span className="bg-ink/20 h-1 w-10 rounded-full" />
+                </div>
                 {title && <h2 className="text-ink mb-1 text-lg font-extrabold tracking-tight">{title}</h2>}
                 {children}
             </div>

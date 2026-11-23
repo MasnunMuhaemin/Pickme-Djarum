@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Participant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Participant;
+use App\Support\RewardPresenter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,43 +19,18 @@ class RewardController extends Controller
         $rewards = $claims->flatMap(function ($claim) {
             $items = [];
             if ($claim->voucher) {
-                $items[] = [
-                    'id' => $claim->voucher->id,
-                    'kind' => 'voucher',
-                    'title' => $this->title($claim->voucher->type),
-                    'status' => $claim->voucher->status,
-                    'code' => $claim->voucher->code,
-                    'action' => $claim->voucher->type === 'voucher' ? 'Lihat kode' : 'Isi nomor',
-                    'href' => $claim->voucher->type === 'voucher'
-                        ? route('participant.voucher', $claim->voucher->code)
-                        : route('participant.nomor-tujuan', $claim->voucher->id),
-                ];
+                $items[] = RewardPresenter::voucher($claim->voucher);
             }
             foreach ($claim->gifts as $gift) {
-                $items[] = [
-                    'id' => $gift->id,
-                    'kind' => 'gift',
-                    'title' => $gift->type === 'mystery_pack' ? 'Mystery gift' : 'Merchandise',
-                    'status' => $gift->status,
-                    'code' => null,
-                    'action' => $gift->status === 'pending_address' ? 'Isi alamat' : null,
-                    'href' => $gift->status === 'pending_address' ? route('participant.alamat', $gift->id) : null,
-                ];
+                $items[] = RewardPresenter::gift($gift);
             }
 
             return $items;
         })->values();
 
-        return Inertia::render('participant/hadiah', ['rewards' => $rewards]);
-    }
-
-    private function title(string $type): string
-    {
-        return match ($type) {
-            'voucher' => 'Voucher Kopi Grosir',
-            'token' => 'Token listrik',
-            'bensin' => 'Bensin motor',
-            default => 'Hadiah',
-        };
+        return Inertia::render('participant/hadiah', [
+            'rewards' => $rewards,
+            'approvedClaims' => $claims->count(),
+        ]);
     }
 }

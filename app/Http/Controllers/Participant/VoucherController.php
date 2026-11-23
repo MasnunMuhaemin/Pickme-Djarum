@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Participant;
 use App\Http\Controllers\Controller;
 use App\Models\Participant;
 use App\Models\Voucher;
+use App\Support\RewardPresenter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,7 +19,11 @@ class VoucherController extends Controller
         $voucher = $code ? $query->where('code', $code)->firstOrFail() : $query->latest()->firstOrFail();
 
         return Inertia::render('participant/voucher', [
-            'voucher' => $voucher->only(['id', 'code', 'type', 'status', 'expires_at', 'sent_at']),
+            'voucher' => [
+                ...$voucher->only(['id', 'code', 'type', 'status', 'destination']),
+                'expires_at' => $voucher->expires_at?->translatedFormat('d M Y'),
+            ],
+            'reward' => RewardPresenter::voucher($voucher),
         ]);
     }
 }

@@ -1,15 +1,12 @@
 import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
 import { Badge, OutlineButton, PageHeader, PrimaryButton, Sheet } from '@/features/participant/components/ui';
-import { boardSlots, pickerCodes } from '@/features/participant/data';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { deviceId } from '@/lib/device';
 import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
 import { Link, useForm, usePage } from '@inertiajs/react';
 import { Check, Lock, Pause } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
-
-const disabledCodes = ['A1', 'F6', 'J9', 'N3', 'T9', 'V2'];
+import { FormEvent, useState } from 'react';
 
 type Area = { id: number; name: string };
 
@@ -19,20 +16,34 @@ type PapanProps = {
     availableCount?: number;
     totalSlots?: number;
     activeClaim?: { id: number; status: string; slot_id: number } | null;
+    canClaim?: boolean;
+    board?: { week_label: string; status: string } | null;
     modal?: string;
     areas?: Area[];
 };
 
-export default function Papan({ outlet, slots: serverSlots, availableCount = 15, totalSlots = 25, activeClaim, modal, areas = [] }: PapanProps) {
-    const { url, props } = usePage();
-    const params = new URLSearchParams(url.split('?')[1] ?? '');
+export default function Papan({
+    outlet,
+    slots = [],
+    availableCount = 0,
+    totalSlots = 0,
+    activeClaim,
+    canClaim = false,
+    board,
+    modal,
+    areas = [],
+}: PapanProps) {
+    const { props } = usePage();
     const isLoggedIn = Boolean((props.auth as { participant?: unknown })?.participant);
     const caps = useCaps();
-    const slots = serverSlots?.length ? serverSlots : boardSlots.map((s) => ({ position: s.code, code: '', status: s.taken ? 'used' : 'empty' }));
     const startForm = useForm({ device_id: deviceId(), claim: '', outlet: outlet?.code ?? 'W07' });
 
     function startClaim(e?: FormEvent) {
         e?.preventDefault();
+        if (!canClaim) {
+            setPaused(true);
+            return;
+        }
         if (!isLoggedIn) {
             setAuthMode('login');
             return;
@@ -40,21 +51,13 @@ export default function Papan({ outlet, slots: serverSlots, availableCount = 15,
         startForm.post('/participant/klaim/mulai', { preserveScroll: true });
     }
 
-    const [paused, setPaused] = useState(params.has('dijeda'));
-    const [picker, setPicker] = useState(params.has('pilih'));
+    const [paused, setPaused] = useState(false);
     const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
-    const [selected, setSelected] = useState('C3');
 
     function closeAuth() {
         setAuthMode(null);
         if (modal) window.history.replaceState({}, '', '/participant/papan');
     }
-
-    useEffect(() => {
-        const next = new URLSearchParams(url.split('?')[1] ?? '');
-        setPaused(next.has('dijeda'));
-        setPicker(next.has('pilih'));
-    }, [url]);
 
     return (
         <ParticipantLayout nav="papan">
@@ -62,23 +65,16 @@ export default function Papan({ outlet, slots: serverSlots, availableCount = 15,
 
             <div className="bg-night text-cream flex items-center justify-between px-4 py-2.5">
                 <div>
-                    <p className="text-[11px] font-bold">10.00 - 12.00 WIB</p>
+                    <p className="text-[11px] font-bold">{board ? `Papan minggu ${board.week_label}` : 'Papan belum tersedia'}</p>
                     <p className="text-cream/70 flex items-center gap-1.5 text-[10px]">
-                        <span className="bg-lime size-1.5 rounded-full" />
-                        Sedang berjalan
+                        <span className={cn('size-1.5 rounded-full', canClaim ? 'bg-lime' : 'bg-danger')} />
+                        {canClaim ? 'Sedang berjalan' : 'Sedang dijeda'}
                     </p>
                 </div>
                 <button onClick={() => setPaused(true)} className="border-cream/25 rounded-full border px-2.5 py-1 text-[10px] font-semibold">
                     Status program
                 </button>
             </div>
-
-            <Link
-                href="/participant/mahasiswa"
-                className="text-ink-soft block px-4 pt-2 text-[10px] font-semibold underline underline-offset-2 md:px-8"
-            >
-                Link tiket tracing W07 - Sakinah
-            </Link>
 
             <div className="flex-1 px-4 pt-4 pb-6 md:mx-auto md:w-full md:max-w-[720px] md:px-8 md:pt-6 md:pb-10">
                 <div className="flex items-start justify-between">
@@ -111,12 +107,15 @@ export default function Papan({ outlet, slots: serverSlots, availableCount = 15,
                     ))}
                 </div>
 
-                <div className="mt-4 rounded-2xl bg-[#fbe3e0] p-3.5 md:mt-6 md:p-4">
-                    <p className="text-danger text-[12px] font-extrabold md:text-[13px]">Kamu belum isi slot</p>
-                    <p className="text-danger/80 mt-0.5 text-[11px] leading-relaxed">
-                        Kamu akan diblokir 10 menit dari papan kalau keluar tanpa klaim.
-                    </p>
-                </div>
+                {activeClaim && (
+                    <div className="mt-4 rounded-2xl bg-[#fbe3e0] p-3.5 md:mt-6 md:p-4">
+                        <p className="text-danger text-[12px] font-extrabold md:text-[13px]">Kamu belum isi slot</p>
+                        <p className="text-danger/80 mt-0.5 text-[11px] leading-relaxed">
+                            Kamu akan diblokir 10 menit dari papan kalau keluar tanpa klaim.
+                        </p>
+                    </div>
+                )}
+                {slots.length === 0 && <p className="text-ink-soft mt-4 text-center text-[11px]">Slot papan belum tersedia.</p>}
 
                 <PrimaryButton onClick={() => startClaim()} disabled={startForm.processing} className="mt-4">
                     {startForm.processing ? 'Mengambil slot...' : 'Klaim sekarang'}
@@ -153,42 +152,6 @@ export default function Papan({ outlet, slots: serverSlots, availableCount = 15,
                         Kembali
                     </button>
                 </div>
-            </Sheet>
-
-            <Sheet open={picker} onClose={() => setPicker(false)} title="Pilih kode">
-                <p className="text-ink-soft text-[12px] leading-relaxed">Ketuk satu kode. Hadiah disembunyikan sampai kamu klaim.</p>
-                <div className="mt-3 grid grid-cols-4 gap-2">
-                    {pickerCodes.map((code) => {
-                        const disabled = disabledCodes.includes(code);
-                        return (
-                            <button
-                                key={code}
-                                disabled={disabled}
-                                onClick={() => setSelected(code)}
-                                className={cn(
-                                    'h-11 rounded-lg border text-[13px] font-bold',
-                                    disabled && 'border-ink/10 bg-cream-deep text-ink/30 line-through',
-                                    !disabled && selected === code && 'border-ink bg-ink text-cream',
-                                    !disabled && selected !== code && 'border-ink/20 bg-cream-soft text-ink',
-                                )}
-                            >
-                                {code}
-                            </button>
-                        );
-                    })}
-                </div>
-                <PrimaryButton
-                    onClick={() => {
-                        setPicker(false);
-                        setAuthMode('login');
-                    }}
-                    className="mt-4"
-                >
-                    Kirim kode
-                </PrimaryButton>
-                <p className="text-ink-soft mt-3 text-[10px] leading-relaxed">
-                    Kode yang sudah dipakai tidak bisa dipilih lagi. Hadiah muncul setelah kode dikirim.
-                </p>
             </Sheet>
 
             <AuthSheet mode={authMode} onClose={closeAuth} onModeChange={setAuthMode} areas={areas} />

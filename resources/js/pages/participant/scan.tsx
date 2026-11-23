@@ -1,20 +1,29 @@
+import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
 import { LogoutButton } from '@/features/participant/components/ui';
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { Camera, Gift, LayoutGrid, QrCode, Trophy } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Outlet = { code: string; name: string };
+type Area = { id: number; name: string };
 
 type Detector = new (options: { formats: string[] }) => {
     detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]>;
 };
 
 function isScanPath(url: string): boolean {
-    return url.split('?')[0] === '/participant/scan';
+    return ['/participant/scan', '/participant/masuk', '/participant/daftar'].includes(url.split('?')[0]);
 }
 
-export default function Scan({ outlets = [] }: { outlets?: Outlet[] }) {
+export default function Scan({ outlets = [], modal, areas = [] }: { outlets?: Outlet[]; modal?: string; areas?: Area[] }) {
     const { url } = usePage();
+    const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
+    const authOpen = authMode !== null;
+
+    function closeAuth() {
+        setAuthMode(null);
+        if (modal) window.history.replaceState({}, '', '/participant/scan');
+    }
     const video = useRef<HTMLVideoElement>(null);
     const [cameraOn, setCameraOn] = useState(false);
     const [cameraError, setCameraError] = useState('');
@@ -23,10 +32,16 @@ export default function Scan({ outlets = [] }: { outlets?: Outlet[] }) {
     function submit(e?: FormEvent) {
         e?.preventDefault();
         if (!form.data.code) return;
-        form.post('/participant/scan', { preserveScroll: true });
+        // preserveState: false agar halaman di-mount ulang dan popup masuk muncul setelah redirect.
+        form.post('/participant/scan', { preserveScroll: true, preserveState: false });
     }
 
     useEffect(() => {
+        // Kamera dijeda selama popup masuk/daftar terbuka.
+        if (authOpen) {
+            setCameraOn(false);
+            return;
+        }
         let stream: MediaStream | null = null;
         let timer: number | undefined;
         let stopped = false;
@@ -54,7 +69,7 @@ export default function Scan({ outlets = [] }: { outlets?: Outlet[] }) {
                         if (codes[0]?.rawValue) {
                             window.clearInterval(timer);
                             form.setData('code', codes[0].rawValue);
-                            router.post('/participant/scan', { code: codes[0].rawValue }, { preserveScroll: true });
+                            router.post('/participant/scan', { code: codes[0].rawValue }, { preserveScroll: true, preserveState: false });
                         }
                     } catch {
                         // frame belum siap
@@ -72,7 +87,7 @@ export default function Scan({ outlets = [] }: { outlets?: Outlet[] }) {
             stream?.getTracks().forEach((track) => track.stop());
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [authOpen]);
 
     const compactNav = isScanPath(url);
     const navItems = [
@@ -185,6 +200,8 @@ export default function Scan({ outlets = [] }: { outlets?: Outlet[] }) {
                     </nav>
                 )}
             </div>
+
+            <AuthSheet mode={authMode} onClose={closeAuth} onModeChange={setAuthMode} areas={areas} />
         </div>
     );
 }

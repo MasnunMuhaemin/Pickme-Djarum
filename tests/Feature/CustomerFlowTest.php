@@ -31,6 +31,7 @@ class CustomerFlowTest extends TestCase
             'birth_date' => $birthDate,
             'area_id' => Area::first()->id,
             'pin' => '1234',
+            'pin_confirmation' => '1234',
             'device_id' => 'test-device-1',
         ];
     }
@@ -51,6 +52,10 @@ class CustomerFlowTest extends TestCase
         $this->assertSame('Sakinah', $participant->name);
 
         $this->post('/participant/persetujuan', ['accepted' => true])->assertRedirect('/participant/foto');
+        // Belum menjawab pertanyaan mahasiswa: klaim ditahan, lalu lanjut ke foto setelah menjawab "ya".
+        $this->post('/participant/klaim/mulai', ['outlet' => 'W07'])->assertRedirect('/participant/mahasiswa');
+        $this->get('/participant/foto')->assertRedirect('/participant/mahasiswa');
+        $this->post('/participant/mahasiswa', ['is_student' => true])->assertRedirect('/participant/foto?outlet=W07');
         $this->post('/participant/klaim/mulai', ['outlet' => 'W07'])->assertRedirect('/participant/foto?outlet=W07');
 
         $this->assertDatabaseCount('claims', 0);
@@ -85,6 +90,21 @@ class CustomerFlowTest extends TestCase
         $this->assertTrue(
             Voucher::where('claim_id', $claim->id)->exists() || $claim->fresh()->gifts()->exists()
         );
+        $this->get('/participant/hadiah')->assertOk()->assertInertia(fn ($page) => $page
+            ->component('participant/hadiah')
+            ->where('approvedClaims', 1)
+            ->has('rewards', 1, fn ($reward) => $reward
+                ->hasAll(['id', 'kind', 'title', 'description', 'status', 'status_label', 'tone', 'action', 'href'])
+                ->etc()
+            )
+        );
+        if ($voucher = Voucher::where('claim_id', $claim->id)->first()) {
+            $this->get("/participant/voucher/{$voucher->code}")->assertOk()->assertInertia(fn ($page) => $page
+                ->component('participant/voucher')
+                ->where('voucher.code', $voucher->code)
+                ->has('reward.status_label')
+            );
+        }
     }
 
     public function test_scan_resolves_known_outlet_and_rejects_unknown_code(): void
@@ -104,6 +124,17 @@ class CustomerFlowTest extends TestCase
 
         $this->post('/participant/klaim/mulai')->assertRedirect('/participant/mahasiswa/khusus');
         $this->assertDatabaseMissing('claims', ['participant_id' => Participant::first()->id]);
+    }
+
+    public function test_home_lists_prizes_from_active_board(): void
+    {
+        $this->get('/participant')->assertOk()->assertInertia(fn ($page) => $page
+            ->component('participant/home')
+            ->has('prizes', 4)
+            ->where('prizes.0.type', 'voucher')
+            ->where('prizes.0.value', 'Rp30.000')
+            ->where('prizes.0.remaining', 9)
+        );
     }
 
     public function test_support_pages_write_to_database(): void

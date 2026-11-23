@@ -1,4 +1,4 @@
-import { Input, PageHeader, PrimaryButton, Select, Textarea } from '@/features/participant/components/ui';
+import { Input, PageHeader, PrimaryButton, Select, Textarea, toWhatsapp, WHATSAPP_MAX } from '@/features/participant/components/ui';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { useForm } from '@inertiajs/react';
 import { MapPin } from 'lucide-react';
@@ -41,8 +41,9 @@ export default function Alamat({ gift }: { gift?: Gift }) {
                         <span className="text-ink mb-1.5 block text-xs font-semibold">Nomor WhatsApp</span>
                         <Input
                             inputMode="tel"
+                            maxLength={WHATSAPP_MAX}
                             value={form.data.whatsapp}
-                            onChange={(e) => form.setData('whatsapp', e.target.value)}
+                            onChange={(e) => form.setData('whatsapp', toWhatsapp(e.target.value))}
                             placeholder="08xx xxxx xxxx"
                         />
                         {form.errors.whatsapp && <span className="text-danger mt-1 block text-[11px]">{form.errors.whatsapp}</span>}

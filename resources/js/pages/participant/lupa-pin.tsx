@@ -1,4 +1,4 @@
-import { Input, OutlineButton, PageHeader, PrimaryButton, StepList } from '@/features/participant/components/ui';
+import { Input, OutlineButton, PageHeader, PrimaryButton, StepList, toWhatsapp, WHATSAPP_MAX } from '@/features/participant/components/ui';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
@@ -37,8 +37,9 @@ export default function LupaPin({ sent }: { sent?: boolean }) {
                     <p className="text-ink-soft mt-1 text-[10px] leading-relaxed">Permintaan dicatat. Admin menghubungi lewat WhatsApp.</p>
                     <Input
                         inputMode="tel"
+                        maxLength={WHATSAPP_MAX}
                         value={form.data.whatsapp}
-                        onChange={(e) => form.setData('whatsapp', e.target.value)}
+                        onChange={(e) => form.setData('whatsapp', toWhatsapp(e.target.value))}
                         placeholder="Nomor WhatsApp terdaftar"
                         className="mt-2"
                     />

@@ -1,23 +1,24 @@
 import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
 import { Card, PageHeader, PrimaryButton } from '@/features/participant/components/ui';
-import { prizes } from '@/features/participant/data';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { Link } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
-import { Coffee, Fuel, Gamepad2, QrCode, Shirt } from 'lucide-react';
+import { Box, Coffee, Fuel, Gift, QrCode, Zap } from 'lucide-react';
 import { useState } from 'react';
 
-const icons: Record<(typeof prizes)[number]['icon'], LucideIcon> = {
-    coffee: Coffee,
-    game: Gamepad2,
-    shirt: Shirt,
-    fuel: Fuel,
+/** Data dari App\Support\RewardPresenter::prize(). */
+type Prize = { type: string; title: string; subtitle: string; value: string; remaining: number };
+
+const prizeStyle: Record<string, { icon: LucideIcon; tone: string }> = {
+    voucher: { icon: Coffee, tone: 'bg-[#f6e7cf]' },
+    token: { icon: Zap, tone: 'bg-[#e3e9fb]' },
+    merch: { icon: Box, tone: 'bg-[#e5f1d5]' },
+    bensin: { icon: Fuel, tone: 'bg-[#fbe2da]' },
 };
 
 type Area = { id: number; name: string };
 
-export default function Home({ modal, areas = [] }: { modal?: string; areas?: Area[] }) {
-    const [demoOpen, setDemoOpen] = useState(true);
+export default function Home({ modal, areas = [], prizes = [] }: { modal?: string; areas?: Area[]; prizes?: Prize[] }) {
     const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
 
     function closeAuth() {
@@ -69,41 +70,30 @@ export default function Home({ modal, areas = [] }: { modal?: string; areas?: Ar
                                 Scan QR papan
                             </PrimaryButton>
                         </div>
-
-                        {demoOpen && (
-                            <div className="border-ink/25 bg-cream-soft/60 mt-4 flex items-center gap-2 rounded-2xl border border-dashed px-3 py-2.5">
-                                <div className="flex-1">
-                                    <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Demo prototype</p>
-                                    <p className="text-ink-soft text-[11px]">Hanya contoh alur. Semua data palsu.</p>
-                                </div>
-                                <button
-                                    onClick={() => setDemoOpen(false)}
-                                    className="border-ink/20 rounded-full border px-3 py-1 text-[10px] font-bold"
-                                >
-                                    Tutup
-                                </button>
-                            </div>
-                        )}
                     </div>
 
                     <Card className="order-1 mt-5 p-4 md:sticky md:top-24 md:order-2 md:mt-0 md:p-5">
                         <p className="text-[13px] font-extrabold">Hadiah yang bisa kamu dapat</p>
                         <div className="mt-3 space-y-1">
                             {prizes.map((prize) => {
-                                const Icon = icons[prize.icon];
+                                const style = prizeStyle[prize.type] ?? { icon: Gift, tone: 'bg-cream-deep' };
+                                const Icon = style.icon;
                                 return (
-                                    <div key={prize.title} className="flex items-center gap-3 rounded-xl py-2">
-                                        <span className={`grid size-10 place-items-center rounded-xl ${prize.tone}`}>
+                                    <div key={prize.type} className="flex items-center gap-3 rounded-xl py-2">
+                                        <span className={`grid size-10 place-items-center rounded-xl ${style.tone}`}>
                                             <Icon className="text-ink size-5" />
                                         </span>
                                         <div className="min-w-0 flex-1">
                                             <p className="truncate text-[13px] font-bold">{prize.title}</p>
-                                            <p className="text-ink-soft text-[11px]">{prize.icon === 'fuel' ? 'Bensin gratis' : 'Voucher belanja'}</p>
+                                            <p className="text-ink-soft truncate text-[11px]">
+                                                {prize.subtitle} · {prize.remaining > 0 ? `${prize.remaining} slot tersisa` : 'Habis minggu ini'}
+                                            </p>
                                         </div>
                                         <span className="text-[12px] font-bold">{prize.value}</span>
                                     </div>
                                 );
                             })}
+                            {prizes.length === 0 && <p className="text-ink-soft py-2 text-[11px]">Belum ada papan aktif.</p>}
                         </div>
                     </Card>
                 </div>

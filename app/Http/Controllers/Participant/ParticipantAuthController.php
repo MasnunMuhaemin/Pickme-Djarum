@@ -21,19 +21,19 @@ class ParticipantAuthController extends Controller
 {
     public function showRegister(): Response
     {
-        return Inertia::render('participant/home', [
+        return Inertia::render('participant/scan', [
             'modal' => 'register',
             'areas' => Area::orderBy('name')->get(['id', 'name']),
-            'outlet' => Outlet::where('code', 'W07')->first(),
+            'outlets' => Outlet::where('status', 'active')->get(['code', 'name']),
         ]);
     }
 
     public function showLogin(): Response
     {
-        return Inertia::render('participant/home', [
+        return Inertia::render('participant/scan', [
             'modal' => 'login',
             'areas' => Area::orderBy('name')->get(['id', 'name']),
-            'outlet' => Outlet::where('code', 'W07')->first(),
+            'outlets' => Outlet::where('status', 'active')->get(['code', 'name']),
         ]);
     }
 

@@ -48,7 +48,8 @@ class ClaimController extends Controller
             'availableCount' => $outlet->board->slots->where('status', 'empty')->count(),
             'totalSlots' => $outlet->board->slots->count(),
             'activeClaim' => $activeClaim?->only(['id', 'status', 'claim_code', 'slot_id']),
-            'canClaim' => $outlet->isActive(),
+            'canClaim' => $outlet->isActive() && $outlet->board?->status === 'active',
+            'board' => $outlet->board?->only(['week_label', 'status']),
             'modal' => $request->query('modal'),
             'areas' => Area::orderBy('name')->get(['id', 'name']),
         ]);
@@ -56,11 +57,6 @@ class ClaimController extends Controller
 
     public function start(Request $request): RedirectResponse
     {
-        $participant = $this->participant($request);
-        if ($participant->is_student === false) {
-            return to_route('participant.mahasiswa.khusus');
-        }
-
         $code = $this->outletCode($request);
         $request->session()->put('claim_outlet', $code);
         $outlet = Outlet::where('code', $code)->firstOrFail();

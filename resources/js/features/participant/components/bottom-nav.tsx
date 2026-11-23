@@ -2,14 +2,14 @@ import { LogoutButton } from '@/features/participant/components/ui';
 import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Gift, LayoutGrid, QrCode, Trophy } from 'lucide-react';
+import { Camera, CreditCard, Gift, LayoutGrid } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const items = [
     { key: 'papan', label: 'Papan', href: '/participant', icon: LayoutGrid },
-    { key: 'hadiah', label: 'Hadiah', href: '/participant/hadiah', icon: Gift },
-    { key: 'scan', label: 'Scan', href: '/participant/scan', icon: QrCode },
-    { key: 'kartu', label: 'Kartu', href: '/participant/kartu', icon: Trophy },
+    { key: 'hadiah', label: 'Hadiahku', href: '/participant/hadiah', icon: Gift },
+    { key: 'scan', label: 'Scan', href: '/participant/scan', icon: Camera },
+    { key: 'kartu', label: 'Kartu', href: '/participant/kartu', icon: CreditCard },
 ];
 
 function activeKey(url: string): string {
@@ -142,37 +142,30 @@ export function BottomNav() {
         );
     }
 
+    // Pil hitam melayang: menu aktif melebar jadi pil lime berisi ikon dan label.
     return (
-        <nav
-            className={cn(
-                'bg-night text-cream/70 after:bg-night sticky bottom-0 z-30 mt-auto grid border-t border-white/10 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] after:absolute after:top-full after:left-0 after:h-2 after:w-full md:hidden',
-                visibleItems.length === 4 ? 'grid-cols-4' : 'grid-cols-3',
-            )}
-        >
-            {visibleItems.map((item) => {
-                const isActive = active === item.key;
-                const Icon = item.icon;
-                return (
-                    <Link
-                        key={item.key}
-                        href={item.href}
-                        className={cn(
-                            'flex flex-col items-center gap-1 py-1 text-[10px] font-semibold transition-colors',
-                            isActive ? 'text-lime' : 'text-cream/60',
-                        )}
-                    >
-                        <span
+        <nav className="pointer-events-none sticky bottom-0 z-30 mt-auto px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden">
+            <div className="pointer-events-auto flex h-16 items-center justify-between gap-1 rounded-full bg-[#0b0b0b] px-2 shadow-[0_12px_30px_-8px_rgba(0,0,0,0.45)]">
+                {visibleItems.map((item) => {
+                    const isActive = active === item.key;
+                    const Icon = item.icon;
+                    return (
+                        <Link
+                            key={item.key}
+                            href={item.href}
+                            aria-label={item.label}
+                            aria-current={isActive ? 'page' : undefined}
                             className={cn(
-                                'grid size-11 place-items-center rounded-full transition-colors',
-                                isActive ? 'bg-lime text-ink' : 'bg-transparent',
+                                'flex h-12 items-center justify-center rounded-full transition-all duration-200',
+                                isActive ? 'bg-lime text-ink gap-2 px-5 text-[14px] font-extrabold' : 'text-cream w-12 hover:bg-white/10',
                             )}
                         >
-                            <Icon className="size-5" />
-                        </span>
-                        {item.label}
-                    </Link>
-                );
-            })}
+                            <Icon className="size-6 shrink-0" strokeWidth={isActive ? 2.25 : 1.75} />
+                            {isActive && <span className="whitespace-nowrap">{item.label}</span>}
+                        </Link>
+                    );
+                })}
+            </div>
         </nav>
     );
 }

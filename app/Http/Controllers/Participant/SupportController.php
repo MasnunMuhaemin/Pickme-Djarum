@@ -51,9 +51,16 @@ class SupportController extends Controller
             'is_student' => $isStudent,
         ], $participant);
 
-        return $isStudent
-            ? to_route('participant.papan')
-            : to_route('participant.mahasiswa.khusus');
+        if (! $isStudent) {
+            return to_route('participant.mahasiswa.khusus');
+        }
+
+        // Kalau pertanyaan ini muncul di tengah klaim, langsung lanjut ke foto bungkus.
+        $outlet = $request->session()->get('claim_outlet');
+
+        return $participant && $outlet
+            ? to_route('participant.foto', ['outlet' => $outlet])
+            : to_route('participant.papan');
     }
 
     public function showClaimStatus(Request $request, string $status = 'pending'): Response

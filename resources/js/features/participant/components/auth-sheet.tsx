@@ -1,10 +1,22 @@
-import { Checkbox, DateField, Input, PrimaryButton, Select, Sheet } from '@/features/participant/components/ui';
+import { Checkbox, DateField, Input, PinInput, PrimaryButton, Select, Sheet, toWhatsapp, WHATSAPP_MAX } from '@/features/participant/components/ui';
 import { deviceId } from '@/lib/device';
 import { Link, useForm } from '@inertiajs/react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
 type Area = { id: number; name: string };
 export type AuthMode = 'login' | 'register' | null;
+
+// Isian daftar disimpan sementara (tanpa PIN) supaya tidak hilang saat membuka halaman persetujuan.
+const DRAFT_KEY = 'pickme.register-draft';
+type RegisterDraft = { name: string; whatsapp: string; birth_date: string; area_id: string };
+
+function readDraft(): Partial<RegisterDraft> {
+    try {
+        return JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? '{}');
+    } catch {
+        return {};
+    }
+}
 
 export function AuthSheet({
     mode,
@@ -18,9 +30,18 @@ export function AuthSheet({
     areas?: Area[];
 }) {
     const login = useForm({ whatsapp: '', pin: '', device_id: deviceId() });
-    const register = useForm({ name: '', whatsapp: '', birth_date: '', area_id: '', pin: '', device_id: deviceId() });
-    const [loginAgree, setLoginAgree] = useState(false);
+    const register = useForm({
+        name: '',
+        whatsapp: '',
+        birth_date: '',
+        area_id: '',
+        ...readDraft(),
+        pin: '',
+        pin_confirmation: '',
+        device_id: deviceId(),
+    });
     const [registerAgree, setRegisterAgree] = useState(false);
+    const pinMismatch = register.data.pin_confirmation.length === 4 && register.data.pin_confirmation !== register.data.pin;
 
     function submitLogin(e: FormEvent) {
         e.preventDefault();
@@ -29,8 +50,13 @@ export function AuthSheet({
 
     function submitRegister(e: FormEvent) {
         e.preventDefault();
-        register.post('/participant/daftar', { preserveScroll: true });
+        register.post('/participant/daftar', { preserveScroll: true, onSuccess: () => sessionStorage.removeItem(DRAFT_KEY) });
     }
+
+    const { name, whatsapp, birth_date, area_id } = register.data;
+    useEffect(() => {
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ name, whatsapp, birth_date, area_id }));
+    }, [name, whatsapp, birth_date, area_id]);
 
     if (mode === 'login') {
         return (
@@ -41,26 +67,22 @@ export function AuthSheet({
                         <span className="mb-1.5 block text-[11px] font-semibold">Nomor WhatsApp</span>
                         <Input
                             inputMode="tel"
+                            maxLength={WHATSAPP_MAX}
                             value={login.data.whatsapp}
-                            onChange={(e) => login.setData('whatsapp', e.target.value)}
+                            onChange={(e) => login.setData('whatsapp', toWhatsapp(e.target.value))}
                             placeholder="08xx xxxx xxxx"
                         />
                     </label>
                     <label className="block">
                         <span className="mb-1.5 block text-[11px] font-semibold">PIN</span>
-                        <Input
-                            inputMode="numeric"
-                            maxLength={4}
+                        <PinInput
                             value={login.data.pin}
-                            onChange={(e) => login.setData('pin', e.target.value)}
+                            onChange={(e) => login.setData('pin', e.target.value.replace(/\D/g, ''))}
                             placeholder="4 angka"
                         />
                     </label>
                     {login.errors.pin && <span className="text-danger block text-[11px]">{login.errors.pin}</span>}
-                    <Checkbox checked={loginAgree} onChange={setLoginAgree}>
-                        Saya setuju Syarat dan Ketentuan serta Kebijakan Privasi.
-                    </Checkbox>
-                    <PrimaryButton type="submit" disabled={!loginAgree || login.processing}>
+                    <PrimaryButton type="submit" disabled={login.processing}>
                         {login.processing ? 'Memeriksa...' : 'Masuk dan lanjut'}
                     </PrimaryButton>
                     <div className="flex items-center justify-between text-[11px]">
@@ -94,8 +116,9 @@ export function AuthSheet({
                         <span className="mb-1.5 block text-[11px] font-semibold">Nomor WhatsApp</span>
                         <Input
                             inputMode="tel"
+                            maxLength={WHATSAPP_MAX}
                             value={register.data.whatsapp}
-                            onChange={(e) => register.setData('whatsapp', e.target.value)}
+                            onChange={(e) => register.setData('whatsapp', toWhatsapp(e.target.value))}
                             placeholder="08xx xxxx xxxx"
                         />
                         {register.errors.whatsapp && <span className="text-danger mt-1 block text-[11px]">{register.errors.whatsapp}</span>}
@@ -121,19 +144,30 @@ export function AuthSheet({
                     </label>
                     <label className="block">
                         <span className="mb-1.5 block text-[11px] font-semibold">PIN 4 angka</span>
-                        <Input
-                            inputMode="numeric"
-                            maxLength={4}
+                        <PinInput
                             value={register.data.pin}
-                            onChange={(e) => register.setData('pin', e.target.value)}
+                            onChange={(e) => register.setData('pin', e.target.value.replace(/\D/g, ''))}
                             placeholder="4 angka"
                         />
                         {register.errors.pin && <span className="text-danger mt-1 block text-[11px]">{register.errors.pin}</span>}
                     </label>
+                    <label className="block">
+                        <span className="mb-1.5 block text-[11px] font-semibold">Ulangi PIN</span>
+                        <PinInput
+                            value={register.data.pin_confirmation}
+                            onChange={(e) => register.setData('pin_confirmation', e.target.value.replace(/\D/g, ''))}
+                            placeholder="Ketik ulang 4 angka"
+                        />
+                        {pinMismatch && <span className="text-danger mt-1 block text-[11px]">Ulangi PIN belum sama dengan PIN.</span>}
+                    </label>
                     <Checkbox checked={registerAgree} onChange={setRegisterAgree}>
-                        Saya setuju Syarat dan Ketentuan serta Kebijakan Privasi.
+                        Saya setuju{' '}
+                        <Link href="/participant/persetujuan" className="text-ink font-semibold underline underline-offset-2">
+                            Syarat dan Ketentuan serta Kebijakan Privasi
+                        </Link>
+                        .
                     </Checkbox>
-                    <PrimaryButton type="submit" disabled={!registerAgree || register.processing}>
+                    <PrimaryButton type="submit" disabled={!registerAgree || pinMismatch || register.processing}>
                         {register.processing ? 'Menyimpan...' : 'Daftar dan lanjut'}
                     </PrimaryButton>
                     <button
