@@ -1,107 +1,188 @@
-import { PageHeader, PrimaryButton } from '@/features/participant/components/ui';
-import { uniqueSlotCode, type ClaimVariant } from '@/features/participant/data';
-import ParticipantLayout from '@/layouts/participant-layout';
-import { Link, router, usePage } from '@inertiajs/react';
-import { Check } from 'lucide-react';
-import { useState } from 'react';
+import { Link, useForm } from '@inertiajs/react';
+import { AlertCircle, Check, Copy, Eye, EyeOff } from 'lucide-react';
+import { FormEvent, useRef, useState } from 'react';
 
-const variants: { key: ClaimVariant; label: string }[] = [
-    { key: 'voucher', label: 'Voucher' },
-    { key: 'token', label: 'Token' },
-    { key: 'merch', label: 'Merch' },
-    { key: 'bensin', label: 'Bensin' },
-];
+type Slot = { code: string; position: string };
+type Claim = { id: number; status: string; claim_code?: string; slot?: Slot } | null;
+type BoardSlot = { position: string; status: string };
 
-export default function Slot() {
-    const { url } = usePage();
-    const [code, setCode] = useState('');
-    const [error, setError] = useState(new URLSearchParams(url.split('?')[1] ?? '').has('salah'));
-    const [variant, setVariant] = useState<ClaimVariant>('voucher');
+export default function Slot({ claim, board = [] }: { claim?: Claim; board?: BoardSlot[] }) {
+    const position = claim?.slot?.position ?? 'C3';
+    const slotCode = claim?.slot?.code ?? '';
+    const [revealed, setRevealed] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const [chars, setChars] = useState(['', '', '', '', '', '']);
+    const refs = useRef<(HTMLInputElement | null)[]>([]);
+    const form = useForm({ code: '' });
 
-    function submit() {
-        if (code === uniqueSlotCode) {
-            setError(false);
-            router.visit(`/participant/klaim/berhasil/${variant}`);
-        } else {
-            setError(true);
+    function changeAt(index: number, value: string) {
+        const clean = value
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(-1);
+        const next = [...chars];
+        next[index] = clean;
+        setChars(next);
+        form.setData('code', next.join('').replace(/ /g, ''));
+        if (clean && index < 5) refs.current[index + 1]?.focus();
+    }
+
+    function keyDownAt(index: number, key: string) {
+        if (key === 'Backspace' && !chars[index] && index > 0) refs.current[index - 1]?.focus();
+    }
+
+    function submit(e: FormEvent) {
+        e.preventDefault();
+        form.setData('code', chars.join('').replace(/ /g, ''));
+        form.post('/participant/slot', { preserveScroll: true });
+    }
+
+    async function copyCode() {
+        try {
+            await navigator.clipboard.writeText(slotCode);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        } catch {
+            setCopied(false);
         }
     }
 
+    const error = form.errors.code;
+    const boxes = [0, 1, 2, 3, 4, 5];
+
     return (
-        <ParticipantLayout hideBottomNav>
-            <PageHeader back="/participant/foto" title="Ambil slot" />
-            <div className="flex-1 px-4 pb-8 lg:mx-auto lg:w-full lg:max-w-[560px] lg:px-8 lg:pt-2 lg:pb-10">
-                <p className="text-ink-soft text-[11px] leading-relaxed">
-                    Foto tersimpan. Sistem memilih satu slot kosong untukmu. Ambil slot fisik itu, lalu isi kode di baliknya.
-                </p>
+        <div className="bg-lime text-ink min-h-dvh">
+            <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col md:max-w-[720px]">
+                <header className="px-6 pt-8 pb-4">
+                    <h1 className="text-[34px] leading-none font-extrabold tracking-tight">Ambil slot</h1>
+                </header>
 
-                <div className="bg-lime text-ink mt-4 rounded-3xl p-4">
-                    <div className="flex items-center gap-2">
-                        <span className="bg-ink text-lime grid size-7 place-items-center rounded-full">
-                            <Check className="size-4" />
-                        </span>
-                        <p className="text-[15px] font-extrabold">Slot C3 dikunci untukmu</p>
+                <main className="flex flex-1 flex-col rounded-t-[28px] bg-[#f7f3e3] px-5 pt-5 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
+                    <span className="bg-lime-soft text-ink inline-flex w-fit items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold">
+                        <Check className="size-3.5" />
+                        Foto terkirim
+                    </span>
+
+                    <div className="mt-5">
+                        <div className="grid grid-cols-[16px_repeat(5,1fr)] items-center gap-1.5">
+                            <span />
+                            {[1, 2, 3, 4, 5].map((n) => (
+                                <span key={n} className="text-ink-soft text-center text-[10px] font-bold">
+                                    {n}
+                                </span>
+                            ))}
+                            {['A', 'B', 'C', 'D', 'E'].map((row) => (
+                                <div key={row} className="contents">
+                                    <span className="text-ink-soft text-[10px] font-bold">{row}</span>
+                                    {[1, 2, 3, 4, 5].map((col) => {
+                                        const slotPosition = `${row}${col}`;
+                                        const taken = board.find((s) => s.position === slotPosition)?.status === 'used';
+                                        const selected = slotPosition === position;
+                                        return (
+                                            <div
+                                                key={slotPosition}
+                                                className={`grid h-11 place-items-center rounded-xl text-[11px] font-extrabold ${selected ? 'bg-lime text-ink ring-ink ring-2 ring-offset-2' : taken ? 'bg-ink text-cream' : 'bg-cream-deep text-ink-soft'}`}
+                                            >
+                                                {selected ? (
+                                                    <span className="text-center leading-none">
+                                                        {slotPosition}
+                                                        <span className="mt-0.5 block text-[7px] tracking-wide">SLOT KAMU</span>
+                                                    </span>
+                                                ) : (
+                                                    slotPosition
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-ink mt-4 text-[12px] leading-relaxed">Slot {position} ditahan untuk kamu. Ambil slot ini di papan.</p>
                     </div>
-                    <p className="text-ink/75 mt-2 text-[11px] leading-relaxed">
-                        Slot tetap ditahan walau kode salah. Kamu bisa mengisi ulang kode di halaman ini.
-                    </p>
 
-                    <div className="mt-4 flex items-center gap-2">
-                        <span className="bg-cream/70 rounded-lg px-2 py-1 text-[10px] font-bold">Slot</span>
-                        <span className="text-xl font-extrabold">C3</span>
-                    </div>
+                    {slotCode && (
+                        <div className="border-ink/25 mt-5 rounded-2xl border border-dashed p-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Kode slot kamu</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setRevealed(!revealed)}
+                                    className="text-ink flex items-center gap-1 text-[10px] font-bold"
+                                >
+                                    {revealed ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                                    {revealed ? 'Sembunyikan' : 'Lihat kode'}
+                                </button>
+                            </div>
+                            {revealed ? (
+                                <div className="mt-2 flex items-center justify-between gap-2">
+                                    <span className="font-mono text-2xl font-extrabold tracking-[0.25em]">{slotCode}</span>
+                                    <button
+                                        type="button"
+                                        onClick={copyCode}
+                                        className="bg-ink text-cream flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-bold"
+                                    >
+                                        {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+                                        {copied ? 'Tersalin' : 'Salin'}
+                                    </button>
+                                </div>
+                            ) : (
+                                <p className="text-ink-soft mt-2 text-[11px]">Ketuk "Lihat kode" untuk reveal kode slotmu.</p>
+                            )}
+                            <p className="text-ink-soft mt-2 text-[10px] leading-relaxed">
+                                Kode ini tercetak di balik slot fisik {position}. Salin ke kolom di bawah untuk memeriksa.
+                            </p>
+                        </div>
+                    )}
 
-                    <label className="mt-4 block">
-                        <span className="text-ink/70 text-[10px] font-bold tracking-widest uppercase">Kode 6 karakter</span>
-                        <input
-                            value={code}
-                            onChange={(e) => {
-                                setCode(e.target.value.toUpperCase().replace(/[\s-]/g, '').slice(0, 6));
-                                setError(false);
-                            }}
-                            onKeyDown={(e) => e.key === 'Enter' && submit()}
-                            placeholder="K7M2QX"
-                            autoCapitalize="characters"
-                            maxLength={6}
-                            className="border-ink bg-cream-soft mt-1.5 h-14 w-full rounded-xl border-2 text-center font-mono text-2xl font-extrabold tracking-[0.3em] outline-none"
-                        />
-                    </label>
-                    <p className="text-ink/60 mt-1 text-[10px]">Huruf besar otomatis. Spasi dan strip diabaikan. Contoh demo: {uniqueSlotCode}</p>
-                </div>
+                    {error && (
+                        <div
+                            role="alert"
+                            className="text-danger mt-5 flex items-start gap-2 rounded-xl bg-[#fbe3e0] p-3 text-[11px] leading-relaxed font-semibold"
+                        >
+                            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                            <span>{error}</span>
+                        </div>
+                    )}
 
-                {error && (
-                    <div className="text-danger mt-4 rounded-2xl bg-[#fbe3e0] p-3.5 text-[11px] leading-relaxed">
-                        Kode tidak sesuai. Coba huruf angka ya, atau ambil di dalam wilayah bukan di papan. Slot C3 tetap ditahan, silakan isi ulang.
-                    </div>
-                )}
+                    <form onSubmit={submit} className="mt-5">
+                        <p className="text-[13px] font-extrabold">Masukkan kode</p>
+                        <div className="mt-2 flex justify-between gap-1.5">
+                            {boxes.map((i) => (
+                                <input
+                                    key={i}
+                                    ref={(el) => {
+                                        refs.current[i] = el;
+                                    }}
+                                    value={chars[i] ?? ''}
+                                    onChange={(e) => changeAt(i, e.target.value)}
+                                    onKeyDown={(e) => keyDownAt(i, e.key)}
+                                    onFocus={(e) => e.target.select()}
+                                    maxLength={1}
+                                    aria-label={`Karakter kode ${i + 1}`}
+                                    className={`border-ink focus:ring-lime h-14 min-w-0 flex-1 rounded-xl border-2 bg-white text-center font-mono text-xl font-extrabold outline-none focus:ring-2 ${error ? 'border-danger' : ''}`}
+                                />
+                            ))}
+                        </div>
+                        <p className="text-ink-soft mt-2 text-[10px] leading-relaxed">
+                            Kode 6 karakter di balik slot. Huruf besar otomatis, spasi dan strip diabaikan.
+                        </p>
 
-                <PrimaryButton onClick={submit} className="mt-5">
-                    Kirim kode
-                </PrimaryButton>
+                        <button
+                            type="submit"
+                            disabled={form.processing || chars.join('').replace(/ /g, '').length !== 6}
+                            className="bg-lime text-ink mt-5 flex h-12 w-full items-center justify-center rounded-full text-[13px] font-extrabold disabled:opacity-50"
+                        >
+                            {form.processing ? 'Memeriksa...' : 'Kirim kode'}
+                        </button>
+                    </form>
 
-                <div className="border-ink/20 mt-6 rounded-xl border border-dashed p-3">
-                    <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Demo — jenis hadiah</p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                        {variants.map((item) => (
-                            <button
-                                key={item.key}
-                                onClick={() => setVariant(item.key)}
-                                className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                                    variant === item.key ? 'bg-ink text-cream' : 'bg-cream-deep text-ink-soft'
-                                }`}
-                            >
-                                {item.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                    <Link href="/participant/kartu" className="border-ink/20 rounded-full border px-2.5 py-1">
-                        Kartu dan peringkat
-                    </Link>
-                </div>
+                    {!claim && (
+                        <Link href="/participant/papan" className="text-ink mt-4 block text-center text-[11px] font-semibold underline">
+                            Ambil slot dulu
+                        </Link>
+                    )}
+                </main>
             </div>
-        </ParticipantLayout>
+        </div>
     );
 }

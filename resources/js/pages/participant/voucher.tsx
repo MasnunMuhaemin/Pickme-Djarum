@@ -3,10 +3,11 @@ import ParticipantLayout from '@/layouts/participant-layout';
 import { Check, Coffee, Copy } from 'lucide-react';
 import { useState } from 'react';
 
-const code = 'KGR-7M2Q9X';
+type Voucher = { id: number; code: string; type: string; status: string; expires_at?: string | null; sent_at?: string | null };
 
-export default function Voucher() {
+export default function Voucher({ voucher }: { voucher?: Voucher }) {
     const [copied, setCopied] = useState(false);
+    const code = voucher?.code ?? 'KGR-7M2Q9X';
 
     async function copy() {
         try {
@@ -20,8 +21,8 @@ export default function Voucher() {
 
     return (
         <ParticipantLayout nav="hadiah">
-            <PageHeader close="/participant/hadiah" title="Voucher" right={<Badge>Tersedia</Badge>} />
-            <div className="flex-1 px-4 pb-8 lg:mx-auto lg:w-full lg:max-w-[560px] lg:px-8 lg:pt-2 lg:pb-10">
+            <PageHeader close="/participant/hadiah" title="Voucher" right={<Badge>{voucher?.status ?? 'Tersedia'}</Badge>} />
+            <div className="flex-1 px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <div className="border-ink/10 bg-cream-soft overflow-hidden rounded-3xl border">
                     <div className="bg-cream-deep flex h-32 items-center justify-between px-5">
                         <Coffee className="text-ink/60 size-10" />
@@ -30,7 +31,6 @@ export default function Voucher() {
                     <div className="p-4">
                         <p className="text-[15px] font-extrabold">Voucher Kopi Grosir</p>
                         <p className="text-ink-soft mt-0.5 text-[10px]">Tunjukkan kode ini ke kasir warung.</p>
-
                         <div className="border-ink/25 bg-cream mt-4 rounded-xl border border-dashed p-3">
                             <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Kode voucher</p>
                             <div className="mt-1 flex items-center justify-between gap-2">
@@ -45,28 +45,21 @@ export default function Voucher() {
                                 </button>
                             </div>
                         </div>
-
                         <div className="mt-4 space-y-2 text-[11px]">
                             <div className="flex justify-between">
                                 <span className="text-ink-soft">Nilai</span>
                                 <span className="font-bold">Rp10.000</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-ink-soft">Berlaku</span>
-                                <span className="font-bold">14 hari</span>
-                            </div>
-                            <div className="flex justify-between">
                                 <span className="text-ink-soft">Status</span>
-                                <span className="font-bold">Tersedia</span>
+                                <span className="font-bold">{voucher?.status ?? 'Tersedia'}</span>
                             </div>
                         </div>
                     </div>
                 </div>
-
                 <p className="text-ink-soft mt-3 text-[10px] leading-relaxed">
                     Kode hanya bisa dipakai sekali. Kalau sudah ditukar, voucher tidak bisa dikembalikan.
                 </p>
-
                 <PrimaryButton href="/participant/hadiah" className="mt-6">
                     Kembali ke Hadiahku
                 </PrimaryButton>

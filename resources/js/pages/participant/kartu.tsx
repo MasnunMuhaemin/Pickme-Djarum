@@ -1,51 +1,60 @@
 import { Badge, PageHeader } from '@/features/participant/components/ui';
-import { leaderboard } from '@/features/participant/data';
 import ParticipantLayout from '@/layouts/participant-layout';
+import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
+import { usePage } from '@inertiajs/react';
 import { Check, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 
-export default function Kartu() {
+type LeaderRow = { rank: number; name: string; caps: number };
+
+export default function Kartu({ caps: capsProp, leaderboard = [] }: { caps?: number; leaderboard?: LeaderRow[] }) {
+    const { props } = usePage();
+    const isLoggedIn = Boolean((props.auth as { participant?: unknown } | undefined)?.participant);
+    const sharedCaps = useCaps();
+    const caps = isLoggedIn ? (capsProp ?? sharedCaps) : 0;
     const [tab, setTab] = useState<'mingguan' | 'bulanan'>('mingguan');
     const [following, setFollowing] = useState(false);
 
     return (
         <ParticipantLayout nav="kartu">
-            <PageHeader title="Kartu dan peringkat" close="/participant" right={<Badge>4 / 10</Badge>} />
-            <div className="flex-1 px-4 pb-6 lg:px-8 lg:pt-2 lg:pb-10">
-                <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
-                    <div className="bg-lime text-ink rounded-3xl p-4 lg:p-6">
-                        <div className="flex items-end justify-between">
-                            <div>
-                                <p className="text-ink/60 text-[10px] font-bold tracking-widest uppercase">Kartu cap</p>
-                                <p className="text-3xl font-extrabold tracking-tight">4 / 10</p>
+            <PageHeader title="Kartu dan peringkat" right={isLoggedIn ? <Badge>{caps} / 10</Badge> : null} />
+            <div className="flex-1 px-4 pb-6 md:px-8 md:pt-2 md:pb-10">
+                <div className={cn(isLoggedIn ? 'md:grid md:grid-cols-2 md:items-start md:gap-6' : 'md:mx-auto md:max-w-[560px]')}>
+                    {isLoggedIn && (
+                        <div className="bg-lime text-ink rounded-3xl p-4 md:p-6">
+                            <div className="flex items-end justify-between">
+                                <div>
+                                    <p className="text-ink/60 text-[10px] font-bold tracking-widest uppercase">Kartu cap</p>
+                                    <p className="text-3xl font-extrabold tracking-tight">{caps} / 10</p>
+                                </div>
+                                <p className="text-ink/70 pb-1 text-[10px] font-semibold">Reset tiap Senin</p>
                             </div>
-                            <p className="text-ink/70 pb-1 text-[10px] font-semibold">Reset tiap Senin</p>
-                        </div>
 
-                        <div className="mt-4 grid grid-cols-5 gap-2">
-                            {Array.from({ length: 10 }, (_, i) => (
-                                <span
-                                    key={i}
-                                    className={cn(
-                                        'grid aspect-square place-items-center rounded-full text-[10px] font-bold',
-                                        i < 4 ? 'bg-ink text-lime' : 'border-ink/25 bg-cream/40 text-ink/50 border',
-                                    )}
-                                >
-                                    {i < 4 ? <Check className="size-3.5" /> : i + 1}
-                                </span>
-                            ))}
-                        </div>
-
-                        <div className="mt-4">
-                            <div className="bg-ink/15 h-1.5 overflow-hidden rounded-full">
-                                <div className="bg-ink h-full w-[40%] rounded-full" />
+                            <div className="mt-4 grid grid-cols-5 gap-2">
+                                {Array.from({ length: 10 }, (_, i) => (
+                                    <span
+                                        key={i}
+                                        className={cn(
+                                            'grid aspect-square place-items-center rounded-full text-[10px] font-bold',
+                                            i < caps ? 'bg-ink text-lime' : 'border-ink/25 bg-cream/40 text-ink/50 border',
+                                        )}
+                                    >
+                                        {i < caps ? <Check className="size-3.5" /> : i + 1}
+                                    </span>
+                                ))}
                             </div>
-                            <p className="mt-1.5 text-[10px] font-semibold">1 cap lagi buka mystery gift di cap ke-5.</p>
-                        </div>
-                    </div>
 
-                    <div className="mt-4 lg:mt-0">
+                            <div className="mt-4">
+                                <div className="bg-ink/15 h-1.5 overflow-hidden rounded-full">
+                                    <div className="bg-ink h-full w-[40%] rounded-full" />
+                                </div>
+                                <p className="mt-1.5 text-[10px] font-semibold">1 cap lagi buka mystery gift di cap ke-5.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-4 md:mt-0">
                         <div className="bg-cream-deep flex rounded-full p-1">
                             {(['mingguan', 'bulanan'] as const).map((item) => (
                                 <button
@@ -73,7 +82,9 @@ export default function Kartu() {
                                         {row.rank}
                                     </span>
                                     <p className="flex-1 text-[12px] font-bold">{row.name}</p>
-                                    {row.rank === 5 && <span className="bg-lime rounded-full px-2 py-0.5 text-[9px] font-bold">Kamu</span>}
+                                    {isLoggedIn && row.rank === 5 && (
+                                        <span className="bg-lime rounded-full px-2 py-0.5 text-[9px] font-bold">Kamu</span>
+                                    )}
                                     <span className="text-ink-soft text-[11px] font-semibold">{row.caps} cap</span>
                                 </div>
                             ))}

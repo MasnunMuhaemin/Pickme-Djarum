@@ -6,7 +6,7 @@ export default function QrTidakDikenal() {
     return (
         <ParticipantLayout>
             <PageHeader back="/participant/scan" title="QR tidak dikenal" />
-            <div className="flex flex-1 flex-col px-4 pb-8 lg:mx-auto lg:w-full lg:max-w-[560px] lg:px-8 lg:pt-2 lg:pb-10">
+            <div className="flex flex-1 flex-col px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <div className="flex flex-1 flex-col items-center justify-center text-center">
                     <span className="bg-cream-deep relative grid size-24 place-items-center rounded-full">
                         <QrCode className="text-ink/70 size-10" />

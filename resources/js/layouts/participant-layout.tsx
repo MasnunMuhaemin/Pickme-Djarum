@@ -16,8 +16,8 @@ export default function ParticipantLayout({
     hideBottomNav?: boolean;
 }) {
     return (
-        <div className="lg:bg-cream min-h-dvh bg-[#e6e0cd]">
-            <div className="bg-cream text-ink relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col shadow-2xl sm:my-6 sm:min-h-[calc(100dvh-3rem)] sm:rounded-[2rem] lg:my-0 lg:max-w-[1440px] lg:flex-row lg:rounded-none lg:shadow-none">
+        <div className="md:bg-cream min-h-dvh bg-[#e6e0cd]">
+            <div className="bg-cream text-ink relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col shadow-2xl sm:my-6 sm:min-h-[calc(100dvh-3rem)] sm:rounded-[2rem] md:my-0 md:min-h-dvh md:max-w-[1440px] md:rounded-none md:shadow-none lg:flex-row">
                 <DesktopAside />
                 <div
                     className={cn(
@@ -27,7 +27,7 @@ export default function ParticipantLayout({
                     )}
                 >
                     <DesktopNav dark={dark} />
-                    <main className="flex flex-1 flex-col lg:mx-auto lg:w-full lg:max-w-[960px]">{children}</main>
+                    <main className="flex flex-1 flex-col md:mx-auto md:w-full md:max-w-[960px]">{children}</main>
                     {!hideBottomNav && <BottomNav />}
                 </div>
             </div>

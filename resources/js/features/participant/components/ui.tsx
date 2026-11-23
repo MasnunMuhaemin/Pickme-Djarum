@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
-import { Link } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, LogOut, X } from 'lucide-react';
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -23,6 +23,28 @@ export function Badge({ children, tone = 'lime', className }: { children: ReactN
     );
 }
 
+export function LogoutButton({ dark, className }: { dark?: boolean; className?: string }) {
+    const { props } = usePage();
+    const isLoggedIn = Boolean((props.auth as { participant?: unknown } | undefined)?.participant);
+    if (!isLoggedIn) return null;
+
+    return (
+        <button
+            type="button"
+            aria-label="Keluar"
+            title="Keluar"
+            onClick={() => router.post('/participant/keluar')}
+            className={cn(
+                'grid size-10 shrink-0 place-items-center rounded-full transition',
+                dark ? 'text-cream/70 hover:text-cream hover:bg-white/10' : 'text-ink-soft hover:bg-cream-deep hover:text-ink',
+                className,
+            )}
+        >
+            <LogOut className="size-4" />
+        </button>
+    );
+}
+
 export function PageHeader({
     title,
     back,
@@ -39,7 +61,7 @@ export function PageHeader({
     className?: string;
 }) {
     return (
-        <header className={cn('flex h-14 shrink-0 items-center gap-2 px-3 lg:px-8', dark ? 'text-cream' : 'text-ink', className)}>
+        <header className={cn('flex h-14 shrink-0 items-center gap-2 px-3 md:px-8', dark ? 'text-cream' : 'text-ink', className)}>
             {back && (
                 <Link href={back} aria-label="Kembali" className="grid size-10 place-items-center rounded-full hover:bg-black/5">
                     <ArrowLeft className="size-5" />
@@ -51,7 +73,10 @@ export function PageHeader({
                 </Link>
             )}
             <h1 className="min-w-0 flex-1 truncate text-center text-sm font-bold">{title}</h1>
-            <div className="flex min-w-10 justify-end">{right}</div>
+            <div className="flex items-center gap-1">
+                {right}
+                <LogoutButton dark={dark} />
+            </div>
         </header>
     );
 }
@@ -306,9 +331,9 @@ export function Checkbox({ checked, onChange, children }: { checked: boolean; on
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string; children: ReactNode }) {
     if (!open) return null;
     return (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end lg:items-center lg:justify-center lg:p-6">
+        <div className="fixed inset-0 z-50 flex flex-col justify-end md:items-center md:justify-center md:p-6">
             <button aria-label="Tutup" onClick={onClose} className="absolute inset-0 bg-black/55" />
-            <div className="animate-in slide-in-from-bottom bg-cream relative mx-auto max-h-[88dvh] w-full max-w-[430px] overflow-y-auto rounded-t-3xl p-5 pb-8 shadow-2xl lg:max-w-md lg:rounded-3xl lg:pb-6">
+            <div className="animate-in slide-in-from-bottom bg-cream relative mx-auto max-h-[88dvh] w-full max-w-[430px] overflow-y-auto rounded-t-3xl p-5 pb-8 shadow-2xl md:max-w-md md:rounded-3xl md:pb-6">
                 <div className="bg-ink/20 mx-auto mb-4 h-1 w-10 rounded-full" />
                 {title && <h2 className="text-ink mb-1 text-lg font-extrabold tracking-tight">{title}</h2>}
                 {children}

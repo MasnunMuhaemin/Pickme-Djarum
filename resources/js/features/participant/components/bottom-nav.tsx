@@ -1,10 +1,12 @@
+import { LogoutButton } from '@/features/participant/components/ui';
+import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Gift, LayoutGrid, QrCode, Trophy } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const items = [
-    { key: 'papan', label: 'Papan', href: '/participant/papan', icon: LayoutGrid },
+    { key: 'papan', label: 'Papan', href: '/participant', icon: LayoutGrid },
     { key: 'hadiah', label: 'Hadiah', href: '/participant/hadiah', icon: Gift },
     { key: 'scan', label: 'Scan', href: '/participant/scan', icon: QrCode },
     { key: 'kartu', label: 'Kartu', href: '/participant/kartu', icon: Trophy },
@@ -42,6 +44,21 @@ function activeKey(url: string): string {
     return 'papan';
 }
 
+function useIsScanPage(): boolean {
+    const { url } = usePage();
+    return url.split('?')[0] === '/participant/scan';
+}
+
+function useIsLoggedIn(): boolean {
+    const { props } = usePage();
+    return Boolean((props.auth as { participant?: unknown })?.participant);
+}
+
+function useNavItems() {
+    const isLoggedIn = useIsLoggedIn();
+    return isLoggedIn ? items : items.filter((item) => item.key !== 'hadiah');
+}
+
 function useActiveNav(): string {
     const [path, setPath] = useState(() => window.location.pathname);
 
@@ -55,11 +72,13 @@ function useActiveNav(): string {
 
 export function DesktopNav({ dark }: { dark?: boolean }) {
     const active = useActiveNav();
+    const visibleItems = useNavItems();
+    const caps = useCaps();
 
     return (
         <header
             className={cn(
-                'sticky top-0 z-30 hidden h-16 shrink-0 items-center justify-between gap-6 border-b px-8 backdrop-blur lg:flex',
+                'sticky top-0 z-30 hidden h-16 shrink-0 items-center justify-between gap-6 border-b px-8 backdrop-blur md:flex',
                 dark ? 'bg-night/90 text-cream border-white/10' : 'border-ink/10 bg-cream/90 text-ink',
             )}
         >
@@ -69,7 +88,7 @@ export function DesktopNav({ dark }: { dark?: boolean }) {
             </Link>
 
             <nav className="flex items-center gap-1">
-                {items.map((item) => {
+                {visibleItems.map((item) => {
                     const isActive = active === item.key;
                     const Icon = item.icon;
                     return (
@@ -94,17 +113,43 @@ export function DesktopNav({ dark }: { dark?: boolean }) {
                 })}
             </nav>
 
-            <span className="bg-lime-soft text-ink rounded-full px-3 py-1.5 text-[10px] font-bold">Kartu 4 / 10</span>
+            <div className="flex items-center gap-2">
+                {useIsLoggedIn() && <span className="bg-lime-soft text-ink rounded-full px-3 py-1.5 text-[10px] font-bold">Kartu {caps} / 10</span>}
+                <LogoutButton dark={dark} />
+            </div>
         </header>
     );
 }
 
 export function BottomNav() {
     const active = useActiveNav();
+    const visibleItems = useNavItems();
+    const compact = useIsScanPage();
+    const compactItems = visibleItems.filter((item) => item.key !== 'scan');
+
+    if (compact) {
+        return (
+            <nav className="bg-night after:bg-night sticky bottom-0 z-30 mt-auto grid grid-cols-3 border-t border-white/10 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] after:absolute after:top-full after:left-0 after:h-2 after:w-full md:hidden">
+                {compactItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                        <Link key={item.key} href={item.href} className="text-cream/70 flex justify-center py-2">
+                            <Icon className="size-5" />
+                        </Link>
+                    );
+                })}
+            </nav>
+        );
+    }
 
     return (
-        <nav className="bg-night text-cream/70 after:bg-night sticky bottom-0 z-30 mt-auto grid grid-cols-4 border-t border-white/10 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] after:absolute after:top-full after:left-0 after:h-2 after:w-full lg:hidden">
-            {items.map((item) => {
+        <nav
+            className={cn(
+                'bg-night text-cream/70 after:bg-night sticky bottom-0 z-30 mt-auto grid border-t border-white/10 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] after:absolute after:top-full after:left-0 after:h-2 after:w-full md:hidden',
+                visibleItems.length === 4 ? 'grid-cols-4' : 'grid-cols-3',
+            )}
+        >
+            {visibleItems.map((item) => {
                 const isActive = active === item.key;
                 const Icon = item.icon;
                 return (

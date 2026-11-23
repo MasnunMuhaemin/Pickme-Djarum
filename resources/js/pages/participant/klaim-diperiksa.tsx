@@ -2,11 +2,13 @@ import { OutlineButton, PageHeader, PrimaryButton } from '@/features/participant
 import ParticipantLayout from '@/layouts/participant-layout';
 import { Clock } from 'lucide-react';
 
-export default function KlaimDiperiksa() {
+type ClaimStatus = { id: number; status: string; submitted_at?: string | null; slot?: { position: string } } | null;
+
+export default function KlaimDiperiksa({ claim }: { claim?: ClaimStatus }) {
     return (
         <ParticipantLayout nav="hadiah">
             <PageHeader back="/participant/hadiah" title="Sedang diperiksa admin" />
-            <div className="flex-1 px-4 pb-8 lg:mx-auto lg:w-full lg:max-w-[560px] lg:px-8 lg:pt-2 lg:pb-10">
+            <div className="flex-1 px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <div className="bg-night text-cream rounded-3xl p-5">
                     <span className="bg-lime-soft grid size-12 place-items-center rounded-full">
                         <Clock className="text-ink size-6" />
@@ -41,6 +43,8 @@ export default function KlaimDiperiksa() {
                         </div>
                     </div>
                 </div>
+
+                {claim?.slot && <p className="text-ink-soft mt-3 text-center text-[11px]">Slot {claim.slot.position} sedang menunggu pemeriksaan.</p>}
 
                 <div className="mt-6 space-y-2">
                     <PrimaryButton href="/participant/hadiah">Lihat hadiah</PrimaryButton>

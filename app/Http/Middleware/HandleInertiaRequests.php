@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Participant;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -44,6 +45,9 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $request->user(),
+                'participant' => $request->session()->get('participant_id')
+                    ? Participant::find($request->session()->get('participant_id'))
+                    : null,
             ],
         ]);
     }

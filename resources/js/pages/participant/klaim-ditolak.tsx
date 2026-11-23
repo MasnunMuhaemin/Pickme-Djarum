@@ -2,11 +2,13 @@ import { Badge, OutlineButton, PageHeader, PrimaryButton } from '@/features/part
 import ParticipantLayout from '@/layouts/participant-layout';
 import { X } from 'lucide-react';
 
-export default function KlaimDitolak() {
+type ClaimStatus = { id: number; status: string; slot?: { position: string } } | null;
+
+export default function KlaimDitolak({ claim, caps = 0 }: { claim?: ClaimStatus; caps?: number }) {
     return (
         <ParticipantLayout nav="hadiah">
-            <PageHeader close="/participant/hadiah" title="Klaim belum disetujui" right={<Badge>Kartu 4 / 10</Badge>} />
-            <div className="flex-1 px-4 pb-8 lg:mx-auto lg:w-full lg:max-w-[560px] lg:px-8 lg:pt-2 lg:pb-10">
+            <PageHeader close="/participant/hadiah" title="Klaim belum disetujui" right={<Badge>Kartu {caps} / 10</Badge>} />
+            <div className="flex-1 px-4 pb-8 md:mx-auto md:w-full md:max-w-[560px] md:px-8 md:pt-2 md:pb-10">
                 <div className="border-ink/10 bg-cream-soft overflow-hidden rounded-3xl border">
                     <div className="bg-cream-deep flex h-28 items-center justify-center">
                         <span className="bg-ink text-cream grid size-14 place-items-center rounded-full">
@@ -25,9 +27,15 @@ export default function KlaimDitolak() {
                                 <span className="text-ink-soft">Batas klarifikasi</span>
                                 <span className="font-bold">2 hari kerja</span>
                             </div>
+                            {claim?.slot && (
+                                <div className="flex justify-between">
+                                    <span className="text-ink-soft">Slot</span>
+                                    <span className="font-bold">{claim.slot.position}</span>
+                                </div>
+                            )}
                             <div className="flex justify-between">
                                 <span className="text-ink-soft">Kartu cap</span>
-                                <span className="font-bold">Masih 3 dari 10</span>
+                                <span className="font-bold">{caps} dari 10</span>
                             </div>
                         </div>
                     </div>
