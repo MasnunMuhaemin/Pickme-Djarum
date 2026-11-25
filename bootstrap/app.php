@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureParticipant;
 use App\Http\Middleware\EnsureClaimOpen;
 use App\Http\Middleware\EnsureConsent;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
         ]);
         $middleware->alias([
+            'admin' => EnsureAdmin::class,
             'participant' => EnsureParticipant::class,
             'student' => EnsureStudent::class,
             'consented' => EnsureConsent::class,

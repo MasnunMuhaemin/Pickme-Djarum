@@ -3,9 +3,8 @@
 namespace App\Http\Controllers\Participant;
 
 use App\Http\Controllers\Controller;
-use App\Models\Claim;
 use App\Models\Participant;
-use Carbon\CarbonInterface;
+use App\Services\RankingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
@@ -17,7 +16,7 @@ use Inertia\Response;
  */
 class CardController extends Controller
 {
-    private const TOP = 10;
+    public function __construct(private RankingService $rankings) {}
 
     public function index(Request $request): Response
     {
@@ -25,8 +24,8 @@ class CardController extends Controller
             ? Participant::find($request->session()->get('participant_id'))
             : null;
 
-        $total = $this->ranking();
-        $weekly = $this->ranking(now()->startOfWeek(CarbonInterface::MONDAY));
+        $total = $this->rankings->ranking();
+        $weekly = $this->rankings->ranking($this->rankings->weekStart());
 
         return Inertia::render('participant/kartu', [
             'caps' => $participant?->caps ?? 0,
@@ -44,36 +43,16 @@ class CardController extends Controller
         ]);
     }
 
-    /** @return Collection<int, object{participant_id: int, caps: int, reached_at: string, rank: int}> */
-    private function ranking(?CarbonInterface $since = null): Collection
-    {
-        return Claim::query()
-            ->where('status', 'approved')
-            ->when($since, fn ($q) => $q->where('submitted_at', '>=', $since))
-            ->groupBy('participant_id')
-            ->selectRaw('participant_id, count(*) as caps, max(submitted_at) as reached_at')
-            ->orderByDesc('caps')
-            ->orderBy('reached_at')
-            ->get()
-            ->values()
-            ->map(function ($row, $i) {
-                $row->rank = $i + 1;
-                $row->caps = (int) $row->caps;
-
-                return $row;
-            });
-    }
-
     private function top(Collection $ranking, ?Participant $me): array
     {
-        $rows = $ranking->take(self::TOP);
+        $rows = $ranking->take(RankingService::TOP);
         $names = Participant::whereIn('id', $rows->pluck('participant_id'))->pluck('name', 'id');
 
         return $rows->map(fn ($row) => [
             'rank' => $row->rank,
             'name' => $names[$row->participant_id] ?? 'Peserta',
             'caps' => $row->caps,
-            'prize' => $this->prize($row->rank),
+            'prize' => $this->rankings->prize($row->rank),
             'is_me' => $me && $row->participant_id === $me->id,
         ])->values()->all();
     }
@@ -82,15 +61,6 @@ class CardController extends Controller
     {
         $row = $ranking->firstWhere('participant_id', $me->id);
 
-        return $row ? ['rank' => $row->rank, 'caps' => $row->caps, 'prize' => $this->prize($row->rank)] : null;
-    }
-
-    private function prize(int $rank): ?string
-    {
-        return match (true) {
-            $rank <= 4 => 'golden_slot',
-            $rank <= self::TOP => 'limited_edition',
-            default => null,
-        };
+        return $row ? ['rank' => $row->rank, 'caps' => $row->caps, 'prize' => $this->rankings->prize($row->rank)] : null;
     }
 }

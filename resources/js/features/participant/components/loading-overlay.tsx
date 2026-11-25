@@ -1,10 +1,15 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
+/** Hanya dua proses yang memakai layar memuat penuh; pindah menu biasa tidak ditutupi. */
+const LABELS: Record<string, string> = {
+    '/participant/scan': 'Membuka titik warung...',
+    '/participant/foto': 'Mengirim foto bungkus...',
+};
+
 /**
- * Layar memuat penuh selama pindah halaman atau mengirim form di halaman peserta. Menutup seluruh layar
- * supaya tombol tidak bisa diklik berkali-kali saat koneksi lambat. Muncul setelah jeda singkat agar
- * perpindahan yang cepat tidak berkedip.
+ * Layar memuat penuh saat QR terbaca dan saat foto bungkus dikirim, supaya tidak terkirim dua kali selama
+ * menunggu server. Muncul setelah jeda singkat agar proses yang cepat tidak berkedip.
  */
 export function LoadingOverlay() {
     const [visible, setVisible] = useState(false);
@@ -15,11 +20,10 @@ export function LoadingOverlay() {
 
         const offStart = router.on('start', (event) => {
             const visit = event.detail.visit;
-            const path = visit.url.pathname;
-            const participantVisit = path.startsWith('/participant') || /^\/[A-Za-z][0-9]{2}$/.test(path);
-            if (!participantVisit || visit.prefetch) return;
+            const text = visit.method === 'post' ? LABELS[visit.url.pathname] : undefined;
+            if (!text || visit.prefetch) return;
 
-            setLabel(visit.method === 'get' ? 'Memuat...' : 'Memproses...');
+            setLabel(text);
             window.clearTimeout(timer);
             timer = window.setTimeout(() => setVisible(true), 150);
         });

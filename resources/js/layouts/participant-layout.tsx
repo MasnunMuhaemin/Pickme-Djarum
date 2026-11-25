@@ -32,7 +32,10 @@ export default function ParticipantLayout({
                     )}
                 >
                     <DesktopNav dark={dark} />
-                    <main className="flex flex-1 flex-col md:mx-auto md:w-full md:max-w-[960px]">{children}</main>
+                    {/* Isi halaman muncul memudar; halaman lama langsung diganti sehingga tidak bertumpuk. */}
+                    <main className="animate-in fade-in flex flex-1 flex-col duration-300 motion-reduce:animate-none md:mx-auto md:w-full md:max-w-[960px]">
+                        {children}
+                    </main>
                     {!hideBottomNav && <BottomNav />}
                 </div>
             </div>

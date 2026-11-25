@@ -6,11 +6,14 @@ use App\Models\Claim;
 use App\Models\Gift;
 use App\Models\Participant;
 use App\Models\Voucher;
+use App\Models\VoucherType;
 use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 class RewardCreationService
 {
+    public function __construct(private SlotPrizeService $prizes) {}
+
     /** Jenis voucher yang bisa keluar dari mystery gift (PRD keputusan 9: acak dari semua jenis). */
     private const MYSTERY_VOUCHER_TYPES = ['voucher', 'token', 'bensin'];
 
@@ -34,7 +37,7 @@ class RewardCreationService
                     'status' => 'pending_address',
                 ]);
             } else {
-                $this->createVoucher($claim, $type, 'claim');
+                $this->createVoucher($claim, $type, 'claim', $claim->slot->voucherType);
             }
 
             $claim->participant()->increment('caps');
@@ -49,20 +52,31 @@ class RewardCreationService
      * Status awal per jenis pemenuhan (PRD bagian 17):
      * voucher mitra langsung terkirim, token menunggu nomor tujuan, bensin tunai menunggu admin tanpa form.
      */
-    private function createVoucher(Claim $claim, string $type, string $source): Voucher
+    private function createVoucher(Claim $claim, string $type, string $source, ?VoucherType $voucherType = null): Voucher
     {
+        // Jenis di slot dipakai hanya bila cocok dengan jenis hadiahnya; selain itu pilih dari master data.
+        if ($voucherType && ! in_array($voucherType->fulfillment, VoucherType::FULFILLMENTS_BY_PRIZE[$type] ?? [], true)) {
+            $voucherType = null;
+        }
+        $voucherType ??= $this->prizes->pick($type);
+
         return Voucher::create([
             'claim_id' => $claim->id,
             'code' => $this->voucherCode(),
             'type' => $type,
             'source' => $source,
+            'voucher_type_id' => $voucherType?->id,
+            'partner_id' => $voucherType?->partner_id,
+            'value' => $voucherType?->value ?? (int) config("participant.prize_values.{$type}", 0),
             'status' => match ($type) {
                 'voucher' => 'sent',
                 'token' => 'pending_data',
                 default => 'pending',
             },
             'expires_at' => $type === 'voucher' ? now()->addDays(config('participant.voucher_valid_days')) : null,
-            'sent_at' => $type === 'voucher' ? now() : null,
+            // Kode voucher langsung terlihat di Hadiahku; sent_at diisi saat admin mengirimnya lewat WhatsApp
+            // (layar Kirim voucher).
+            'sent_at' => null,
         ]);
     }
 

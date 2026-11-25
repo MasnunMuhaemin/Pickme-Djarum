@@ -185,20 +185,21 @@ class CustomerFlowTest extends TestCase
         $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page->where('reward.follow_up', null));
     }
 
-    public function test_flagged_claim_waits_for_admin_without_cap_or_reward(): void
+    public function test_flagged_claim_is_approved_directly_and_keeps_its_flag(): void
     {
         $participant = $this->readyParticipant();
         $this->prizesAre('token');
         $claim = $this->uploadPhoto(gray: 10);
         $this->assertSame(['dark_photo'], $claim->flags());
 
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirectContains('/participant/klaim/diperiksa/');
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
 
         $claim->refresh();
-        $this->assertSame('pending', $claim->status);
+        $this->assertSame('approved', $claim->status);
+        $this->assertSame(['dark_photo'], $claim->flags());
         $this->assertSame('used', $claim->slot->status);
-        $this->assertSame(0, $participant->fresh()->caps);
-        $this->assertFalse(Voucher::where('claim_id', $claim->id)->exists() || $claim->gifts()->exists());
+        $this->assertSame(1, $participant->fresh()->caps);
+        $this->assertTrue(Voucher::where('claim_id', $claim->id)->exists());
     }
 
     public function test_pending_and_rejected_claims_show_in_hadiahku_with_their_pages(): void
@@ -206,7 +207,7 @@ class CustomerFlowTest extends TestCase
         $this->readyParticipant();
         $this->prizesAre('token');
         $pending = $this->uploadPhoto(gray: 10);
-        $this->post('/participant/slot', ['code' => $pending->slot->code]);
+        $pending->update(['status' => 'pending', 'submitted_at' => now()]);
         $rejected = $this->uploadPhoto(seed: 21);
         $rejected->update(['status' => 'rejected', 'submitted_at' => now()]);
 
@@ -272,7 +273,7 @@ class CustomerFlowTest extends TestCase
         // Slot kosong lain di papan yang sama: diterima dengan tanda, slot yang ditunjuk dilepas.
         $assigned = $claim->slot;
         $different = $board->slots()->where('status', 'empty')->first();
-        $this->post('/participant/slot', ['code' => $different->code])->assertRedirectContains('/participant/klaim/diperiksa/');
+        $this->post('/participant/slot', ['code' => $different->code])->assertRedirect('/participant/klaim/berhasil');
         $claim->refresh();
         $this->assertContains('different_slot', $claim->flags());
         $this->assertSame($different->id, $claim->slot_id);
@@ -288,7 +289,7 @@ class CustomerFlowTest extends TestCase
         $claim = $this->uploadPhoto(seed: 2);
         $this->travel(31)->minutes();
 
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirectContains('/participant/klaim/diperiksa/');
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
         $this->assertContains('late_code', $claim->fresh()->flags());
     }
 

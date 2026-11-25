@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Slot extends Model
 {
     protected $fillable = [
-        'board_id', 'position', 'code', 'prize_type', 'status', 'holder_id', 'held_until', 'used_at',
+        'board_id', 'position', 'code', 'prize_type', 'voucher_type_id', 'status', 'holder_id', 'held_until', 'used_at',
     ];
 
     protected $casts = [
@@ -25,6 +25,12 @@ class Slot extends Model
     public function holder(): BelongsTo
     {
         return $this->belongsTo(Participant::class, 'holder_id');
+    }
+
+    /** Isi slot dari Master data (A6); kosong untuk merchandise. */
+    public function voucherType(): BelongsTo
+    {
+        return $this->belongsTo(VoucherType::class);
     }
 
     public function claim(): HasOne

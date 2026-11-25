@@ -1,0 +1,14 @@
+{
+    "name": "PICKME",
+    "short_name": "PICKME",
+    "description": "Beli bungkus, foto, ambil slot. Hadiah langsung dari warung.",
+    "start_url": "/participant",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#f7f3e3",
+    "theme_color": "#a9d65b",
+    "icons": [
+        { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+        { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+    ]
+}

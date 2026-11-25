@@ -2,7 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Outlet;
 use App\Models\Participant;
+use App\Models\Setting;
+use App\Support\AdminQueues;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -48,6 +51,17 @@ class HandleInertiaRequests extends Middleware
                 'participant' => $request->session()->get('participant_id')
                     ? Participant::find($request->session()->get('participant_id'))
                     : null,
+            ],
+            // Panel admin: badge antrean di sidebar dan status jeda untuk Tombol Darurat.
+            'admin' => fn () => $request->user()?->is_admin && $request->is('admin', 'admin/*') ? [
+                'badges' => AdminQueues::badges(),
+                'paused' => Setting::programPaused(),
+                'pauseReason' => Setting::get('program_pause_reason'),
+                'outlets' => Outlet::orderBy('code')->get(['id', 'code', 'name', 'status']),
+            ] : null,
+            'flash' => [
+                'status' => fn () => $request->session()->get('status'),
+                'pin' => fn () => $request->session()->get('partner_pin'),
             ],
         ]);
     }

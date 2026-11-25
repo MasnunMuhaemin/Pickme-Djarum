@@ -2,7 +2,12 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-title" content="PICKME">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
+        <link rel="manifest" href="/manifest.webmanifest">
 
         <title inertia>{{ config('app.name', 'PICKME') }}</title>
         <meta name="description" content="Beli bungkus, foto, ambil slot. Hadiah langsung dari warung.">

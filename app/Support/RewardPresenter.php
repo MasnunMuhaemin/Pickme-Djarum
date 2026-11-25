@@ -20,13 +20,20 @@ class RewardPresenter
      */
     public static function voucher(Voucher $voucher): array
     {
-        $value = self::rupiah((int) config("participant.prize_values.{$voucher->type}", 0));
+        $value = self::rupiah($voucher->amount());
+        // Jenis dan mitra dari Master data (A6); voucher lama tanpa jenis memakai label bawaan.
+        $kind = $voucher->voucherType;
+        $partner = $voucher->partner?->name ?? $kind?->partner_label;
+        $where = $voucher->type === 'voucher' && $partner ? " · tukar di {$partner}" : '';
         $daysLeft = self::daysLeft($voucher);
         $expired = $voucher->isExpired();
         $needsDestination = $voucher->type === 'token' && in_array($voucher->status, ['pending_data', 'rejected'], true);
 
         [$title, $description] = match ($voucher->type) {
-            'voucher' => ['Voucher Kopi Grosir', $expired ? "{$value} · masa berlaku habis" : "{$value} · berlaku {$daysLeft} hari"],
+            'voucher' => [
+                $kind ? "Voucher {$kind->name}" : 'Voucher Kopi Grosir',
+                $expired ? "{$value}{$where} · masa berlaku habis" : "{$value}{$where} · berlaku {$daysLeft} hari",
+            ],
             'token' => ['Token listrik', "{$value} · kode dikirim lewat WhatsApp"],
             'bensin' => ['Bensin motor', "Tunai {$value} · admin hubungi lewat WhatsApp"],
             default => ['Hadiah', $value],
@@ -95,12 +102,12 @@ class RewardPresenter
         [$label, $tone] = match (true) {
             $isFreePack && in_array($gift->status, ['pending', 'pending_address'], true) => ['Menunggu admin', 'waiting'],
             default => match ($gift->status) {
-            'pending_address' => ['Menunggu alamat', 'progress'],
-            'ready_to_ship' => ['Siap dikirim', 'waiting'],
-            'shipping' => ['Sedang diantar', 'progress'],
-            'contacted' => ['Dihubungi admin', 'progress'],
-            'done', 'completed' => ['Selesai', 'done'],
-            default => ['Menunggu admin', 'waiting'],
+                'pending_address' => ['Menunggu alamat', 'progress'],
+                'ready_to_ship' => ['Siap dikirim', 'waiting'],
+                'shipping' => ['Sedang diantar', 'progress'],
+                'contacted' => ['Dihubungi admin', 'progress'],
+                'done', 'completed' => ['Selesai', 'done'],
+                default => ['Menunggu admin', 'waiting'],
             },
         };
 

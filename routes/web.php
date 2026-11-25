@@ -10,11 +10,13 @@ Route::redirect('/', '/participant')->name('home');
 Route::get('{outlet}', OutletQrController::class)->where('outlet', '[A-Za-z][0-9]{2}')->name('qr.outlet');
 
 Route::middleware(['auth'])->group(function () {
+    // Akun admin langsung ke panel admin setelah masuk.
     Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
+        return request()->user()->is_admin ? to_route('admin.beranda') : Inertia::render('dashboard');
     })->name('dashboard');
 });
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';
 require __DIR__.'/participant.php';
+require __DIR__.'/admin.php';

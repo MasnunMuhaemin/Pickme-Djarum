@@ -78,7 +78,9 @@ class ClaimVerificationService
             // Hanya hadiah token listrik (perlu nomor meter dan diproses admin) yang menunggu pemeriksaan bila
             // bertanda. Voucher kopi dan hadiah lain langsung disetujui; tandanya tetap disimpan untuk catatan admin.
             $flag = Claim::joinFlags($flags);
-            $status = $flag && $slot->prize_type === 'token' ? 'pending' : 'approved';
+            // Tidak ada persetujuan admin: kode slot benar berarti hadiah langsung jadi milik peserta.
+            // Tanda tetap disimpan sebagai catatan pemeriksaan admin.
+            $status = 'approved';
 
             $claim->update([
                 'slot_id' => $slot->id,

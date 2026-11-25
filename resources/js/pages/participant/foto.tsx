@@ -92,11 +92,11 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
     const stamp = `${openedAt ?? '--:--:--'} · ${outlet} · KLM-····`;
 
     return (
-        <div className="text-cream min-h-dvh bg-[#0f0c08]">
+        <div className="text-cream animate-in fade-in min-h-dvh bg-[#0f0c08] duration-300 motion-reduce:animate-none">
             <Head title="Foto bungkus" />
             <form
                 onSubmit={submit}
-                className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-y-auto bg-gradient-to-b from-[#4a3a28] via-[#2a2117] to-[#0f0c08] px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:max-w-[560px]"
+                className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-y-auto bg-gradient-to-b from-[#4a3a28] via-[#2a2117] to-[#0f0c08] px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] [scrollbar-gutter:stable_both-edges] md:max-w-[560px]"
             >
                 <header className="flex items-center justify-between">
                     <BackLink
@@ -180,7 +180,7 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
                 {form.errors.photo && <p className="mt-3 text-center text-[12px] font-bold text-[#f3a59a]">{form.errors.photo}</p>}
 
                 {/* Tombol bawah: rana sebelum foto; ulangi dan kirim setelah foto. */}
-                <div className="flex shrink-0 items-center justify-center gap-4 pt-4">
+                <div className={preview ? 'flex shrink-0 items-center gap-4 pt-4' : 'flex shrink-0 justify-center pt-4'}>
                     {preview ? (
                         <>
                             <button
@@ -206,9 +206,10 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
                             onClick={capture}
                             disabled={!cameraOn}
                             aria-label="Ambil foto"
-                            className="border-cream grid size-[72px] place-items-center rounded-full border-[5px] transition active:scale-95 disabled:opacity-50"
+                            className="border-cream relative size-[72px] shrink-0 rounded-full border-[5px] transition active:scale-95 disabled:opacity-50"
                         >
-                            <span className="bg-cream size-[54px] rounded-full" />
+                            {/* Posisi absolut: tepat di tengah di semua browser, termasuk Safari iOS. */}
+                            <span className="bg-cream absolute inset-[4px] rounded-full" />
                         </button>
                     )}
                 </div>

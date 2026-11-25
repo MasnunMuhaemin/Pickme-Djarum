@@ -110,11 +110,18 @@ export default function Scan({ modal, areas = [] }: { modal?: string; areas?: Ar
     }, [authOpen]);
 
     return (
-        <div className="text-cream min-h-dvh bg-[#1b2b29]">
+        <div className="text-cream animate-in fade-in min-h-dvh bg-black duration-300 motion-reduce:animate-none">
             <Head title="Scan QR" />
-            <div className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col bg-gradient-to-b from-[#1b2b29] via-[#162422] to-[#0f1c1a] shadow-2xl md:max-w-none md:shadow-none">
-                <header className="flex h-14 shrink-0 items-center justify-between gap-2 px-4">
-                    <BackLink fallback="/participant" className="text-cream/70 grid size-10 place-items-center rounded-full bg-white/10">
+            {/* Kamera memenuhi layar; area di luar kotak bidik digelapkan tipis lewat bayangan kotak. */}
+            <div className="relative mx-auto flex h-dvh w-full max-w-[430px] flex-col overflow-hidden md:max-w-none">
+                <video ref={video} playsInline muted className="absolute inset-0 size-full object-cover" />
+                {!cameraOn && <div className="absolute inset-0 bg-gradient-to-b from-[#1b2b29] via-[#162422] to-[#0f1c1a]" />}
+
+                <header className="relative z-10 flex h-14 shrink-0 items-center justify-between gap-2 px-4">
+                    <BackLink
+                        fallback="/participant"
+                        className="text-cream grid size-10 place-items-center rounded-full bg-black/35 backdrop-blur-sm"
+                    >
                         <svg
                             width="20"
                             height="20"
@@ -129,38 +136,39 @@ export default function Scan({ modal, areas = [] }: { modal?: string; areas?: Ar
                         </svg>
                     </BackLink>
                     {/* Hanya tampil saat sudah masuk. */}
-                    <LogoutButton dark className="bg-white/10" />
+                    <LogoutButton dark className="bg-black/35 backdrop-blur-sm" />
                 </header>
 
-                <div className="px-6 pt-2">
-                    <h1 className="text-[38px] leading-none font-extrabold tracking-tight">Scan QR papan</h1>
-                    <p className="text-cream/60 mt-2 text-[13px]">Arahkan kamera ke QR di papan warung.</p>
+                <div className="relative z-10 px-6 pt-2">
+                    <h1 className="text-[38px] leading-none font-extrabold tracking-tight drop-shadow">Scan QR papan</h1>
+                    <p className="text-cream/80 mt-2 text-[13px] drop-shadow">Arahkan kamera ke QR di papan warung.</p>
                 </div>
 
-                <div className="relative mx-auto mt-8 aspect-square w-[290px] max-w-[86vw]">
-                    <video ref={video} playsInline muted className="size-full rounded-2xl bg-black/40 object-cover" />
-                    {!cameraOn && (
-                        <div className="absolute inset-0 grid place-items-center rounded-2xl bg-black/30">
-                            <div className="text-center">
-                                <QrCode className="text-cream/30 mx-auto size-16" />
-                                <p className="text-cream/40 mt-3 text-[11px]">Menyiapkan kamera...</p>
+                <div className="relative flex min-h-0 flex-1 items-center justify-center">
+                    <div className="relative aspect-square w-[270px] max-w-[78vw] rounded-2xl shadow-[0_0_0_200vmax_rgba(0,0,0,0.35)]">
+                        {!cameraOn && (
+                            <div className="absolute inset-0 grid place-items-center rounded-2xl bg-black/30">
+                                <div className="text-center">
+                                    <QrCode className="text-cream/30 mx-auto size-16" />
+                                    <p className="text-cream/50 mt-3 text-[11px]">Menyiapkan kamera...</p>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    <span className="border-lime absolute top-0 left-0 size-12 rounded-tl-2xl border-t-4 border-l-4" />
-                    <span className="border-lime absolute top-0 right-0 size-12 rounded-tr-2xl border-t-4 border-r-4" />
-                    <span className="border-lime absolute bottom-0 left-0 size-12 rounded-bl-2xl border-b-4 border-l-4" />
-                    <span className="border-lime absolute right-0 bottom-0 size-12 rounded-br-2xl border-r-4 border-b-4" />
+                        )}
+                        <span className="border-lime absolute top-0 left-0 size-12 rounded-tl-2xl border-t-4 border-l-4" />
+                        <span className="border-lime absolute top-0 right-0 size-12 rounded-tr-2xl border-t-4 border-r-4" />
+                        <span className="border-lime absolute bottom-0 left-0 size-12 rounded-bl-2xl border-b-4 border-l-4" />
+                        <span className="border-lime absolute right-0 bottom-0 size-12 rounded-br-2xl border-r-4 border-b-4" />
+                    </div>
                 </div>
 
-                <div className="mt-8 flex flex-col items-center px-6">
+                <div className="relative z-10 flex flex-col items-center px-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
                     <span className="bg-lime text-ink rounded-full px-4 py-1.5 text-[12px] font-extrabold">Titik warung terbaca otomatis</span>
-                    <p className="text-cream/60 mt-6 text-center text-[13px]">Beli rokok dulu, lalu scan QR di papan.</p>
+                    <p className="text-cream/80 mt-4 text-center text-[13px] drop-shadow">Beli rokok dulu, lalu scan QR di papan.</p>
 
                     {cameraError && (
                         <button
                             onClick={() => window.location.reload()}
-                            className="border-cream/30 mt-4 flex items-center gap-2 rounded-full border px-4 py-2 text-[11px] font-bold"
+                            className="border-cream/40 mt-4 flex items-center gap-2 rounded-full border bg-black/35 px-4 py-2 text-[11px] font-bold"
                         >
                             <Camera className="size-4" />
                             Aktifkan kamera

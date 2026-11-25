@@ -11,9 +11,16 @@ class Claim extends Model
 {
     protected $fillable = [
         'participant_id', 'outlet_id', 'slot_id', 'code', 'claim_code', 'flag', 'status', 'submitted_at',
+        'decided_by', 'decided_at', 'reject_reason',
     ];
 
-    protected $casts = ['submitted_at' => 'datetime'];
+    protected $casts = ['submitted_at' => 'datetime', 'decided_at' => 'datetime'];
+
+    /** Admin yang memutuskan klaim bertanda (A2). */
+    public function decider(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'decided_by');
+    }
 
     public function participant(): BelongsTo
     {
