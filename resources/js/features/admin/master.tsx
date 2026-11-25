@@ -23,6 +23,8 @@ export type OutletRow = {
     id: number;
     code: string;
     name: string;
+    whatsapp: string | null;
+    wa: string | null;
     qr: string;
     area_ids: number[];
     areas: string[];
@@ -48,6 +50,7 @@ export function OutletDialog({
     const form = useForm({
         code: outlet?.code ?? '',
         name: outlet?.name ?? '',
+        whatsapp: outlet?.whatsapp ?? '',
         area_ids: outlet?.area_ids ?? ([] as number[]),
         voucher_type_ids: outlet?.voucher_type_ids ?? ([] as number[]),
     });
@@ -87,6 +90,18 @@ export function OutletDialog({
                     <Hint>Nama yang tampil di halaman peserta, mis. Warung Djarum.</Hint>
                     <FieldError message={form.errors.name} />
                 </label>
+                <label className="block text-[11px] font-bold">
+                    Nomor WhatsApp warung
+                    <Req />
+                    <TextInput
+                        value={form.data.whatsapp}
+                        onChange={(e) => form.setData('whatsapp', e.target.value.replace(/\D/g, '').slice(0, 13))}
+                        placeholder="08xx"
+                        className="mt-1"
+                    />
+                    <Hint>Nomor pemilik atau penjaga warung untuk dihubungi admin. Diawali 08, 10 sampai 13 angka.</Hint>
+                    <FieldError message={form.errors.whatsapp} />
+                </label>
                 <div className="text-[11px] font-bold">
                     Area kos yang dicakup
                     <Req />
@@ -125,7 +140,13 @@ export function OutletDialog({
             )}
             <Actions
                 onClose={onClose}
-                disabled={!form.data.name.trim() || !form.data.area_ids.length || (!outlet && form.data.code.length !== 3) || form.processing}
+                disabled={
+                    !form.data.name.trim() ||
+                    form.data.whatsapp.length < 10 ||
+                    !form.data.area_ids.length ||
+                    (!outlet && form.data.code.length !== 3) ||
+                    form.processing
+                }
                 label={form.processing ? 'Menyimpan...' : confirming ? 'Ya, simpan' : 'Simpan'}
                 onSave={() => (typesChanged && !confirming ? setConfirming(true) : save())}
             />
@@ -172,39 +193,53 @@ export function AddArea({ onClose }: { onClose: () => void }) {
     );
 }
 
-export const PARTNER_KINDS = {
-    umum: {
-        tab: 'Mitra voucher',
-        add: 'Tambah mitra voucher',
-        hint: 'Usaha penerima voucher (kopi, laundry, barbershop, dsb.). Vouchernya hanya keluar di papan warung areanya.',
-    },
-    outlet: {
-        tab: 'Akun warung',
-        add: 'Tambah akun warung',
-        hint: 'Akun PIN untuk warung titik menukar voucher warung dan galon. Satu akun per warung; areanya ikut warung.',
-    },
-    kuota: {
-        tab: 'Mitra kuota',
-        add: 'Tambah mitra kuota',
-        hint: 'Warung penjual pulsa/kuota: sama seperti mitra voucher, ditambah antrean top up.',
-    },
-} as const;
-export type PartnerKind = keyof typeof PARTNER_KINDS;
+/** Jenis akun mitra di database: mitra voucher (umum), mitra kuota, dan akun warung (outlet). */
+export type PartnerKind = 'umum' | 'kuota' | 'outlet';
+export const PARTNER_TYPE_LABEL: Record<PartnerKind, string> = { umum: 'Mitra voucher', kuota: 'Mitra kuota', outlet: 'Akun warung' };
+
+export type PartnerFormRow = { id: number; name: string; kind: PartnerKind; whatsapp: string | null };
 
 /**
- * Tambah akun mitra sesuai jenisnya (PRD bagian 8): akun warung dipilih warungnya. Mitra voucher dan kuota tidak
- * punya area (PRD bagian 16). PIN dibuat otomatis dan ditampilkan sekali.
+ * Tambah atau ubah akun mitra (PRD bagian 8). Tab Mitra: pilih jenis mitra voucher atau mitra kuota. Tab Akun warung:
+ * pilih warungnya (satu warung satu akun). PIN dibuat otomatis saat menambah dan ditampilkan sekali.
  */
-export function AddPartner({ kind, outlets, onClose }: { kind: PartnerKind; outlets: { id: number; name: string }[]; onClose: () => void }) {
-    const form = useForm({ name: '', type: kind, outlet_id: '', whatsapp: '' });
-    const isOutlet = kind === 'outlet';
+export function PartnerDialog({
+    partner,
+    outletAccount,
+    outlets,
+    onClose,
+}: {
+    partner: PartnerFormRow | null;
+    outletAccount: boolean;
+    outlets: { id: number; name: string }[];
+    onClose: () => void;
+}) {
+    const isOutlet = partner ? partner.kind === 'outlet' : outletAccount;
+    const form = useForm({
+        name: partner?.name ?? '',
+        type: partner?.kind ?? (outletAccount ? 'outlet' : 'umum'),
+        outlet_id: '',
+        whatsapp: partner?.whatsapp ?? '',
+    });
+    const title = partner ? `Ubah ${partner.name}` : isOutlet ? 'Tambah akun warung' : 'Tambah mitra';
+
+    function save() {
+        const opts = { preserveScroll: true, onSuccess: onClose };
+        if (partner) form.put(`/admin/mitra/${partner.id}`, opts);
+        else form.post('/admin/mitra', opts);
+    }
+
     return (
         <Modal open onClose={onClose}>
-            <h3 className="pr-8 text-[15px] font-extrabold">{PARTNER_KINDS[kind].add}</h3>
-            <p className="text-ink/55 mt-1 text-[12px]">{PARTNER_KINDS[kind].hint}</p>
+            <h3 className="pr-8 text-[15px] font-extrabold">{title}</h3>
+            <p className="text-ink/55 mt-1 text-[12px]">
+                {isOutlet
+                    ? 'Akun PIN untuk warung titik menukar voucher warung dan galon. Satu akun per warung.'
+                    : 'Usaha penerima voucher. Jenis vouchernya diatur di menu Jenis voucher, lalu dipilih per warung di menu Warung.'}
+            </p>
             <RequiredNote />
             <div className="mt-3 space-y-3">
-                {isOutlet && (
+                {isOutlet && !partner && (
                     <label className="block text-[11px] font-bold">
                         Warung
                         <Req />
@@ -217,6 +252,22 @@ export function AddPartner({ kind, outlets, onClose }: { kind: PartnerKind; outl
                         />
                         <Hint>Hanya warung yang belum punya akun. Satu warung satu akun.</Hint>
                         <FieldError message={form.errors.outlet_id} />
+                    </label>
+                )}
+                {!isOutlet && (
+                    <label className="block text-[11px] font-bold">
+                        Jenis mitra
+                        <Req />
+                        <SelectInput
+                            value={form.data.type}
+                            onChange={(v) => form.setData('type', v as PartnerKind)}
+                            options={[
+                                { value: 'umum', label: 'Mitra voucher' },
+                                { value: 'kuota', label: 'Mitra kuota' },
+                            ]}
+                            className="mt-1"
+                        />
+                        <Hint>Mitra voucher: menukar voucher (kopi, laundry, dsb.). Mitra kuota: penjual pulsa/kuota, ada antrean top up.</Hint>
                     </label>
                 )}
                 <label className="block text-[11px] font-bold">
@@ -238,12 +289,14 @@ export function AddPartner({ kind, outlets, onClose }: { kind: PartnerKind; outl
                     <Hint>Diawali 08, 10 sampai 13 angka, tanpa spasi. Mis. 081234567890.</Hint>
                     <FieldError message={form.errors.whatsapp} />
                 </label>
-                <p className="text-ink/55 text-[11px]">PIN 4 angka dibuat otomatis dan ditampilkan sekali setelah disimpan.</p>
+                {!partner && <p className="text-ink/55 text-[11px]">PIN 4 angka dibuat otomatis dan ditampilkan sekali setelah disimpan.</p>}
             </div>
             <Actions
                 onClose={onClose}
-                disabled={(isOutlet && !form.data.outlet_id) || !form.data.name.trim() || form.data.whatsapp.length < 10 || form.processing}
-                onSave={() => form.post('/admin/mitra', { preserveScroll: true, onSuccess: onClose })}
+                disabled={
+                    (isOutlet && !partner && !form.data.outlet_id) || !form.data.name.trim() || form.data.whatsapp.length < 10 || form.processing
+                }
+                onSave={save}
             />
         </Modal>
     );

@@ -101,6 +101,24 @@ class PartnerController extends Controller
         return back()->with('status', "PIN {$partner->name} direset.")->with('partner_pin', $this->pinFlash($partner, $pin));
     }
 
+    /** Ubah nama, nomor WhatsApp, dan jenis mitra. Warung akun warung tidak dipindah dari sini. */
+    public function update(Request $request, Partner $partner): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:80'],
+            'whatsapp' => ['required', 'regex:/^08[0-9]{8,11}$/'],
+            'type' => [Rule::requiredIf($partner->type !== 'outlet'), 'nullable', Rule::in(['umum', 'kuota'])],
+        ], ['whatsapp.regex' => 'Nomor WhatsApp diawali 08, 10 sampai 13 angka.']);
+        if ($partner->type === 'outlet') {
+            unset($data['type']);
+        }
+        $before = $partner->only(['name', 'whatsapp', 'type']);
+        $partner->update($data);
+        ActivityLogger::log('partner.updated', 'partner', $partner->id, ['from' => $before, 'to' => $partner->only(['name', 'whatsapp', 'type'])], $request->user());
+
+        return back()->with('status', "Data {$partner->name} diperbarui.");
+    }
+
     public function toggleStatus(Request $request, Partner $partner): RedirectResponse
     {
         $partner->update(['status' => $partner->status === 'active' ? 'inactive' : 'active']);

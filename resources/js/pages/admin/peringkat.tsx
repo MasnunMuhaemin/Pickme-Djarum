@@ -1,4 +1,4 @@
-import { Btn, Card, Chip, Empty, Modal, PillTabs, Table, Td } from '@/features/admin/ui';
+import { Btn, Card, Chip, Empty, Modal, PillTabs, SearchInput, Table, Td, matches } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { useForm } from '@inertiajs/react';
 import { useState } from 'react';
@@ -17,6 +17,7 @@ type Row = {
 /** Peringkat total program dan minggu ini; admin menutup peringkat sebelum Laga Kosan dimulai. */
 export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'minggu'; rows: Row[]; closedAt: string | null }) {
     const [open, setOpen] = useState(false);
+    const [q, setQ] = useState('');
     const form = useForm({ confirm: false });
 
     return (
@@ -31,30 +32,35 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
 
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
                 <Card>
+                    <SearchInput value={q} onChange={setQ} placeholder="Cari nama peserta atau titik" className="mb-3" />
                     {rows.length ? (
                         <Table head={['#', 'Peserta', 'Titik', 'Cap', 'Foto', 'Hadiah', 'Golden slot']}>
-                            {rows.map((row) => (
-                                <tr key={row.rank}>
-                                    <Td className="font-bold">{row.rank}</Td>
-                                    <Td className="font-extrabold">{row.name}</Td>
-                                    <Td>{row.outlet ?? '-'}</Td>
-                                    <Td className="font-bold">{row.caps}</Td>
-                                    <Td>{row.flagged > 0 ? <Chip tone="yellow">{row.flagged} ditandai</Chip> : '-'}</Td>
-                                    <Td>
-                                        <span className="flex gap-1">
-                                            {row.golden && <Chip tone="yellow">Golden slot</Chip>}
-                                            {row.merch && <Chip tone="black">Merch LE</Chip>}
-                                        </span>
-                                    </Td>
-                                    <Td>
-                                        {row.golden_status ? (
-                                            <Chip tone={row.golden_status.startsWith('Dikonfirmasi') ? 'green' : 'yellow'}>{row.golden_status}</Chip>
-                                        ) : (
-                                            '-'
-                                        )}
-                                    </Td>
-                                </tr>
-                            ))}
+                            {rows
+                                .filter((row) => matches(q, row.name, row.outlet))
+                                .map((row) => (
+                                    <tr key={row.rank}>
+                                        <Td className="font-bold">{row.rank}</Td>
+                                        <Td className="font-extrabold">{row.name}</Td>
+                                        <Td>{row.outlet ?? '-'}</Td>
+                                        <Td className="font-bold">{row.caps}</Td>
+                                        <Td>{row.flagged > 0 ? <Chip tone="yellow">{row.flagged} ditandai</Chip> : '-'}</Td>
+                                        <Td>
+                                            <span className="flex gap-1">
+                                                {row.golden && <Chip tone="yellow">Golden slot</Chip>}
+                                                {row.merch && <Chip tone="black">Merch LE</Chip>}
+                                            </span>
+                                        </Td>
+                                        <Td>
+                                            {row.golden_status ? (
+                                                <Chip tone={row.golden_status.startsWith('Dikonfirmasi') ? 'green' : 'yellow'}>
+                                                    {row.golden_status}
+                                                </Chip>
+                                            ) : (
+                                                '-'
+                                            )}
+                                        </Td>
+                                    </tr>
+                                ))}
                         </Table>
                     ) : (
                         <Empty>Belum ada klaim disetujui{tab === 'minggu' ? ' minggu ini' : ''}.</Empty>

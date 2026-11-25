@@ -1,4 +1,21 @@
-import { Btn, Card, Chip, DateInput, Empty, FieldError, Hint, Modal, Req, RequiredNote, Table, Td, TextInput, rupiah } from '@/features/admin/ui';
+import {
+    Btn,
+    Card,
+    Chip,
+    DateInput,
+    Empty,
+    FieldError,
+    Hint,
+    Modal,
+    Req,
+    RequiredNote,
+    SearchInput,
+    Table,
+    Td,
+    TextInput,
+    matches,
+    rupiah,
+} from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { useForm } from '@inertiajs/react';
 import { useState } from 'react';
@@ -108,24 +125,28 @@ export default function Pembayaran({
 }) {
     const [paying, setPaying] = useState<Last | null>(null);
     const [correcting, setCorrecting] = useState<Last | null>(null);
+    const [q, setQ] = useState('');
     const runningTotal = running.reduce((a, r) => ({ count: a.count + r.count, value: a.value + r.value }), { count: 0, value: 0 });
 
     return (
         <AdminLayout active="pembayaran" title="Pembayaran mitra" subtitle="Rekap mingguan per mitra · dibayar di luar webapp">
+            <SearchInput value={q} onChange={setQ} placeholder="Cari nama mitra" />
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
                 <Card title={`Minggu berjalan · ${weekLabel}`}>
                     {running.length ? (
                         <Table head={['Mitra', 'Voucher ditukar', 'Nilai', 'Status']}>
-                            {running.map((r) => (
-                                <tr key={r.id}>
-                                    <Td className="font-bold">{r.name}</Td>
-                                    <Td>{r.count}</Td>
-                                    <Td>{rupiah(r.value)}</Td>
-                                    <Td>
-                                        <Chip tone="yellow">Berjalan</Chip>
-                                    </Td>
-                                </tr>
-                            ))}
+                            {running
+                                .filter((r) => matches(q, r.name))
+                                .map((r) => (
+                                    <tr key={r.id}>
+                                        <Td className="font-bold">{r.name}</Td>
+                                        <Td>{r.count}</Td>
+                                        <Td>{rupiah(r.value)}</Td>
+                                        <Td>
+                                            <Chip tone="yellow">Berjalan</Chip>
+                                        </Td>
+                                    </tr>
+                                ))}
                             <tr className="font-extrabold">
                                 <Td>Jumlah</Td>
                                 <Td>{runningTotal.count}</Td>
@@ -140,35 +161,37 @@ export default function Pembayaran({
                 <Card title={`Minggu lalu · ${lastWeekLabel}`}>
                     {last.length ? (
                         <Table head={['Mitra', 'Voucher', 'Nilai', 'Status', 'Aksi']}>
-                            {last.map((r) => (
-                                <tr key={r.id}>
-                                    <Td className="font-bold">{r.name}</Td>
-                                    <Td>
-                                        {r.count}
-                                        {r.correction && <span className="text-ink/45 block text-[10px]">Koreksi: {r.correction}</span>}
-                                    </Td>
-                                    <Td>{rupiah(r.value)}</Td>
-                                    <Td>
-                                        {r.status === 'dibayar' ? (
-                                            <Chip tone="green">Dibayar {r.paid_at}</Chip>
-                                        ) : (
-                                            <Chip tone="yellow">Menunggu bayar</Chip>
-                                        )}
-                                    </Td>
-                                    <Td>
-                                        {r.status === 'dibayar' ? (
-                                            <span className="text-ink/45 text-[11px]">{r.proof}</span>
-                                        ) : (
-                                            <span className="flex gap-1.5">
-                                                <Btn onClick={() => setPaying(r)}>Tandai dibayar</Btn>
-                                                <Btn variant="outline" onClick={() => setCorrecting(r)}>
-                                                    Koreksi
-                                                </Btn>
-                                            </span>
-                                        )}
-                                    </Td>
-                                </tr>
-                            ))}
+                            {last
+                                .filter((r) => matches(q, r.name))
+                                .map((r) => (
+                                    <tr key={r.id}>
+                                        <Td className="font-bold">{r.name}</Td>
+                                        <Td>
+                                            {r.count}
+                                            {r.correction && <span className="text-ink/45 block text-[10px]">Koreksi: {r.correction}</span>}
+                                        </Td>
+                                        <Td>{rupiah(r.value)}</Td>
+                                        <Td>
+                                            {r.status === 'dibayar' ? (
+                                                <Chip tone="green">Dibayar {r.paid_at}</Chip>
+                                            ) : (
+                                                <Chip tone="yellow">Menunggu bayar</Chip>
+                                            )}
+                                        </Td>
+                                        <Td>
+                                            {r.status === 'dibayar' ? (
+                                                <span className="text-ink/45 text-[11px]">{r.proof}</span>
+                                            ) : (
+                                                <span className="flex gap-1.5">
+                                                    <Btn onClick={() => setPaying(r)}>Tandai dibayar</Btn>
+                                                    <Btn variant="outline" onClick={() => setCorrecting(r)}>
+                                                        Koreksi
+                                                    </Btn>
+                                                </span>
+                                            )}
+                                        </Td>
+                                    </tr>
+                                ))}
                         </Table>
                     ) : (
                         <Empty>Tidak ada penukaran voucher minggu lalu.</Empty>

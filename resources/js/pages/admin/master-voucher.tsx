@@ -9,15 +9,16 @@ import {
     Opt,
     Req,
     RequiredNote,
+    SearchInput,
     SelectInput,
     Table,
     Td,
     TextInput,
+    matches,
     rupiah,
     useConfirm,
 } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
-import { cn } from '@/lib/utils';
 import { router, useForm } from '@inertiajs/react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -174,29 +175,26 @@ export default function MasterVoucher({
     outletCodes: string[];
 }) {
     const [outlet, setOutlet] = useState('');
+    const [q, setQ] = useState('');
     const [editing, setEditing] = useState<VType | null | 'new'>(null);
     const [confirm, confirmDialog] = useConfirm();
     // Saringan warung: jenis yang masuk ke papan warung itu.
-    const shown = outlet === '' ? types : types.filter((t) => t.outlets.includes(outlet));
+    const shown = (outlet === '' ? types : types.filter((t) => t.outlets.includes(outlet))).filter((t) =>
+        matches(q, t.name, t.partner, t.fulfillment_label),
+    );
     const total = shown.reduce((sum, t) => sum + t.quantity, 0);
 
     return (
         <AdminLayout active="md-voucher" title="Jenis voucher" subtitle="Langkah 3: jenis hadiah, mitra penukar, nilai, dan jumlah">
             <div className="flex flex-wrap items-center gap-2">
-                <span className="text-ink/55 text-[11px] font-bold">Tampilkan warung:</span>
-                {['', ...outletCodes].map((code) => (
-                    <button
-                        key={code || 'all'}
-                        type="button"
-                        onClick={() => setOutlet(code)}
-                        className={cn(
-                            'h-8 rounded-full px-3.5 text-[12px] font-bold transition',
-                            code === outlet ? 'bg-ink text-white' : 'border-ink/10 hover:bg-ink/5 border bg-white',
-                        )}
-                    >
-                        {code || 'Semua'}
-                    </button>
-                ))}
+                <SearchInput value={q} onChange={setQ} placeholder="Cari jenis, mitra, atau pemenuhan" />
+                <SelectInput
+                    value={outlet}
+                    onChange={setOutlet}
+                    placeholder="Semua warung"
+                    options={outletCodes.map((code) => ({ value: code, label: `Dipakai di ${code}` }))}
+                    className="w-52"
+                />
             </div>
 
             <Card title={`${shown.length} jenis voucher`} right={<Btn onClick={() => setEditing('new')}>Tambah jenis voucher</Btn>} className="mt-4">

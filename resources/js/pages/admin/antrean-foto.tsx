@@ -1,4 +1,4 @@
-import { Btn, Card, Chip, Empty, Modal, Phone, SelectInput, useConfirm } from '@/features/admin/ui';
+import { Btn, Card, Chip, Empty, Modal, Phone, SearchInput, SelectInput, useConfirm, useServerSearch } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { Link, router } from '@inertiajs/react';
 import { ImageOff, Trash2 } from 'lucide-react';
@@ -33,14 +33,19 @@ export default function FotoKlaim({
     pagination,
     outlets,
     outlet,
+    search,
 }: {
     photos: PhotoItem[];
     pagination: { current: number; last: number; total: number };
     outlets: string[];
     outlet: string | null;
+    search: string;
 }) {
     const [open, setOpen] = useState<PhotoItem | null>(null);
     const [confirm, confirmDialog] = useConfirm();
+    const [q, setQ] = useServerSearch(search, (value) =>
+        router.get(query(1, outlet, value), {}, { preserveState: true, preserveScroll: true, replace: true }),
+    );
 
     function askDelete(p: PhotoItem) {
         confirm({
@@ -51,9 +56,10 @@ export default function FotoKlaim({
             onConfirm: () => router.delete(`/admin/antrean-foto/${p.id}/foto`, { preserveScroll: true, onSuccess: () => setOpen(null) }),
         });
     }
-    const query = (page: number, code: string | null = outlet) => {
+    const query = (page: number, code: string | null = outlet, text: string = search) => {
         const q = new URLSearchParams();
         if (code) q.set('warung', code);
+        if (text) q.set('q', text);
         if (page > 1) q.set('page', String(page));
         return `/admin/antrean-foto${q.size ? `?${q}` : ''}`;
     };
@@ -61,6 +67,7 @@ export default function FotoKlaim({
     return (
         <AdminLayout active="antrean-foto" title="Foto klaim" subtitle={`${pagination.total} foto bungkus dari peserta · terbaru di atas`}>
             <div className="flex flex-wrap items-center gap-2">
+                <SearchInput value={q} onChange={setQ} placeholder="Cari nama, nomor, kode klaim, atau kode voucher" />
                 <span className="text-ink/55 text-[11px] font-bold">Warung</span>
                 <SelectInput
                     value={outlet ?? ''}
@@ -108,7 +115,9 @@ export default function FotoKlaim({
                         ))}
                     </div>
                 ) : (
-                    <Empty>Belum ada foto klaim{outlet ? ` di ${outlet}` : ''}.</Empty>
+                    <Empty>
+                        {search ? `Tidak ada foto yang cocok dengan "${search}".` : `Belum ada foto klaim${outlet ? ` di ${outlet}` : ''}.`}
+                    </Empty>
                 )}
 
                 {pagination.last > 1 && (

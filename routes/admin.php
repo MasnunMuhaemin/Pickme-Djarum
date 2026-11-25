@@ -53,6 +53,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::post('mitra', [PartnerController::class, 'store'])->name('mitra.store');
     Route::post('mitra/{partner}/pin', [PartnerController::class, 'resetPin'])->name('mitra.pin');
     Route::post('mitra/{partner}/status', [PartnerController::class, 'toggleStatus'])->name('mitra.status');
+    Route::put('mitra/{partner}', [PartnerController::class, 'update'])->name('mitra.update');
     Route::post('mitra/{partner}/dibayar', [PartnerController::class, 'markPaid'])->name('mitra.dibayar');
     Route::post('mitra/{partner}/koreksi', [PartnerController::class, 'correct'])->name('mitra.koreksi');
 

@@ -2,9 +2,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 import { CheckboxItem as DropdownMenuCheckboxItem } from '@radix-ui/react-dropdown-menu';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, Search, X } from 'lucide-react';
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /** Warna panel admin mengikuti halaman login: night, lime, cream, ink. */
 export const adminYellow = 'bg-lime';
@@ -165,11 +165,29 @@ export function SelectInput({
     className?: string;
 }) {
     const current = options.find((o) => String(o.value) === String(value));
-    const choices = placeholder !== undefined ? [{ value: '', label: placeholder }, ...options] : options;
+    const [query, setQuery] = useState('');
+    // Kotak cari hanya muncul bila pilihannya banyak (mis. puluhan warung).
+    const searchable = options.length > 8;
+    const all = placeholder !== undefined ? [{ value: '', label: placeholder }, ...options] : options;
+    const choices = searchable ? all.filter((o) => o.value === '' || matches(query, o.label)) : all;
     return (
-        <DropdownMenu modal={false}>
+        <DropdownMenu modal={false} onOpenChange={(open) => !open && setQuery('')}>
             <Trigger label={current?.label ?? placeholder ?? 'Pilih'} empty={!current} className={className} disabled={disabled} />
             <DropdownMenuContent align="start" className={cn(panelClass, 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-48')}>
+                {searchable && (
+                    <div className="border-ink/10 mb-1 border-b p-1 pb-2">
+                        <input
+                            autoFocus
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            // Tombol huruf jangan diambil menu sebagai lompatan pilihan.
+                            onKeyDown={(e) => e.key !== 'Escape' && e.stopPropagation()}
+                            placeholder="Ketik untuk mencari"
+                            className={fieldClass}
+                        />
+                    </div>
+                )}
+                {searchable && choices.length === 0 && <p className="text-ink/45 px-2.5 py-2 text-[12px]">Tidak ada yang cocok.</p>}
                 {choices.map((o) => {
                     const selected = String(o.value) === String(value);
                     return (
@@ -364,6 +382,72 @@ export function Req() {
 /** Tanda isian yang boleh dikosongkan. */
 export function Opt() {
     return <span className="text-ink/40 font-normal"> (opsional)</span>;
+}
+
+/** Cocokkan kata kunci (tanpa beda huruf besar/kecil) dengan salah satu kolom. Kata kunci kosong = semua cocok. */
+export function matches(query: string, ...fields: (string | number | null | undefined)[]): boolean {
+    const q = query.trim().toLowerCase();
+    return (
+        !q ||
+        fields.some((f) =>
+            String(f ?? '')
+                .toLowerCase()
+                .includes(q),
+        )
+    );
+}
+
+/**
+ * Pencarian untuk daftar yang dibagi per halaman di server (mis. log, foto klaim): menunggu admin berhenti mengetik
+ * sebentar, lalu memanggil onSearch dengan kata kunci terbaru.
+ */
+export function useServerSearch(initial: string, onSearch: (q: string) => void) {
+    const [q, setQ] = useState(initial);
+    const latest = useRef(onSearch);
+    latest.current = onSearch;
+    useEffect(() => {
+        if (q.trim() === initial.trim()) return;
+        const t = window.setTimeout(() => latest.current(q.trim()), 400);
+        return () => window.clearTimeout(t);
+    }, [q, initial]);
+    return [q, setQ] as const;
+}
+
+/** Kotak cari untuk daftar di CMS. */
+export function SearchInput({
+    value,
+    onChange,
+    placeholder = 'Cari...',
+    className,
+}: {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    className?: string;
+}) {
+    return (
+        <div className={cn('relative w-full max-w-xs', className)}>
+            <Search className="text-ink/40 pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+            <input
+                type="search"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
+                aria-label={placeholder}
+                className={cn(fieldClass, 'pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden')}
+            />
+            {value && (
+                <button
+                    type="button"
+                    onClick={() => onChange('')}
+                    aria-label="Hapus pencarian"
+                    className="text-ink/45 hover:text-ink absolute top-1/2 right-2 grid size-5 -translate-y-1/2 place-items-center rounded-full"
+                >
+                    <X className="size-3.5" />
+                </button>
+            )}
+        </div>
+    );
 }
 
 /** Keterangan format isian di bawah kolomnya, supaya admin tahu harus diisi seperti apa. */

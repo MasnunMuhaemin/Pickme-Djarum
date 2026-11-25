@@ -55,6 +55,7 @@ class ActivityLogController extends Controller
         'partner.created' => 'Menambah mitra',
         'partner.pin_reset' => 'Mereset PIN mitra',
         'partner.status' => 'Mengubah status mitra',
+        'partner.updated' => 'Mengubah data mitra',
         'partner.area' => 'Mengubah area mitra',
         'payout.paid' => 'Menandai rekap mitra dibayar',
         'payout.corrected' => 'Mengoreksi rekap mitra',
@@ -82,11 +83,32 @@ class ActivityLogController extends Controller
         'pin_reset_requested' => 'Minta reset PIN',
     ];
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $logs = ActivityLog::latest()->paginate(50);
+        $q = trim((string) $request->query('q'));
+        $logs = ActivityLog::query()
+            ->when($q, function ($query) use ($q) {
+                // Cari di nama aksi (bahasa Indonesia), pelaku, peserta, kode klaim, dan detail log.
+                $like = '%'.$q.'%';
+                $actions = collect(self::ACTIONS)->filter(fn ($label) => str_contains(mb_strtolower($label), mb_strtolower($q)))->keys();
+                $admins = User::where('name', 'like', $like)->pluck('id');
+                $digits = preg_replace('/\D/', '', $q);
+                $people = Participant::where('name', 'like', $like)->when($digits, fn ($p) => $p->orWhere('whatsapp', 'like', "%{$digits}%"))->pluck('id');
+                $claims = Claim::where('claim_code', 'like', $like)->pluck('id');
+                $query->where(fn ($w) => $w->whereIn('action', $actions)
+                    ->orWhere('action', 'like', $like)
+                    ->orWhere('metadata', 'like', $like)
+                    ->orWhere(fn ($x) => $x->where('actor_type', 'admin')->whereIn('actor_id', $admins))
+                    ->orWhere(fn ($x) => $x->where('actor_type', 'participant')->whereIn('actor_id', $people))
+                    ->orWhere(fn ($x) => $x->where('subject_type', 'participant')->whereIn('subject_id', $people))
+                    ->orWhere(fn ($x) => $x->where('subject_type', 'claim')->whereIn('subject_id', $claims)));
+            })
+            ->latest()
+            ->paginate(50)
+            ->withQueryString();
 
         return Inertia::render('admin/log', [
+            'search' => $q,
             'logs' => $this->present(collect($logs->items())),
             'pagination' => ['current' => $logs->currentPage(), 'last' => $logs->lastPage(), 'total' => $logs->total()],
         ]);

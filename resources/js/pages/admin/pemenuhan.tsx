@@ -12,9 +12,11 @@ import {
     PillTabs,
     Req,
     RequiredNote,
+    SearchInput,
     Table,
     Td,
     TextInput,
+    matches,
 } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { router, useForm } from '@inertiajs/react';
@@ -230,6 +232,8 @@ export default function Pemenuhan({
     goods: Good[];
     help: Help[];
 }) {
+    const [q, setQ] = useState('');
+    const find = (row: { name: string; whatsapp: string }, ...extra: (string | null)[]) => matches(q, row.name, row.whatsapp, ...extra);
     const subtitle =
         tab === 'token'
             ? 'Token listrik diproses manual ke agregator'
@@ -249,12 +253,15 @@ export default function Pemenuhan({
             />
 
             <Card className="mt-4">
+                <SearchInput value={q} onChange={setQ} placeholder="Cari nama, nomor, atau hadiah peserta" className="mb-3" />
                 {tab === 'token' &&
                     (tokens.length ? (
                         <Table head={['Peserta', 'Nilai', 'Nomor tujuan', 'Gagal', 'Hasil', '']}>
-                            {tokens.map((row) => (
-                                <TokenRow key={row.id} row={row} />
-                            ))}
+                            {tokens
+                                .filter((row) => find(row, row.destination, row.value))
+                                .map((row) => (
+                                    <TokenRow key={row.id} row={row} />
+                                ))}
                         </Table>
                     ) : (
                         <Empty>Tidak ada token listrik yang menunggu.</Empty>
@@ -262,9 +269,11 @@ export default function Pemenuhan({
                 {tab === 'bensin' &&
                     (fuel.length ? (
                         <Table head={['Peserta', 'Nilai tunai', 'Status', 'Aksi']}>
-                            {fuel.map((row) => (
-                                <FuelRow key={row.id} row={row} />
-                            ))}
+                            {fuel
+                                .filter((row) => find(row, row.value))
+                                .map((row) => (
+                                    <FuelRow key={row.id} row={row} />
+                                ))}
                         </Table>
                     ) : (
                         <Empty>Tidak ada bensin tunai yang menunggu.</Empty>
@@ -272,36 +281,44 @@ export default function Pemenuhan({
                 {tab === 'barang' &&
                     (goods.length ? (
                         <Table head={['Peserta', 'Hadiah', 'Area', 'Status', 'Aksi']}>
-                            {goods.map((row) => (
-                                <tr key={row.id}>
-                                    <Td className="font-extrabold">{row.name}</Td>
-                                    <Td>{row.prize}</Td>
-                                    <Td>{row.area ?? '-'}</Td>
-                                    <Td>
-                                        <Chip tone={goodStatus[row.status]?.tone ?? 'gray'}>{goodStatus[row.status]?.label ?? row.status}</Chip>
-                                    </Td>
-                                    <Td>
-                                        {row.status === 'ready_to_ship' && (
-                                            <Btn onClick={() => router.post(`/admin/pemenuhan/barang/${row.id}/kirim`, {}, { preserveScroll: true })}>
-                                                Kirim
-                                            </Btn>
-                                        )}
-                                        {row.status === 'shipping' && (
-                                            <Btn
-                                                onClick={() => router.post(`/admin/pemenuhan/barang/${row.id}/selesai`, {}, { preserveScroll: true })}
-                                            >
-                                                Selesai
-                                            </Btn>
-                                        )}
-                                        {row.status === 'pending_address' && (
-                                            <Btn variant="outline" disabled>
-                                                Kirim
-                                            </Btn>
-                                        )}
-                                        {row.status === 'done' && <span className="text-ink/50 text-[11px]">{row.completed_at}</span>}
-                                    </Td>
-                                </tr>
-                            ))}
+                            {goods
+                                .filter((row) => matches(q, row.name, row.prize, row.area, row.address))
+                                .map((row) => (
+                                    <tr key={row.id}>
+                                        <Td className="font-extrabold">{row.name}</Td>
+                                        <Td>{row.prize}</Td>
+                                        <Td>{row.area ?? '-'}</Td>
+                                        <Td>
+                                            <Chip tone={goodStatus[row.status]?.tone ?? 'gray'}>{goodStatus[row.status]?.label ?? row.status}</Chip>
+                                        </Td>
+                                        <Td>
+                                            {row.status === 'ready_to_ship' && (
+                                                <Btn
+                                                    onClick={() =>
+                                                        router.post(`/admin/pemenuhan/barang/${row.id}/kirim`, {}, { preserveScroll: true })
+                                                    }
+                                                >
+                                                    Kirim
+                                                </Btn>
+                                            )}
+                                            {row.status === 'shipping' && (
+                                                <Btn
+                                                    onClick={() =>
+                                                        router.post(`/admin/pemenuhan/barang/${row.id}/selesai`, {}, { preserveScroll: true })
+                                                    }
+                                                >
+                                                    Selesai
+                                                </Btn>
+                                            )}
+                                            {row.status === 'pending_address' && (
+                                                <Btn variant="outline" disabled>
+                                                    Kirim
+                                                </Btn>
+                                            )}
+                                            {row.status === 'done' && <span className="text-ink/50 text-[11px]">{row.completed_at}</span>}
+                                        </Td>
+                                    </tr>
+                                ))}
                         </Table>
                     ) : (
                         <Empty>Tidak ada merchandise atau limited edition.</Empty>
@@ -328,25 +345,27 @@ export default function Pemenuhan({
                     }
                 >
                     <Table head={['Peserta', 'Nilai', 'Nomor tujuan', 'Gagal', 'Aksi']}>
-                        {help.map((row) => (
-                            <tr key={row.id}>
-                                <Td>
-                                    <Who p={row} />
-                                </Td>
-                                <Td className="font-bold">{row.value}</Td>
-                                <Td className="font-mono">{row.destination ?? '-'}</Td>
-                                <Td>
-                                    {row.failed}/{row.max}
-                                </Td>
-                                <Td>
-                                    {row.wa && (
-                                        <BtnLink href={row.wa} variant="yellow" external>
-                                            Hubungi lewat WhatsApp
-                                        </BtnLink>
-                                    )}
-                                </Td>
-                            </tr>
-                        ))}
+                        {help
+                            .filter((row) => find(row, row.destination, row.value))
+                            .map((row) => (
+                                <tr key={row.id}>
+                                    <Td>
+                                        <Who p={row} />
+                                    </Td>
+                                    <Td className="font-bold">{row.value}</Td>
+                                    <Td className="font-mono">{row.destination ?? '-'}</Td>
+                                    <Td>
+                                        {row.failed}/{row.max}
+                                    </Td>
+                                    <Td>
+                                        {row.wa && (
+                                            <BtnLink href={row.wa} variant="yellow" external>
+                                                Hubungi lewat WhatsApp
+                                            </BtnLink>
+                                        )}
+                                    </Td>
+                                </tr>
+                            ))}
                     </Table>
                 </Card>
             )}

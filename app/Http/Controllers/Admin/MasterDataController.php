@@ -10,6 +10,7 @@ use App\Models\Slot;
 use App\Models\VoucherType;
 use App\Services\SlotPrizeService;
 use App\Support\ActivityLogger;
+use App\Support\Mask;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +39,8 @@ class MasterDataController extends Controller
                 'id' => $o->id,
                 'code' => $o->code,
                 'name' => $o->name,
+                'whatsapp' => $o->whatsapp,
+                'wa' => Mask::waLink($o->whatsapp, "Halo {$o->name}, ini admin PICKME."),
                 'qr' => url($o->code),
                 'area_ids' => $o->areas->pluck('id'),
                 'areas' => $o->areas->pluck('name'),
@@ -70,6 +73,7 @@ class MasterDataController extends Controller
                 'kind' => $p->type,
                 'outlet' => $p->outlet ? "{$p->outlet->code} · {$p->outlet->name}" : null,
                 'whatsapp' => $p->whatsapp,
+                'wa' => Mask::waLink($p->whatsapp, "Halo {$p->name}, ini admin PICKME."),
                 'active' => $p->status === 'active',
                 'has_pin' => (bool) $p->pin_hash,
                 'types' => $p->voucher_types_count,
@@ -148,6 +152,7 @@ class MasterDataController extends Controller
     {
         return [
             'name' => ['required', 'string', 'max:80'],
+            'whatsapp' => ['required', 'regex:/^08[0-9]{8,11}$/'],
             'area_ids' => ['required', 'array', 'min:1'],
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'voucher_type_ids' => ['array'],
@@ -158,6 +163,8 @@ class MasterDataController extends Controller
     private const OUTLET_MESSAGES = [
         'code.regex' => 'Kode warung: satu huruf dan dua angka, mis. W21.',
         'code.unique' => 'Kode warung sudah dipakai.',
+        'whatsapp.required' => 'Isi nomor WhatsApp warung.',
+        'whatsapp.regex' => 'Nomor WhatsApp diawali 08, 10 sampai 13 angka.',
         'area_ids.required' => 'Pilih minimal satu area kos.',
         'area_ids.min' => 'Pilih minimal satu area kos.',
     ];
@@ -171,6 +178,7 @@ class MasterDataController extends Controller
         $code = strtoupper($data['code']);
 
         $outlet = $prizes->createOutlet($code, $data['name'], array_map('intval', $data['area_ids']), array_map('intval', $data['voucher_type_ids'] ?? []));
+        $outlet->update(['whatsapp' => $data['whatsapp']]);
         ActivityLogger::log('master.outlet_created', 'outlet', $outlet->id, ['code' => $code], $request->user());
 
         return back()->with('status', "Warung {$code} ditambahkan dengan 25 slot. Alamat QR: ".url($code));
@@ -184,7 +192,7 @@ class MasterDataController extends Controller
         $typeIds = array_map('intval', $data['voucher_type_ids'] ?? []);
         $before = ['areas' => $outlet->areas()->pluck('areas.id')->all(), 'voucher_types' => $outlet->voucherTypes()->pluck('voucher_types.id')->all()];
 
-        $outlet->update(['name' => $data['name'], 'area_id' => $areaIds[0]]);
+        $outlet->update(['name' => $data['name'], 'whatsapp' => $data['whatsapp'], 'area_id' => $areaIds[0]]);
         $outlet->areas()->sync($areaIds);
         $outlet->voucherTypes()->sync($typeIds);
         // Akun warung ikut area utama warungnya.

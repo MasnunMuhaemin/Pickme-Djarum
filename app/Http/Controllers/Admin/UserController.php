@@ -32,7 +32,7 @@ class UserController extends Controller
             ->with('area')
             ->withCount(['claims' => fn ($q) => $q->where('status', 'approved')])
             ->when($search, fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
-                ->orWhere('whatsapp', 'like', '%'.preg_replace('/\D/', '', $search).'%')))
+                ->when(preg_replace('/\D/', '', $search), fn ($q, $digits) => $q->orWhere('whatsapp', 'like', "%{$digits}%"))))
             ->orderByRaw('blocked_at is null')
             ->latest('id')
             ->paginate(25)

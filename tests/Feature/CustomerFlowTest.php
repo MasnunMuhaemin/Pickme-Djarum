@@ -221,6 +221,31 @@ class CustomerFlowTest extends TestCase
         $this->post('/participant/klaim/mulai', ['outlet' => 'W07'])->assertRedirect('/participant/persetujuan');
     }
 
+    public function test_paused_program_or_outlet_blocks_photo_submit_and_creates_nothing(): void
+    {
+        $participant = $this->readyParticipant();
+        $this->get('/participant/foto');
+
+        // Seluruh program dijeda: kirim foto ditolak, tidak ada klaim, voucher, atau cap baru.
+        Setting::put('program_paused', '1');
+        $this->post('/participant/foto', ['photo' => $this->photo(seed: 61), 'outlet' => 'W07'])
+            ->assertRedirect('/participant/papan?outlet=W07')->assertSessionHasErrors('claim');
+        $this->assertSame(0, Claim::count());
+        $this->assertSame(0, Voucher::count());
+        $this->assertSame(0, $participant->fresh()->caps);
+
+        // Hanya titik W07 yang dijeda: hasilnya sama.
+        Setting::put('program_paused', '0');
+        Outlet::where('code', 'W07')->update(['status' => 'paused']);
+        $this->post('/participant/foto', ['photo' => $this->photo(seed: 62), 'outlet' => 'W07'])->assertSessionHasErrors('claim');
+        $this->assertSame(0, Claim::count());
+
+        // Dilanjutkan: klaim berjalan normal lagi.
+        Outlet::where('code', 'W07')->update(['status' => 'active']);
+        $this->uploadPhoto(seed: 63);
+        $this->assertSame(1, $participant->fresh()->caps);
+    }
+
     public function test_paused_program_blocks_claim_screens(): void
     {
         $this->readyParticipant();

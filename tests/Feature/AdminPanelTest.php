@@ -110,7 +110,7 @@ class AdminPanelTest extends TestCase
 
         // Area utama warung berubah: akunnya ikut.
         $other = Area::where('id', '!=', $outlet->area_id)->firstOrFail();
-        $this->put("/admin/master-data/titik/{$outlet->id}", ['name' => $outlet->name, 'area_ids' => [$other->id]])->assertRedirect();
+        $this->put("/admin/master-data/titik/{$outlet->id}", ['name' => $outlet->name, 'whatsapp' => '081299990010', 'area_ids' => [$other->id]])->assertRedirect();
         $this->assertSame($other->id, $account->fresh()->area_id);
 
         // Mitra voucher tidak punya area (PRD bagian 16).
@@ -268,8 +268,10 @@ class AdminPanelTest extends TestCase
     {
         [$first, $second] = Area::orderBy('id')->take(2)->get();
         $this->actingAs($this->admin)->post('/admin/master-data/titik', ['code' => 'w21', 'name' => 'Warung Baru'])->assertSessionHasErrors('area_ids');
-        $this->post('/admin/master-data/titik', ['code' => 'w21', 'name' => 'Warung Baru', 'area_ids' => [$first->id, $second->id]])->assertRedirect();
+        $this->post('/admin/master-data/titik', ['code' => 'w21', 'name' => 'Warung Baru', 'area_ids' => [$first->id, $second->id]])->assertSessionHasErrors('whatsapp');
+        $this->post('/admin/master-data/titik', ['code' => 'w21', 'name' => 'Warung Baru', 'whatsapp' => '081299990011', 'area_ids' => [$first->id, $second->id]])->assertRedirect();
         $outlet = Outlet::where('code', 'W21')->firstOrFail();
+        $this->assertSame('081299990011', $outlet->whatsapp);
         // Satu warung mencakup banyak area kos; area pertama jadi area utama.
         $this->assertEqualsCanonicalizing([$first->id, $second->id], $outlet->areas()->pluck('areas.id')->all());
         $this->assertSame($first->id, $outlet->area_id);
@@ -318,7 +320,7 @@ class AdminPanelTest extends TestCase
         $used = $slots->where('prize_type', 'voucher')->first();
         $used->update(['status' => 'used']);
         $this->actingAs($this->admin)->put("/admin/master-data/titik/{$outlet->id}", [
-            'name' => 'Warung Uji', 'area_ids' => [Area::first()->id], 'voucher_type_ids' => [$laundry->id],
+            'name' => 'Warung Uji', 'whatsapp' => '081299990012', 'area_ids' => [Area::first()->id], 'voucher_type_ids' => [$laundry->id],
         ])->assertRedirect();
 
         $after = $outlet->board->slots()->where('prize_type', 'voucher')->get();
@@ -388,6 +390,8 @@ class AdminPanelTest extends TestCase
         $p = $this->participant();
         $this->actingAs($this->admin);
         $this->get('/admin/pengguna?tab=peserta')->assertInertia(fn ($page) => $page->where('participants.0.id', $p->id));
+        $this->get('/admin/pengguna?tab=peserta&q=zzzz')->assertInertia(fn ($page) => $page->where('participants', []));
+        $this->get('/admin/pengguna?tab=peserta&q='.substr($p->whatsapp, -4))->assertInertia(fn ($page) => $page->where('participants.0.id', $p->id));
         $this->post('/admin/pengguna/peserta', ['name' => 'Baru'])->assertNotFound();
 
         $this->post("/admin/pengguna/peserta/{$p->id}/pin")->assertRedirect()->assertSessionHas('partner_pin');
@@ -408,5 +412,30 @@ class AdminPanelTest extends TestCase
 
         $this->post("/admin/pengguna/peserta/{$p->id}/blokir")->assertRedirect();
         $this->assertNull($p->fresh()->blocked_at);
+    }
+
+    public function test_server_search_on_log_and_photos_and_partner_can_be_edited(): void
+    {
+        $claim = $this->rewardedClaim('voucher');
+        ClaimPhoto::create(['claim_id' => $claim->id, 'path' => 'claims/uji.jpg', 'perceptual_hash' => str_repeat('0', 16), 'hash_version' => 1, 'brightness' => 120]);
+        $this->actingAs($this->admin);
+
+        // Foto klaim: cari kode voucher (boleh dengan strip/spasi) dan nama peserta.
+        $code = $claim->voucher->code;
+        $this->get('/admin/antrean-foto?q='.urlencode(substr($code, 0, 3).'-'.substr($code, 3)))->assertInertia(fn ($page) => $page->where('photos.0.claim_code', $claim->claim_code));
+        $this->get('/admin/antrean-foto?q=Tari')->assertInertia(fn ($page) => $page->where('photos.0.claim_code', $claim->claim_code));
+        $this->get('/admin/antrean-foto?q=tidakada')->assertInertia(fn ($page) => $page->where('photos', []));
+
+        // Mitra: ubah nama, nomor, dan jenis; tercatat di log.
+        $partner = Partner::where('type', '!=', 'outlet')->firstOrFail();
+        $this->put("/admin/mitra/{$partner->id}", ['name' => 'Kopi Baru Sekali', 'whatsapp' => '0812', 'type' => 'kuota'])->assertSessionHasErrors('whatsapp');
+        $this->put("/admin/mitra/{$partner->id}", ['name' => 'Kopi Baru Sekali', 'whatsapp' => '081299990099', 'type' => 'kuota'])->assertRedirect();
+        $this->assertSame(['Kopi Baru Sekali', '081299990099', 'kuota'], array_values($partner->fresh()->only(['name', 'whatsapp', 'type'])));
+
+        // Log: cari lewat label aksi berbahasa Indonesia.
+        $this->get('/admin/log?q='.urlencode('mengubah data mitra'))->assertInertia(fn ($page) => $page
+            ->where('search', 'mengubah data mitra')
+            ->where('logs.0.action', 'Mengubah data mitra'));
+        $this->get('/admin/log?q=zzzzzz')->assertInertia(fn ($page) => $page->where('logs', []));
     }
 }

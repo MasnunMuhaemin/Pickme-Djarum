@@ -1,4 +1,4 @@
-import { Card, Chip, Empty, Phone, PillTabs, Table, Td } from '@/features/admin/ui';
+import { Card, Chip, Empty, Phone, PillTabs, SearchInput, Table, Td, matches } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
@@ -29,6 +29,8 @@ export default function KirimVoucher({
 }) {
     const [selectedId, setSelectedId] = useState<number | null>(rows[0]?.id ?? null);
     const selected = rows.find((r) => r.id === selectedId) ?? rows[0];
+    const [q, setQ] = useState('');
+    const shown = rows.filter((r) => matches(q, r.name, r.whatsapp, r.code, r.kind, r.partner));
 
     function send(row: Row) {
         if (row.wa) window.open(row.wa, '_blank', 'noopener');
@@ -52,9 +54,10 @@ export default function KirimVoucher({
 
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
                 <Card>
-                    {rows.length ? (
+                    <SearchInput value={q} onChange={setQ} placeholder="Cari nama, nomor, kode, atau voucher" className="mb-3" />
+                    {shown.length ? (
                         <Table head={['Peserta', 'Voucher', 'Nilai', 'Kode', 'Status', 'Aksi']}>
-                            {rows.map((row) => (
+                            {shown.map((row) => (
                                 <tr
                                     key={row.id}
                                     onClick={() => setSelectedId(row.id)}

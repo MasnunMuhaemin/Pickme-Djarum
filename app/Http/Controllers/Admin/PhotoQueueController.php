@@ -24,10 +24,16 @@ class PhotoQueueController extends Controller
     public function index(Request $request): Response
     {
         $outlet = strtoupper((string) $request->query('warung'));
+        $search = trim((string) $request->query('q'));
         $claims = Claim::query()
             ->whereHas('photo')
             ->where('status', 'approved')
             ->when($outlet, fn ($q) => $q->whereHas('outlet', fn ($o) => $o->where('code', $outlet)))
+            // Cari nama atau nomor peserta, kode klaim, dan kode voucher.
+            ->when($search, fn ($q) => $q->where(fn ($w) => $w->where('claim_code', 'like', "%{$search}%")
+                ->orWhereHas('participant', fn ($p) => $p->where('name', 'like', "%{$search}%")
+                    ->when(preg_replace('/\D/', '', $search), fn ($p, $digits) => $p->orWhere('whatsapp', 'like', "%{$digits}%")))
+                ->orWhereHas('voucher', fn ($v) => $v->where('code', 'like', '%'.strtoupper(preg_replace('/[\s-]+/', '', $search)).'%'))))
             ->with(['participant', 'outlet', 'slot', 'photo', 'voucher.voucherType', 'gifts'])
             ->latest('submitted_at')
             ->paginate(24)
@@ -38,6 +44,7 @@ class PhotoQueueController extends Controller
             'pagination' => ['current' => $claims->currentPage(), 'last' => $claims->lastPage(), 'total' => $claims->total()],
             'outlets' => Outlet::orderBy('code')->pluck('code'),
             'outlet' => $outlet ?: null,
+            'search' => $search,
         ]);
     }
 
