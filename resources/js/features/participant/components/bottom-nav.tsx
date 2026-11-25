@@ -200,18 +200,18 @@ export function BottomNav() {
                     'pointer-events-auto relative mx-auto h-14 touch-none items-center rounded-full bg-[#0b0b0b] px-1.5 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.45)] select-none',
                     // 3 menu (kamera di tengah): kolom kiri dan kanan sama lebar sehingga kamera selalu tepat di tengah,
                     // navbar dibuat ringkas. 4 menu: jarak antar menu dibagi rata.
-                    cameraCentered ? 'grid max-w-[264px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]' : 'flex max-w-[384px] justify-between',
+                    cameraCentered ? 'grid max-w-[264px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1' : 'flex max-w-[384px] justify-between',
                 )}
             >
                 <span aria-hidden className="bg-lime pointer-events-none absolute top-0 left-0 rounded-full" style={indicatorStyle} />
                 {cameraCentered ? (
                     <>
-                        <div className="flex min-w-0 justify-center">{renderItem(visibleItems[0])}</div>
+                        <div className="flex min-w-0">{renderItem(visibleItems[0], true)}</div>
                         {renderItem(visibleItems[1])}
-                        <div className="flex min-w-0 justify-center">{renderItem(visibleItems[2])}</div>
+                        <div className="flex min-w-0">{renderItem(visibleItems[2], true)}</div>
                     </>
                 ) : (
-                    visibleItems.map(renderItem)
+                    visibleItems.map((item) => renderItem(item))
                 )}
             </div>
         </nav>
@@ -237,7 +237,7 @@ export function BottomNav() {
         window.setTimeout(() => router.visit(item.href), item.key === 'scan' ? SLIDE_BEFORE_LEAVE_MS : 0);
     }
 
-    function renderItem(item: (typeof visibleItems)[number]) {
+    function renderItem(item: (typeof visibleItems)[number], fill = false) {
         const isActive = target === item.key;
         const Icon = item.icon;
         return (
@@ -260,6 +260,8 @@ export function BottomNav() {
                     // Tinggi 44px tetap nyaman untuk jempol (PRD bagian 14).
                     'relative flex h-11 items-center justify-center rounded-full transition-colors duration-200',
                     isActive ? 'text-ink gap-1 px-3 text-[12px] font-extrabold' : 'text-cream w-10 hover:bg-white/10',
+                    // Menu kiri/kanan selebar kolomnya agar tampilan simetris di sekitar kamera.
+                    fill && 'w-full',
                 )}
             >
                 <Icon className="size-5 shrink-0" strokeWidth={isActive ? 2.25 : 1.75} />
