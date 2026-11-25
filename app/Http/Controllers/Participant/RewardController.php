@@ -32,15 +32,8 @@ class RewardController extends Controller
             ->sortBy(fn ($reward) => ($reward['mystery'] ?? false) ? 0 : 1)
             ->values();
 
-        // Klaim yang ditangguhkan (antre admin) dan ditolak tampil di atas, menuju halaman statusnya.
-        $claimCards = $participant->claims()->whereIn('status', ['pending', 'rejected'])
-            ->with('outlet')->latest('submitted_at')->get()
-            ->sortBy(fn ($claim) => $claim->status === 'pending' ? 0 : 1)
-            ->map(fn ($claim) => RewardPresenter::claim($claim))
-            ->values();
-
         return Inertia::render('participant/hadiah', [
-            'rewards' => $claimCards->concat($rewards)->values(),
+            'rewards' => $rewards,
             'approvedClaims' => $claims->count(),
         ]);
     }

@@ -6,6 +6,7 @@ use App\Models\Area;
 use App\Models\Board;
 use App\Models\Outlet;
 use App\Models\Slot;
+use App\Services\RewardCreationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -22,7 +23,8 @@ class CustomerSeeder extends Seeder
                 Area::firstOrCreate(['name' => $name], ['is_delivery_area' => true]);
             }
             $outlet = Outlet::firstOrCreate(['code' => 'W07'], ['name' => 'Warung Djarum', 'area_id' => $area->id, 'status' => 'active']);
-            $board = Board::firstOrCreate(['outlet_id' => $outlet->id], ['code' => 'W07-BOARD', 'week_label' => 'W07', 'status' => 'active']);
+            $outlet->areas()->syncWithoutDetaching([$area->id]);
+            $board = Board::firstOrCreate(['outlet_id' => $outlet->id], ['code' => 'W07BOARD', 'week_label' => 'W07', 'status' => 'active']);
 
             $prizes = array_fill(0, 25, 'voucher');
             foreach ([3, 9, 18] as $i) {
@@ -43,6 +45,7 @@ class CustomerSeeder extends Seeder
                     [
                         'code' => $this->slotCode($i),
                         'prize_type' => $prizes[$i],
+                        'voucher_code' => $prizes[$i] === 'merch' ? null : RewardCreationService::voucherCode(),
                         'status' => $taken ? 'used' : 'empty',
                         'used_at' => $taken ? now() : null,
                     ],

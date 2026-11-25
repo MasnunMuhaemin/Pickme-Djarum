@@ -29,7 +29,7 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
                 ]}
             />
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
                 <Card>
                     {rows.length ? (
                         <Table head={['#', 'Peserta', 'Titik', 'Cap', 'Foto', 'Hadiah', 'Golden slot']}>
@@ -63,7 +63,7 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
 
                 <div className="space-y-3">
                     <Card title="Aturan peringkat">
-                        <p className="text-[11px] leading-relaxed text-black/60">
+                        <p className="text-ink/60 text-[11px] leading-relaxed">
                             Hanya klaim berstatus disetujui yang dihitung. Urutan: cap terbanyak, lalu yang lebih dulu mencapai jumlah itu.
                             <br />
                             <br />
@@ -72,7 +72,7 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
                         </p>
                     </Card>
                     <Card title="Tutup peringkat">
-                        <p className="text-[11px] leading-relaxed text-black/60">
+                        <p className="text-ink/60 text-[11px] leading-relaxed">
                             Ditutup sebelum Laga Kosan dimulai. Admin mengonfirmasi dulu apakah pemenang bisa main. Jika tidak, slot turun ke
                             peringkat berikutnya.
                         </p>
@@ -85,20 +85,20 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
                                 Tutup peringkat
                             </Btn>
                         )}
-                        <p className="mt-2 text-[10px] text-black/45">Memerlukan konfirmasi dua langkah dan tercatat di log.</p>
+                        <p className="text-ink/45 mt-2 text-[10px]">Memerlukan konfirmasi dua langkah dan tercatat di log.</p>
                     </Card>
                 </div>
             </div>
 
             <Modal open={open} onClose={() => setOpen(false)} danger>
                 <h3 className="text-[16px] font-extrabold">Tutup peringkat?</h3>
-                <p className="mt-1 text-[12px] text-black/60">Pemenang golden slot dan merch LE dikunci sesuai urutan saat ini.</p>
+                <p className="text-ink/60 mt-1 text-[12px]">Pemenang golden slot dan merch LE dikunci sesuai urutan saat ini.</p>
                 <label className="mt-3 flex items-center gap-2 text-[12px]">
                     <input
                         type="checkbox"
                         checked={form.data.confirm}
                         onChange={(e) => form.setData('confirm', e.target.checked)}
-                        className="size-4 accent-black"
+                        className="accent-ink size-4"
                     />
                     Saya mengerti dampaknya (langkah 2 dari 2)
                 </label>

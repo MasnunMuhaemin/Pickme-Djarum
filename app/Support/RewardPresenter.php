@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\Claim;
 use App\Models\Gift;
 use App\Models\Voucher;
 
@@ -15,7 +14,7 @@ class RewardPresenter
 {
     /**
      * Status per jenis pemenuhan (PRD bagian 17):
-     * voucher mitra: sent, redeemed, expired. Token: pending_data, pending_process, rejected (nomor ditolak),
+     * voucher mitra: sent, redeemed (tanpa masa berlaku). Token: pending_data, pending_process, rejected (nomor ditolak),
      * needs_admin (3 kali ditolak), sent. Bensin tunai: pending, contacted, handed_over (tanpa tombol aksi).
      */
     public static function voucher(Voucher $voucher): array
@@ -25,14 +24,12 @@ class RewardPresenter
         $kind = $voucher->voucherType;
         $partner = $voucher->partner?->name ?? $kind?->partner_label;
         $where = $voucher->type === 'voucher' && $partner ? " · tukar di {$partner}" : '';
-        $daysLeft = self::daysLeft($voucher);
-        $expired = $voucher->isExpired();
         $needsDestination = $voucher->type === 'token' && in_array($voucher->status, ['pending_data', 'rejected'], true);
 
         [$title, $description] = match ($voucher->type) {
             'voucher' => [
                 $kind ? "Voucher {$kind->name}" : 'Voucher Kopi Grosir',
-                $expired ? "{$value}{$where} · masa berlaku habis" : "{$value}{$where} · berlaku {$daysLeft} hari",
+                "{$value}{$where}",
             ],
             'token' => ['Token listrik', "{$value} · kode dikirim lewat WhatsApp"],
             'bensin' => ['Bensin motor', "Tunai {$value} · admin hubungi lewat WhatsApp"],
@@ -43,7 +40,6 @@ class RewardPresenter
         }
 
         [$label, $tone] = match (true) {
-            $expired => ['Kadaluarsa', 'waiting'],
             $voucher->status === 'redeemed' => ['Sudah ditukar', 'done'],
             $needsDestination && $voucher->status === 'pending_data' => ['Isi nomor tujuan', 'progress'],
             $needsDestination => ['Nomor ditolak, isi ulang', 'progress'],
@@ -68,9 +64,8 @@ class RewardPresenter
             'title' => $title,
             'description' => $description,
             'value' => $value,
-            'days_left' => $daysLeft,
             'mystery' => $voucher->source === 'mystery',
-            'status' => $expired ? 'expired' : $voucher->status,
+            'status' => $voucher->status,
             'status_label' => $label,
             'tone' => $tone,
             'action' => $action,
@@ -131,28 +126,6 @@ class RewardPresenter
     }
 
     /**
-     * Kartu klaim yang belum menjadi hadiah: ditangguhkan untuk pemeriksaan admin, atau ditolak.
-     * Alasan tanda tidak ditampilkan ke peserta (PRD P7).
-     */
-    public static function claim(Claim $claim): array
-    {
-        $pending = $claim->status === 'pending';
-        $when = $claim->submitted_at?->format('d M H:i');
-
-        return [
-            'id' => $claim->id,
-            'kind' => $pending ? 'claim_pending' : 'claim_rejected',
-            'title' => "Klaim {$claim->claim_code}",
-            'description' => 'Titik '.($claim->outlet?->code ?? '-').($when ? " · {$when}" : ''),
-            'status' => $claim->status,
-            'status_label' => $pending ? 'Sedang diperiksa' : 'Ditolak',
-            'tone' => $pending ? 'waiting' : 'rejected',
-            'action' => $pending ? 'Lihat status' : 'Lihat alasan',
-            'href' => route($pending ? 'participant.klaim.diperiksa' : 'participant.klaim.ditolak', $claim->id),
-        ];
-    }
-
-    /**
      * Ringkasan satu jenis hadiah untuk daftar "Hadiah yang bisa kamu dapat" di home.
      */
     public static function prize(string $type, int $remaining): array
@@ -174,15 +147,6 @@ class RewardPresenter
             'value' => $display,
             'remaining' => $remaining,
         ];
-    }
-
-    private static function daysLeft(Voucher $voucher): int
-    {
-        if (! $voucher->expires_at) {
-            return (int) config('participant.voucher_valid_days');
-        }
-
-        return max(0, (int) ceil(now()->diffInDays($voucher->expires_at, false)));
     }
 
     private static function rupiah(int $amount): string

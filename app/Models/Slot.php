@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Slot extends Model
 {
     protected $fillable = [
-        'board_id', 'position', 'code', 'prize_type', 'voucher_type_id', 'status', 'holder_id', 'held_until', 'used_at',
+        'board_id', 'position', 'code', 'prize_type', 'voucher_type_id', 'voucher_code', 'status', 'holder_id', 'held_until', 'used_at',
     ];
 
     protected $casts = [

@@ -20,25 +20,30 @@ class VoucherDispatchController extends Controller
 {
     public function index(Request $request): Response
     {
-        $tab = $request->query('tab') === 'sudah' ? 'sudah' : 'perlu';
-        $query = $tab === 'sudah'
-            ? Voucher::query()->where('type', 'voucher')->whereNotNull('sent_at')->latest('sent_at')
-            : AdminQueues::dispatch()->oldest();
+        // Satu daftar: yang belum dikirim tetap di atas (terlama dulu), yang sudah dikirim tetap tampil di bawahnya
+        // supaya admin bisa melihat keduanya. Saringan hanya mempersempit daftar, tidak menghilangkan riwayat.
+        $tab = in_array($request->query('tab'), ['perlu', 'sudah'], true) ? $request->query('tab') : 'semua';
+        $all = Voucher::query()->where('type', 'voucher')->whereIn('status', ['sent', 'redeemed']);
+        $query = (clone $all)
+            ->when($tab === 'perlu', fn ($q) => $q->whereNull('sent_at'))
+            ->when($tab === 'sudah', fn ($q) => $q->whereNotNull('sent_at'))
+            ->orderByRaw('sent_at is not null')
+            ->orderByRaw('case when sent_at is null then created_at end asc')
+            ->orderByDesc('sent_at');
 
-        $rows = $query->with(['claim.participant', 'partner', 'voucherType'])->limit(200)->get()->map(function (Voucher $v) {
+        $rows = $query->with(['claim.participant', 'partner', 'voucherType'])->limit(300)->get()->map(function (Voucher $v) {
             $participant = $v->claim?->participant;
             $value = 'Rp'.number_format($v->amount(), 0, ',', '.');
             $partner = $v->partner?->name ?? $v->voucherType?->partner_label ?? 'Kopi Grosir';
             $kind = $v->voucherType?->name ?? 'Voucher';
-            $expires = $v->expires_at?->translatedFormat('d M Y');
             $message = "Halo {$participant?->name}, hadiah PICK(ME) kamu: voucher {$kind} {$value} di {$partner}.\n"
                 ."Kode voucher: {$v->code}\n"
-                ."Tunjukkan kode ini di {$partner}.".($expires ? " Berlaku sampai {$expires}." : '');
+                ."Tunjukkan kode ini di {$partner}.";
 
             return [
                 'id' => $v->id,
                 'name' => $participant?->name ?? '-',
-                'whatsapp' => Mask::whatsapp($participant?->whatsapp),
+                'whatsapp' => $participant?->whatsapp,
                 'partner' => $partner,
                 'kind' => $kind,
                 'value' => $value,
@@ -51,7 +56,10 @@ class VoucherDispatchController extends Controller
 
         return Inertia::render('admin/kirim-voucher', [
             'tab' => $tab,
-            'counts' => ['perlu' => AdminQueues::dispatch()->count()],
+            'counts' => [
+                'perlu' => AdminQueues::dispatch()->count(),
+                'sudah' => (clone $all)->whereNotNull('sent_at')->count(),
+            ],
             'rows' => $rows,
         ]);
     }

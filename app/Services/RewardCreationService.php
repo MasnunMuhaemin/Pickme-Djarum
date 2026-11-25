@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Claim;
 use App\Models\Gift;
 use App\Models\Participant;
+use App\Models\Slot;
 use App\Models\Voucher;
 use App\Models\VoucherType;
 use App\Support\ActivityLogger;
@@ -58,11 +59,12 @@ class RewardCreationService
         if ($voucherType && ! in_array($voucherType->fulfillment, VoucherType::FULFILLMENTS_BY_PRIZE[$type] ?? [], true)) {
             $voucherType = null;
         }
-        $voucherType ??= $this->prizes->pick($type);
+        $voucherType ??= $this->prizes->pick($type, $claim->outlet_id);
 
         return Voucher::create([
             'claim_id' => $claim->id,
-            'code' => $this->voucherCode(),
+            // Voucher dari slot memakai kode yang sudah disiapkan di slot itu (terlihat admin sebelum diklaim).
+            'code' => ($source === 'claim' ? $claim->slot?->voucher_code : null) ?? self::voucherCode(),
             'type' => $type,
             'source' => $source,
             'voucher_type_id' => $voucherType?->id,
@@ -73,7 +75,6 @@ class RewardCreationService
                 'token' => 'pending_data',
                 default => 'pending',
             },
-            'expires_at' => $type === 'voucher' ? now()->addDays(config('participant.voucher_valid_days')) : null,
             // Kode voucher langsung terlihat di Hadiahku; sent_at diisi saat admin mengirimnya lewat WhatsApp
             // (layar Kirim voucher).
             'sent_at' => null,
@@ -115,12 +116,26 @@ class RewardCreationService
         ActivityLogger::log('mystery.free_pack', 'claim', $claim->id, [], $participant);
     }
 
-    private function voucherCode(): string
+    /**
+     * Kode voucher: KGR + 6 karakter, tanpa spasi dan tanpa strip, mis. KGR7HQ4MX. Huruf dan angka yang mirip
+     * (I, L, O, 0, 1) tidak dipakai supaya tidak salah baca saat ditukar di mitra.
+     */
+    public static function voucherCode(): string
     {
+        $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
         do {
-            $code = 'KGR-'.strtoupper(bin2hex(random_bytes(3)));
-        } while (Voucher::where('code', $code)->exists());
+            $code = 'KGR';
+            for ($i = 0; $i < 6; $i++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+        } while (Voucher::where('code', $code)->exists() || Slot::where('voucher_code', $code)->exists());
 
         return $code;
+    }
+
+    /** Kode yang diketik orang (huruf kecil, spasi, strip) disamakan dengan format simpanan. */
+    public static function normalizeCode(string $code): string
+    {
+        return strtoupper(preg_replace('/[\s-]+/', '', $code) ?? '');
     }
 }

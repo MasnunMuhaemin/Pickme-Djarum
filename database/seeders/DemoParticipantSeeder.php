@@ -9,6 +9,7 @@ use App\Models\Gift;
 use App\Models\Outlet;
 use App\Models\Participant;
 use App\Models\Voucher;
+use App\Services\RewardCreationService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -42,7 +43,7 @@ class DemoParticipantSeeder extends Seeder
             ],
         );
 
-        $this->approvedClaim($participant, $outlet, 'voucher', 'KGR-DEMO001');
+        $this->approvedClaim($participant, $outlet, 'voucher', 'KGRDEMO01');
         $this->approvedClaim($participant, $outlet, 'token', null);
         $this->approvedClaim($participant, $outlet, 'merch', null);
 
@@ -61,7 +62,7 @@ class DemoParticipantSeeder extends Seeder
             'outlet_id' => $outlet->id,
             'slot_id' => $slot->id,
             'code' => $slot->code,
-            'claim_code' => 'KLM-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
+            'claim_code' => 'KLM'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
             'status' => 'approved',
             'submitted_at' => now()->subDays(3),
         ]);
@@ -80,11 +81,10 @@ class DemoParticipantSeeder extends Seeder
 
         Voucher::create([
             'claim_id' => $claim->id,
-            'code' => $code ?? 'KGR-'.strtoupper(bin2hex(random_bytes(3))),
+            'code' => $code ?? RewardCreationService::voucherCode(),
             'type' => $type,
             // Token menunggu nomor tujuan; voucher mitra langsung terkirim (PRD bagian 17).
             'status' => $type === 'token' ? 'pending_data' : 'sent',
-            'expires_at' => $type === 'voucher' ? now()->addDays(14) : null,
             'sent_at' => $type === 'voucher' ? now()->subDays(2) : null,
         ]);
     }

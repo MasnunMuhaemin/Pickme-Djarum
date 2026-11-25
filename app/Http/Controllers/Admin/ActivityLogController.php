@@ -11,14 +11,18 @@ use App\Models\Participant;
 use App\Models\Partner;
 use App\Models\User;
 use App\Models\Voucher;
+use App\Support\ActivityLogger;
 use App\Support\ClaimFlags;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * A8 Log aktivitas: siapa, kapan, apa, dan alasan untuk setiap aksi. Tidak bisa diubah; bisa diekspor CSV.
+ * A8 Log aktivitas: siapa, kapan, apa, dan alasan untuk setiap aksi. Bisa diekspor CSV dan dihapus per baris;
+ * penghapusan sendiri tercatat sebagai log baru supaya jejaknya tidak hilang.
  */
 class ActivityLogController extends Controller
 {
@@ -51,10 +55,13 @@ class ActivityLogController extends Controller
         'partner.created' => 'Menambah mitra',
         'partner.pin_reset' => 'Mereset PIN mitra',
         'partner.status' => 'Mengubah status mitra',
+        'partner.area' => 'Mengubah area mitra',
         'payout.paid' => 'Menandai rekap mitra dibayar',
         'payout.corrected' => 'Mengoreksi rekap mitra',
         'master.voucher_type' => 'Mengubah jenis voucher',
         'master.outlet_created' => 'Menambah titik',
+        'master.outlet_area' => 'Mengubah area warung',
+        'master.outlet_updated' => 'Mengubah warung',
         'master.area' => 'Mengubah area',
         'participant.login' => 'Masuk',
         'participant.registered' => 'Mendaftar',
@@ -63,6 +70,16 @@ class ActivityLogController extends Controller
         'consent.accepted' => 'Menyetujui syarat dan privasi',
         'board.printed' => 'Mencetak lembar papan (kode slot)',
         'device.flagged' => 'Perangkat ditandai',
+        'log.deleted' => 'Menghapus log aktivitas',
+        'claim.photo_deleted' => 'Menghapus foto klaim',
+        'admin.created' => 'Menambah admin',
+        'admin.updated' => 'Mengubah akun admin',
+        'admin.status' => 'Mengubah status admin',
+        'participant.updated' => 'Mengubah data peserta',
+        'participant.pin_reset' => 'Mereset PIN peserta',
+        'participant.blocked' => 'Memblokir peserta',
+        'participant.unblocked' => 'Membuka blokir peserta',
+        'pin_reset_requested' => 'Minta reset PIN',
     ];
 
     public function index(): Response
@@ -73,6 +90,17 @@ class ActivityLogController extends Controller
             'logs' => $this->present(collect($logs->items())),
             'pagination' => ['current' => $logs->currentPage(), 'last' => $logs->lastPage(), 'total' => $logs->total()],
         ]);
+    }
+
+    public function destroy(Request $request, ActivityLog $log): RedirectResponse
+    {
+        $removed = $this->present(collect([$log]))[0];
+        $log->delete();
+        ActivityLogger::log('log.deleted', 'log', $log->id, [
+            'reason' => "{$removed['at_full']} · {$removed['actor']} · {$removed['action']} · {$removed['subject']}",
+        ], $request->user());
+
+        return back()->with('status', 'Log dihapus.');
     }
 
     public function export(): StreamedResponse
@@ -119,6 +147,7 @@ class ActivityLogController extends Controller
                 'settings' => 'Pengaturan',
                 'ranking' => 'Peringkat',
                 'participant' => 'Peserta '.($participants[$log->subject_id] ?? "#{$log->subject_id}"),
+                'log' => "Log #{$log->subject_id}",
                 default => ucfirst($log->subject_type).($log->subject_id ? " #{$log->subject_id}" : ''),
             };
             $meta = (array) $log->metadata;

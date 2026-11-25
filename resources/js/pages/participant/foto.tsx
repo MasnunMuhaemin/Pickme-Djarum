@@ -1,5 +1,6 @@
 import { BackLink, LogoutButton } from '@/features/participant/components/ui';
 import { Head, Link, useForm } from '@inertiajs/react';
+import imageCompression from 'browser-image-compression';
 import { Camera, ChevronLeft, RotateCcw } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
@@ -55,9 +56,7 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
         const source = video.current;
         if (!source || !source.videoWidth) return;
 
-        // Kamera HP bisa 4K: PNG ukuran penuh mudah lebih dari 5 MB dan ditolak batas unggah server
-        // (nginx client_max_body_size, PHP upload_max_filesize). Diperkecil ke sisi terpanjang 1600 px
-        // dan dikirim sebagai JPEG supaya ukurannya sekitar 200-500 KB.
+        // Bingkai kamera diambil dulu (maks 1600 px), lalu dikompres browser-image-compression sebelum diunggah.
         const MAX_SIDE = 1600;
         const scale = Math.min(1, MAX_SIDE / Math.max(source.videoWidth, source.videoHeight));
         const canvas = document.createElement('canvas');
@@ -68,13 +67,24 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
 
         ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(
-            (blob) => {
+            async (blob) => {
                 if (!blob) return;
-                form.setData('photo', new File([blob], 'bungkus.jpg', { type: 'image/jpeg' }));
-                setPreview(URL.createObjectURL(blob));
+                const raw = new File([blob], 'bungkus.jpg', { type: 'image/jpeg' });
+                // Kamera HP bisa 4K: tanpa kompres mudah melewati batas unggah server dan lambat di sinyal lemah.
+                // Gagal kompres (browser lama) tetap memakai bingkai asli yang sudah diperkecil.
+                const photo = await imageCompression(raw, {
+                    maxSizeMB: 0.3,
+                    maxWidthOrHeight: 1280,
+                    fileType: 'image/jpeg',
+                    initialQuality: 0.8,
+                    useWebWorker: true,
+                }).catch(() => raw);
+                const file = new File([photo], 'bungkus.jpg', { type: 'image/jpeg' });
+                form.setData('photo', file);
+                setPreview(URL.createObjectURL(file));
             },
             'image/jpeg',
-            0.85,
+            0.9,
         );
     }
 
@@ -89,7 +99,7 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
         form.post('/participant/foto', { forceFormData: true, preserveScroll: true });
     }
 
-    const stamp = `${openedAt ?? '--:--:--'} · ${outlet} · KLM-····`;
+    const stamp = `${openedAt ?? '--:--:--'} · ${outlet} · KLM····`;
 
     return (
         <div className="text-cream animate-in fade-in min-h-dvh bg-[#0f0c08] duration-300 motion-reduce:animate-none">

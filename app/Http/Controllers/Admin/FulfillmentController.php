@@ -162,7 +162,7 @@ class FulfillmentController extends Controller
 
     private function person($participant): array
     {
-        return ['name' => $participant?->name ?? '-', 'whatsapp' => Mask::whatsapp($participant?->whatsapp)];
+        return ['name' => $participant?->name ?? '-', 'whatsapp' => $participant?->whatsapp];
     }
 
     private function rupiah(int $value): string

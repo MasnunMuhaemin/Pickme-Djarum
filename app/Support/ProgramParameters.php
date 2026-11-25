@@ -23,12 +23,11 @@ class ProgramParameters
             'participant.flags.similar_photo_max_distance' => ['label' => 'Foto mirip (jarak hash maksimal)', 'unit' => 'bit', 'min' => 0, 'max' => 20],
             'participant.flags.dark_photo_brightness' => ['label' => 'Foto gelap (kecerahan di bawah)', 'unit' => 'dari 255', 'min' => 0, 'max' => 255],
             'participant.flags.late_code_minutes' => ['label' => 'Jeda foto ke input kode', 'unit' => 'menit', 'min' => 1, 'max' => 240],
-            'participant.voucher_valid_days' => ['label' => 'Masa berlaku voucher mitra', 'unit' => 'hari', 'min' => 1, 'max' => 90],
             'participant.mystery_voucher_chance' => [
-                'label' => 'Peluang mystery gift berupa voucher', 'unit' => '%', 'min' => 0, 'max' => 100, 'note' => 'Konfirmasi: 50% atau 70%',
+                'label' => 'Peluang mystery gift berupa voucher', 'unit' => '%', 'min' => 0, 'max' => 100,
             ],
             'participant.destination_max_failures' => ['label' => 'Batas salah nomor tujuan', 'unit' => 'kali', 'min' => 1, 'max' => 10],
-            'participant.min_age' => ['label' => 'Batas usia pendaftar', 'unit' => 'tahun', 'min' => 17, 'max' => 30, 'note' => 'Konfirmasi: belum final'],
+            'participant.min_age' => ['label' => 'Batas usia pendaftar', 'unit' => 'tahun', 'min' => 17, 'max' => 30],
         ];
     }
 

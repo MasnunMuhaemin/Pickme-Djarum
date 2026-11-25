@@ -18,7 +18,6 @@ return [
         'token' => (int) env('PRIZE_VALUE_TOKEN', 20000),
         'bensin' => (int) env('PRIZE_VALUE_BENSIN', 30000),
     ],
-    'voucher_valid_days' => (int) env('VOUCHER_VALID_DAYS', 14),
 
     // Enam tanda yang memasukkan klaim ke antrean admin (PRD bagian 18).
     'flags' => [

@@ -33,12 +33,13 @@ class PhotoService
         imagefilledrectangle($image, 6, $height - $th - 12, $tw + 14, $height - 6, $bg);
         imagestring($image, $font, 10, $height - $th - 9, $stamp, $fg);
 
-        $path = 'claims/'.$claim->id.'.png';
+        // JPEG kualitas 80: foto yang sudah dikompres di HP tidak membengkak lagi seperti bila disimpan PNG.
+        $path = 'claims/'.$claim->id.'.jpg';
         ob_start();
-        imagepng($image);
-        $png = ob_get_clean();
+        imagejpeg($image, null, 80);
+        $jpeg = ob_get_clean();
         imagedestroy($image);
-        Storage::disk('local')->put($path, $png);
+        Storage::disk('local')->put($path, $jpeg);
 
         $claim->photo()->updateOrCreate(['claim_id' => $claim->id], [
             'path' => $path,

@@ -1,4 +1,4 @@
-import { Btn, Card, Chip, FieldError, Table, Td, TextInput } from '@/features/admin/ui';
+import { Btn, Card, Chip, FieldError, Req, RequiredNote, Table, Td, TextInput } from '@/features/admin/ui';
 import AdminLayout, { type AdminShared, EmergencyDialog } from '@/layouts/admin-layout';
 import { useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
@@ -33,7 +33,7 @@ export default function Pengaturan({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="max-w-xl">
                         <h2 className="text-[13px] font-extrabold text-[#b42318]">Tombol darurat</h2>
-                        <p className="mt-1 text-[12px] leading-relaxed text-black/60">
+                        <p className="text-ink/60 mt-1 text-[12px] leading-relaxed">
                             Jeda memerlukan alasan, konfirmasi dua langkah, dan tercatat di log. Penukaran di mitra tetap berjalan saat jeda.
                         </p>
                         {paused && (
@@ -56,25 +56,35 @@ export default function Pengaturan({
             <Card
                 className="mt-4"
                 right={
-                    <Btn disabled={!dirty || form.processing} onClick={() => form.post('/admin/pengaturan', { preserveScroll: true })}>
+                    <Btn
+                        disabled={!dirty || parameters.some((p) => form.data.values[fieldKey(p.key)] === '') || form.processing}
+                        onClick={() => form.post('/admin/pengaturan', { preserveScroll: true })}
+                    >
                         Simpan perubahan
                     </Btn>
                 }
                 title="Parameter"
             >
-                <Table head={['Parameter', 'Nilai', 'Disimpan di']}>
+                <RequiredNote />
+                <Table head={['Parameter', 'Nilai', 'Disimpan di']} className="mt-2">
                     {fixed.map((f) => (
                         <tr key={f.label}>
                             <Td>{f.label}</Td>
                             <Td>{f.value}</Td>
-                            <Td className="text-black/55">{f.stored}</Td>
+                            <Td className="text-ink/55">{f.stored}</Td>
                         </tr>
                     ))}
                     {parameters.map((p) => {
                         const key = fieldKey(p.key);
                         return (
                             <tr key={p.key}>
-                                <Td>{p.label}</Td>
+                                <Td>
+                                    {p.label}
+                                    <Req />
+                                    <span className="text-ink/45 block text-[10px]">
+                                        Wajib, {p.min} sampai {p.max} {p.unit}
+                                    </span>
+                                </Td>
                                 <Td>
                                     <span className="flex flex-wrap items-center gap-2">
                                         <TextInput
@@ -85,12 +95,12 @@ export default function Pengaturan({
                                             onChange={(e) => form.setData('values', { ...form.data.values, [key]: e.target.value })}
                                             className="w-20"
                                         />
-                                        <span className="text-black/55">{p.unit}</span>
+                                        <span className="text-ink/55">{p.unit}</span>
                                         {p.note && <Chip tone="yellow">[{p.note}]</Chip>}
                                     </span>
                                     <FieldError message={errors[`values.${key}`]} />
                                 </Td>
-                                <Td className="text-black/55">{p.stored}</Td>
+                                <Td className="text-ink/55">{p.stored}</Td>
                             </tr>
                         );
                     })}

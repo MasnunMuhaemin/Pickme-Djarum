@@ -9,13 +9,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /** Mitra penukar voucher (PRD bagian 12): warung titik, penjual pulsa/kuota, atau mitra voucher lain. */
 class Partner extends Model
 {
-    protected $fillable = ['name', 'type', 'area_id', 'whatsapp', 'pin_hash', 'status'];
+    protected $fillable = ['name', 'type', 'area_id', 'outlet_id', 'whatsapp', 'pin_hash', 'status'];
 
     protected $hidden = ['pin_hash'];
 
     public function area(): BelongsTo
     {
         return $this->belongsTo(Area::class);
+    }
+
+    /** Hanya untuk jenis outlet: warung titik pemilik akun ini. */
+    public function outlet(): BelongsTo
+    {
+        return $this->belongsTo(Outlet::class);
     }
 
     public function vouchers(): HasMany

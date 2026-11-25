@@ -1,4 +1,21 @@
-import { Btn, BtnLink, Card, Chip, Empty, FieldError, Modal, PillTabs, Table, Td, TextInput } from '@/features/admin/ui';
+import {
+    Btn,
+    BtnLink,
+    Card,
+    Chip,
+    DateInput,
+    Empty,
+    FieldError,
+    Hint,
+    Modal,
+    Phone,
+    PillTabs,
+    Req,
+    RequiredNote,
+    Table,
+    Td,
+    TextInput,
+} from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { router, useForm } from '@inertiajs/react';
 import { Copy } from 'lucide-react';
@@ -23,7 +40,7 @@ function Who({ p }: { p: Person }) {
     return (
         <div>
             <p className="font-extrabold">{p.name}</p>
-            <p className="text-[10px] text-black/45">{p.whatsapp}</p>
+            <Phone value={p.whatsapp} className="text-ink/45 text-[10px]" />
         </div>
     );
 }
@@ -60,7 +77,8 @@ function TokenRow({ row }: { row: Token }) {
                 <TextInput
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
-                    placeholder="No. referensi agregator"
+                    placeholder="No. referensi agregator *"
+                    aria-label="Nomor referensi agregator (wajib untuk Berhasil)"
                     disabled={!ready}
                     className="w-44 rounded-full"
                 />
@@ -80,16 +98,17 @@ function TokenRow({ row }: { row: Token }) {
                 </span>
                 <Modal open={failOpen} onClose={() => setFailOpen(false)}>
                     <h3 className="text-[15px] font-extrabold">Tandai gagal · {row.name}</h3>
-                    <p className="mt-1 text-[12px] text-black/55">
+                    <p className="text-ink/55 mt-1 text-[12px]">
                         Hitungan gagal bertambah ({row.failed + 1}/{row.max}). Peserta diminta mengisi ulang nomor; setelah batas, masuk Perlu bantuan
                         admin.
                     </p>
-                    <TextInput
-                        value={fail.data.reason}
-                        onChange={(e) => fail.setData('reason', e.target.value)}
-                        placeholder="Alasan gagal (wajib)"
-                        className="mt-3"
-                    />
+                    <RequiredNote />
+                    <label className="mt-3 block text-[11px] font-bold">
+                        Alasan gagal
+                        <Req />
+                        <TextInput value={fail.data.reason} onChange={(e) => fail.setData('reason', e.target.value)} className="mt-1" />
+                        <Hint>Mis. nomor meter tidak terdaftar di PLN. Peserta diminta mengisi ulang nomornya.</Hint>
+                    </label>
                     <FieldError message={fail.errors.reason} />
                     <div className="mt-4 flex justify-end gap-2">
                         <Btn variant="outline" onClick={() => setFailOpen(false)}>
@@ -132,16 +151,16 @@ function FuelRow({ row }: { row: Fuel }) {
             <Td>{statusChip}</Td>
             <Td>
                 {row.status === 'handed_over' ? (
-                    <span className="text-black/55">{row.handed}</span>
+                    <span className="text-ink/55">{row.handed}</span>
                 ) : (
-                    <span className="flex gap-1.5">
+                    <span className="flex flex-wrap gap-1.5">
                         {row.status === 'pending' && row.wa && (
                             <a
                                 href={row.wa}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={() => router.post(`/admin/pemenuhan/bensin/${row.id}/hubungi`, {}, { preserveScroll: true })}
-                                className="inline-flex h-8 items-center rounded-full bg-[#ffe500] px-3.5 text-[11px] font-bold"
+                                className="bg-lime inline-flex h-8 items-center rounded-full px-3.5 text-[11px] font-bold whitespace-nowrap"
                             >
                                 Hubungi lewat WhatsApp
                             </a>
@@ -153,14 +172,19 @@ function FuelRow({ row }: { row: Fuel }) {
                 )}
                 <Modal open={open} onClose={() => setOpen(false)}>
                     <h3 className="text-[15px] font-extrabold">Serahkan bensin tunai · {row.value}</h3>
+                    <RequiredNote />
                     <label className="mt-3 block text-[11px] font-bold">
                         Tanggal serah
-                        <TextInput type="date" value={form.data.date} onChange={(e) => form.setData('date', e.target.value)} className="mt-1" />
+                        <Req />
+                        <DateInput value={form.data.date} onChange={(v) => form.setData('date', v)} className="mt-1" />
+                        <Hint>Tanggal uang diserahkan ke peserta. Tidak boleh setelah hari ini.</Hint>
                     </label>
                     <FieldError message={form.errors.date} />
                     <label className="mt-3 block text-[11px] font-bold">
                         Nama penerima
+                        <Req />
                         <TextInput value={form.data.recipient} onChange={(e) => form.setData('recipient', e.target.value)} className="mt-1" />
+                        <Hint>Nama orang yang menerima uang, mis. sesuai KTM.</Hint>
                     </label>
                     <FieldError message={form.errors.recipient} />
                     <div className="mt-4 flex justify-end gap-2">
@@ -169,7 +193,7 @@ function FuelRow({ row }: { row: Fuel }) {
                         </Btn>
                         <Btn
                             variant="black"
-                            disabled={form.processing}
+                            disabled={!form.data.date || !form.data.recipient.trim() || form.processing}
                             onClick={() =>
                                 form.post(`/admin/pemenuhan/bensin/${row.id}/serahkan`, { preserveScroll: true, onSuccess: () => setOpen(false) })
                             }
@@ -274,7 +298,7 @@ export default function Pemenuhan({
                                                 Kirim
                                             </Btn>
                                         )}
-                                        {row.status === 'done' && <span className="text-[11px] text-black/50">{row.completed_at}</span>}
+                                        {row.status === 'done' && <span className="text-ink/50 text-[11px]">{row.completed_at}</span>}
                                     </Td>
                                 </tr>
                             ))}
@@ -282,7 +306,7 @@ export default function Pemenuhan({
                     ) : (
                         <Empty>Tidak ada merchandise atau limited edition.</Empty>
                     ))}
-                <p className="mt-3 text-[11px] text-black/45">
+                <p className="text-ink/45 mt-3 text-[11px]">
                     {tab === 'barang'
                         ? 'Status: menunggu alamat, siap kirim, diantar, selesai. Tanggal kirim dicatat.'
                         : tab === 'bensin'

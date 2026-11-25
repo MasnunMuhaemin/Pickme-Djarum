@@ -115,6 +115,10 @@ class ParticipantAuthController extends Controller
             return back()->withErrors(['pin' => 'Nomor atau PIN belum cocok. Lupa PIN? Hubungi admin.']);
         }
 
+        if ($participant->blocked_at) {
+            return back()->withErrors(['pin' => 'Akun ini diblokir admin. Hubungi admin untuk informasi lebih lanjut.']);
+        }
+
         RateLimiter::clear($loginKey);
         $request->session()->put('participant_id', $participant->id);
         $devices->track($request, $participant, 'login');

@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\Claim;
 use App\Models\Gift;
 use App\Models\Voucher;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,12 +13,6 @@ class AdminQueues
 {
     /** Barang yang dikirim admin ke alamat peserta (tab Merch dan LE). */
     public const GIFT_TYPES = ['merchandise', 'limited_edition'];
-
-    /** A2: klaim bertanda yang menunggu keputusan admin. */
-    public static function photos(): Builder
-    {
-        return Claim::query()->where('status', 'pending');
-    }
 
     /** A3 token listrik: nomor tujuan sudah diisi peserta, menunggu diproses ke agregator. */
     public static function tokens(): Builder
@@ -51,11 +44,10 @@ class AdminQueues
         return Voucher::query()->where('type', 'voucher')->where('status', 'sent')->whereNull('sent_at');
     }
 
-    /** @return array{photos: int, fulfillment: int, dispatch: int} */
+    /** @return array{fulfillment: int, dispatch: int} */
     public static function badges(): array
     {
         return [
-            'photos' => self::photos()->count(),
             'fulfillment' => self::tokens()->count() + self::fuel()->count() + self::goods()->count() + self::needsHelp()->count(),
             'dispatch' => self::dispatch()->count(),
         ];

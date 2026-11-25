@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ActivityLog;
 use App\Models\Area;
 use App\Models\Claim;
+use App\Models\ClaimPhoto;
 use App\Models\Gift;
 use App\Models\Outlet;
 use App\Models\Participant;
@@ -14,11 +15,15 @@ use App\Models\Slot;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherType;
+use App\Services\RewardCreationService;
+use App\Services\SlotPrizeService;
+use App\Support\ActivityLogger;
 use App\Support\ProgramParameters;
 use App\Support\RewardPresenter;
 use Database\Seeders\AdminSeeder;
 use Database\Seeders\CustomerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AdminPanelTest extends TestCase
@@ -39,22 +44,23 @@ class AdminPanelTest extends TestCase
         return Participant::create(['name' => 'Tari', 'whatsapp' => $wa, 'birth_date' => '2000-01-01', 'area_id' => Area::first()->id, 'pin_hash' => 'x', 'is_student' => true]);
     }
 
-    /** Klaim bertanda (pending) di slot kosong dengan jenis hadiah tertentu. */
-    private function pendingClaim(string $prize = 'voucher', ?Participant $participant = null): Claim
+    /** Klaim berhasil di slot kosong dengan jenis hadiah tertentu; hadiahnya langsung dibuat seperti alur peserta. */
+    private function rewardedClaim(string $prize = 'voucher', ?Participant $participant = null, ?int $voucherTypeId = null): Claim
     {
         $slot = Slot::where('status', 'empty')->firstOrFail();
-        $slot->update(['prize_type' => $prize, 'status' => 'used', 'used_at' => now()]);
+        $slot->update(['prize_type' => $prize, 'status' => 'used', 'used_at' => now()] + ($voucherTypeId ? ['voucher_type_id' => $voucherTypeId] : []));
 
-        return Claim::create([
+        $claim = Claim::create([
             'participant_id' => ($participant ?? $this->participant())->id,
             'outlet_id' => Outlet::first()->id,
             'slot_id' => $slot->id,
             'code' => $slot->code,
-            'claim_code' => 'KLM-'.random_int(1000, 9999),
-            'flag' => 'first_photo',
-            'status' => 'pending',
+            'claim_code' => 'KLM'.random_int(1000, 9999),
+            'status' => 'approved',
             'submitted_at' => now(),
         ]);
+
+        return app(RewardCreationService::class)->create($claim->fresh(['slot', 'participant']));
     }
 
     public function test_only_admins_can_open_the_panel(): void
@@ -72,67 +78,52 @@ class AdminPanelTest extends TestCase
     {
         // Ada data supaya semua query halaman ikut berjalan (peringkat, pemenuhan, kirim voucher, log).
         foreach (['voucher', 'token', 'bensin', 'merch'] as $i => $prize) {
-            $claim = $this->pendingClaim($prize, $this->participant('08120000010'.$i));
-            $this->actingAs($this->admin)->post("/admin/antrean-foto/{$claim->id}/setujui");
+            $claim = $this->rewardedClaim($prize, $this->participant('08120000010'.$i));
+            $this->actingAs($this->admin);
         }
-        $this->pendingClaim('voucher', $this->participant('081200000199'));
 
         $this->actingAs($this->admin);
         foreach (['/admin', '/admin/antrean-foto', '/admin/pemenuhan', '/admin/pemenuhan?tab=bensin', '/admin/pemenuhan?tab=barang',
-            '/admin/kirim-voucher', '/admin/peringkat', '/admin/papan', '/admin/mitra', '/admin/mitra?tab=akun',
-            '/admin/master-data', '/admin/pengaturan', '/admin/log'] as $url) {
+            '/admin/kirim-voucher', '/admin/peringkat', '/admin/papan', '/admin/pembayaran',
+            '/admin/master-data/warung', '/admin/master-data/area', '/admin/master-data/mitra', '/admin/master-data/jenis-voucher',
+            '/admin/pengaturan', '/admin/log', '/admin/pengguna', '/admin/pengguna?tab=peserta'] as $url) {
             $this->get($url)->assertOk();
         }
+        // Alamat lama diarahkan ke menu yang baru.
+        $this->get('/admin/master-data')->assertRedirect('/admin/master-data/area');
+        $this->get('/admin/mitra')->assertRedirect('/admin/pembayaran');
+        $this->get('/admin/mitra?tab=akun')->assertRedirect('/admin/master-data/mitra');
     }
 
-    public function test_approving_a_claim_creates_reward_and_cap_and_is_logged(): void
+    public function test_outlet_account_belongs_to_one_warung_and_follows_its_area(): void
     {
-        $claim = $this->pendingClaim('voucher');
-
-        $this->actingAs($this->admin)->post("/admin/antrean-foto/{$claim->id}/setujui")->assertRedirect();
-
-        $claim->refresh();
-        $this->assertSame('approved', $claim->status);
-        $this->assertSame($this->admin->id, $claim->decided_by);
-        $this->assertNotNull($claim->voucher);
-        $this->assertSame(1, $claim->participant->fresh()->caps);
-        $this->assertDatabaseHas('activity_logs', ['action' => 'claim.approved_by_admin', 'actor_type' => 'admin', 'actor_id' => $this->admin->id]);
-    }
-
-    public function test_reject_requires_a_reason_from_the_list_and_can_be_undone(): void
-    {
-        $claim = $this->pendingClaim();
         $this->actingAs($this->admin);
+        $outlet = Outlet::first();
 
-        $this->post("/admin/antrean-foto/{$claim->id}/tolak", ['reason' => ''])->assertSessionHasErrors('reason');
-        $this->post("/admin/antrean-foto/{$claim->id}/tolak", ['reason' => 'asal'])->assertSessionHasErrors('reason');
-        $this->post("/admin/antrean-foto/{$claim->id}/tolak", ['reason' => 'Foto buram atau terlalu gelap'])->assertRedirect();
-        $this->assertSame('rejected', $claim->fresh()->status);
+        $this->post('/admin/mitra', ['name' => 'Bu Warung', 'type' => 'outlet', 'whatsapp' => '081299990001'])->assertSessionHasErrors('outlet_id');
+        $this->post('/admin/mitra', ['name' => 'Bu Warung', 'type' => 'outlet', 'outlet_id' => $outlet->id, 'whatsapp' => '081299990001'])->assertRedirect();
+        $account = Partner::where('outlet_id', $outlet->id)->firstOrFail();
+        $this->assertSame($outlet->area_id, $account->area_id);
 
-        $this->post("/admin/antrean-foto/{$claim->id}/urungkan")->assertRedirect();
-        $this->assertSame('pending', $claim->fresh()->status);
+        // Satu akun per warung.
+        $this->post('/admin/mitra', ['name' => 'Lain', 'type' => 'outlet', 'outlet_id' => $outlet->id, 'whatsapp' => '081299990002'])->assertSessionHasErrors('outlet_id');
+
+        // Area utama warung berubah: akunnya ikut.
+        $other = Area::where('id', '!=', $outlet->area_id)->firstOrFail();
+        $this->put("/admin/master-data/titik/{$outlet->id}", ['name' => $outlet->name, 'area_ids' => [$other->id]])->assertRedirect();
+        $this->assertSame($other->id, $account->fresh()->area_id);
+
+        // Mitra voucher tidak punya area (PRD bagian 16).
+        $this->post('/admin/mitra', ['name' => 'Kopi Tanpa Area', 'type' => 'umum', 'whatsapp' => '081299990003'])->assertSessionHasNoErrors();
     }
 
-    public function test_undo_approval_removes_unprocessed_reward_but_not_processed_one(): void
-    {
-        $claim = $this->pendingClaim('voucher');
-        $this->actingAs($this->admin)->post("/admin/antrean-foto/{$claim->id}/setujui");
-        $this->post("/admin/antrean-foto/{$claim->id}/urungkan")->assertRedirect();
-        $this->assertSame('pending', $claim->fresh()->status);
-        $this->assertNull($claim->fresh()->voucher);
-        $this->assertSame(0, $claim->participant->fresh()->caps);
 
-        // Sudah dikirim lewat WhatsApp: tidak bisa diurungkan.
-        $this->post("/admin/antrean-foto/{$claim->id}/setujui");
-        $claim->fresh()->voucher->update(['sent_at' => now()]);
-        $this->post("/admin/antrean-foto/{$claim->id}/urungkan")->assertSessionHasErrors('undo');
-        $this->assertSame('approved', $claim->fresh()->status);
-    }
+
 
     public function test_token_success_needs_reference_and_third_failure_needs_admin(): void
     {
-        $claim = $this->pendingClaim('token');
-        $this->actingAs($this->admin)->post("/admin/antrean-foto/{$claim->id}/setujui");
+        $claim = $this->rewardedClaim('token');
+        $this->actingAs($this->admin);
         $voucher = $claim->fresh()->voucher;
         $voucher->update(['status' => 'pending_process', 'destination' => '12345678901']);
 
@@ -155,8 +146,7 @@ class AdminPanelTest extends TestCase
     public function test_fuel_and_goods_fulfilment_flow(): void
     {
         $this->actingAs($this->admin);
-        $fuelClaim = $this->pendingClaim('bensin');
-        $this->post("/admin/antrean-foto/{$fuelClaim->id}/setujui");
+        $fuelClaim = $this->rewardedClaim('bensin');
         $fuel = $fuelClaim->fresh()->voucher;
 
         $this->post("/admin/pemenuhan/bensin/{$fuel->id}/hubungi")->assertRedirect();
@@ -165,8 +155,7 @@ class AdminPanelTest extends TestCase
         $this->post("/admin/pemenuhan/bensin/{$fuel->id}/serahkan", ['date' => now()->toDateString(), 'recipient' => 'Tari'])->assertRedirect();
         $this->assertSame('handed_over', $fuel->fresh()->status);
 
-        $goodsClaim = $this->pendingClaim('merch', $this->participant('081200000002'));
-        $this->post("/admin/antrean-foto/{$goodsClaim->id}/setujui");
+        $goodsClaim = $this->rewardedClaim('merch', $this->participant('081200000002'));
         $gift = Gift::where('claim_id', $goodsClaim->id)->firstOrFail();
         $this->post("/admin/pemenuhan/barang/{$gift->id}/kirim")->assertStatus(422); // belum ada alamat
         $gift->update(['status' => 'ready_to_ship', 'area' => 'Sukapura', 'address' => 'Jl. Contoh 1']);
@@ -178,13 +167,20 @@ class AdminPanelTest extends TestCase
 
     public function test_voucher_dispatch_marks_sent(): void
     {
-        $claim = $this->pendingClaim('voucher');
-        $this->actingAs($this->admin)->post("/admin/antrean-foto/{$claim->id}/setujui");
+        $claim = $this->rewardedClaim('voucher');
+        $this->actingAs($this->admin);
         $voucher = $claim->fresh()->voucher;
 
         $this->get('/admin/kirim-voucher')->assertInertia(fn ($page) => $page->where('rows.0.code', $voucher->code));
         $this->post("/admin/kirim-voucher/{$voucher->id}/terkirim")->assertRedirect();
         $this->assertNotNull($voucher->fresh()->sent_at);
+
+        // Yang sudah dikirim tetap tampil di daftar, dengan status terkirim.
+        $this->get('/admin/kirim-voucher')->assertInertia(fn ($page) => $page
+            ->where('rows.0.code', $voucher->code)
+            ->whereNot('rows.0.sent_at', null)
+            ->where('counts.sudah', 1));
+        $this->get('/admin/kirim-voucher?tab=perlu')->assertInertia(fn ($page) => $page->where('rows', []));
     }
 
     public function test_emergency_pause_needs_reason_and_confirmation_and_blocks_claims(): void
@@ -224,7 +220,7 @@ class AdminPanelTest extends TestCase
     public function test_partner_pin_reset_payout_and_correction(): void
     {
         $this->actingAs($this->admin);
-        $this->post('/admin/mitra', ['name' => 'Kopi Baru', 'type' => 'umum', 'whatsapp' => '081299990000'])
+        $this->post('/admin/mitra', ['name' => 'Kopi Baru', 'type' => 'umum', 'area_id' => Area::first()->id, 'whatsapp' => '081299990000'])
             ->assertSessionHas('partner_pin');
         $partner = Partner::where('name', 'Kopi Baru')->firstOrFail();
         $this->assertNotNull($partner->pin_hash);
@@ -241,9 +237,8 @@ class AdminPanelTest extends TestCase
         $this->assertSame(0, Slot::whereNull('voucher_type_id')->where('prize_type', '!=', 'merch')->count());
 
         $kopi = VoucherType::where('name', 'Kopi')->firstOrFail();
-        $claim = $this->pendingClaim('voucher');
-        $claim->slot->update(['voucher_type_id' => $kopi->id]);
-        $this->actingAs($this->admin)->post("/admin/antrean-foto/{$claim->id}/setujui");
+        $claim = $this->rewardedClaim('voucher', null, $kopi->id);
+        $this->actingAs($this->admin);
 
         $voucher = $claim->fresh()->voucher;
         $this->assertSame($kopi->id, $voucher->voucher_type_id);
@@ -254,9 +249,7 @@ class AdminPanelTest extends TestCase
         $this->assertStringContainsString('Kopi Groei', $reward['description']);
 
         // Jenis yang tidak cocok dengan hadiah slot diganti jenis yang cocok.
-        $token = $this->pendingClaim('token', $this->participant('081200000077'));
-        $token->slot->update(['voucher_type_id' => $kopi->id]);
-        $this->post("/admin/antrean-foto/{$token->id}/setujui");
+        $token = $this->rewardedClaim('token', $this->participant('081200000077'), $kopi->id);
         $this->assertSame('agregator', $token->fresh()->voucher->voucherType->fulfillment);
     }
 
@@ -273,8 +266,13 @@ class AdminPanelTest extends TestCase
 
     public function test_new_outlet_gets_qr_address_and_25_slots(): void
     {
-        $this->actingAs($this->admin)->post('/admin/master-data/titik', ['code' => 'w21', 'name' => 'Warung Baru', 'area_id' => Area::first()->id])->assertRedirect();
+        [$first, $second] = Area::orderBy('id')->take(2)->get();
+        $this->actingAs($this->admin)->post('/admin/master-data/titik', ['code' => 'w21', 'name' => 'Warung Baru'])->assertSessionHasErrors('area_ids');
+        $this->post('/admin/master-data/titik', ['code' => 'w21', 'name' => 'Warung Baru', 'area_ids' => [$first->id, $second->id]])->assertRedirect();
         $outlet = Outlet::where('code', 'W21')->firstOrFail();
+        // Satu warung mencakup banyak area kos; area pertama jadi area utama.
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], $outlet->areas()->pluck('areas.id')->all());
+        $this->assertSame($first->id, $outlet->area_id);
         $this->assertSame(25, $outlet->board->slots()->count());
         $this->assertSame(0, $outlet->board->slots()->whereNull('voucher_type_id')->where('prize_type', '!=', 'merch')->count());
         $this->get('/w21')->assertRedirect('/participant/masuk');
@@ -286,5 +284,129 @@ class AdminPanelTest extends TestCase
         $response = $this->get('/admin/log/ekspor');
         $response->assertOk();
         $this->assertStringContainsString('Menutup peringkat', $response->streamedContent());
+    }
+
+    public function test_admin_can_delete_a_log_and_the_deletion_is_logged(): void
+    {
+        $this->actingAs($this->admin);
+        ActivityLogger::log('ranking.closed', 'ranking', null, [], $this->admin);
+        $log = ActivityLog::latest('id')->first();
+
+        $this->delete("/admin/log/{$log->id}")->assertRedirect();
+
+        $this->assertModelMissing($log);
+        $trace = ActivityLog::latest('id')->first();
+        $this->assertSame('log.deleted', $trace->action);
+        $this->assertStringContainsString('Menutup peringkat', $trace->metadata['reason']);
+    }
+
+    public function test_board_only_uses_voucher_types_chosen_for_the_warung(): void
+    {
+        VoucherType::query()->delete();
+        $kopi = VoucherType::create(['name' => 'Kopi', 'partner_label' => 'Kopi', 'value' => 10000, 'quantity' => 50, 'fulfillment' => 'mitra']);
+        $laundry = VoucherType::create(['name' => 'Laundry', 'partner_label' => 'Laundry', 'value' => 20000, 'quantity' => 50, 'fulfillment' => 'mitra']);
+        $token = VoucherType::create(['name' => 'Token', 'partner_label' => 'Agregator', 'value' => 20000, 'quantity' => 50, 'fulfillment' => 'agregator']);
+
+        $prizes = app(SlotPrizeService::class);
+        $outlet = $prizes->createOutlet('W90', 'Warung Uji', [Area::first()->id], [$kopi->id]);
+        $slots = $outlet->board->slots()->get();
+        // Voucher mitra hanya jenis yang dipilih; token tidak dipilih sama sekali, jadi tetap dari semua jenis token.
+        $this->assertTrue($slots->where('prize_type', 'voucher')->every(fn (Slot $s) => $s->voucher_type_id === $kopi->id));
+        $this->assertTrue($slots->where('prize_type', 'token')->every(fn (Slot $s) => $s->voucher_type_id === $token->id));
+
+        // Pilihan diganti lewat menu Warung: slot kosong ikut, slot yang sudah diambil tidak berubah.
+        $used = $slots->where('prize_type', 'voucher')->first();
+        $used->update(['status' => 'used']);
+        $this->actingAs($this->admin)->put("/admin/master-data/titik/{$outlet->id}", [
+            'name' => 'Warung Uji', 'area_ids' => [Area::first()->id], 'voucher_type_ids' => [$laundry->id],
+        ])->assertRedirect();
+
+        $after = $outlet->board->slots()->where('prize_type', 'voucher')->get();
+        $this->assertSame($kopi->id, $after->firstWhere('id', $used->id)->voucher_type_id);
+        $this->assertTrue($after->where('status', '!=', 'used')->every(fn (Slot $s) => $s->voucher_type_id === $laundry->id));
+    }
+
+    public function test_photo_page_lists_claim_photos_without_approval_actions(): void
+    {
+        $claim = $this->rewardedClaim('voucher');
+        ClaimPhoto::create(['claim_id' => $claim->id, 'path' => 'claims/uji.jpg', 'perceptual_hash' => str_repeat('0', 16), 'hash_version' => 1, 'brightness' => 120]);
+
+        $this->actingAs($this->admin)->get('/admin/antrean-foto')->assertInertia(fn ($page) => $page
+            ->component('admin/antrean-foto')
+            ->where('photos.0.claim_code', $claim->claim_code)
+            ->where('photos.0.photo_url', route('admin.antrean-foto.foto', $claim))
+            ->missing('rejectReasons')
+            ->missing('photos.0.can_undo'));
+        // Aksi persetujuan sudah tidak ada.
+        $this->post("/admin/antrean-foto/{$claim->id}/setujui")->assertNotFound();
+
+        // Detail menampilkan kode voucher hadiah slot itu.
+        $this->get('/admin/antrean-foto')->assertInertia(fn ($page) => $page->where('photos.0.voucher_code', $claim->voucher->code));
+
+        // Hapus foto: catatan foto hilang dari galeri, klaim dan hadiahnya tetap, tercatat di log.
+        $this->delete("/admin/antrean-foto/{$claim->id}/foto")->assertRedirect();
+        $this->assertNull($claim->fresh()->photo);
+        $this->assertNotNull($claim->fresh()->voucher);
+        $this->assertDatabaseHas('activity_logs', ['action' => 'claim.photo_deleted', 'subject_id' => $claim->id]);
+        $this->get('/admin/antrean-foto')->assertInertia(fn ($page) => $page->where('photos', []));
+        $this->get('/admin/antrean-foto?warung=W99')->assertInertia(fn ($page) => $page->where('photos', []));
+    }
+
+    public function test_voucher_codes_have_no_spaces_or_dashes_and_show_on_board(): void
+    {
+        // Kode sudah ada di slot sebelum diklaim, dan menjadi kode voucher peserta saat diklaim.
+        $slot = Slot::where('status', 'empty')->where('prize_type', '!=', 'merch')->firstOrFail();
+        $prepared = $slot->voucher_code;
+        $this->assertNotNull($prepared);
+        $claim = $this->rewardedClaim('voucher');
+        $code = $claim->voucher->code;
+        $this->assertSame($claim->slot->voucher_code, $code);
+        $this->assertMatchesRegularExpression('/^KGR[A-Z0-9]{6}$/', $code);
+        $this->assertSame($code, RewardCreationService::normalizeCode(' '.substr($code, 0, 3).'-'.strtolower(substr($code, 3)).' '));
+
+        $this->actingAs($this->admin)->get('/admin/papan?titik='.$claim->outlet->code)->assertInertia(fn ($page) => $page
+            ->where('selected.slots', fn ($slots) => collect($slots)->contains(fn ($s) => $s['voucher_code'] === $code && $s['claimed'])
+                && collect($slots)->contains(fn ($s) => $s['voucher_code'] !== null && ! $s['claimed'])));
+    }
+
+    public function test_admin_accounts_can_be_added_and_deactivated_but_not_self(): void
+    {
+        $this->actingAs($this->admin);
+        $this->post('/admin/pengguna/admin', ['name' => 'Admin B', 'email' => 'b@pickme.test', 'password' => 'pendek'])->assertSessionHasErrors('password');
+        $this->post('/admin/pengguna/admin', ['name' => 'Admin B', 'email' => 'b@pickme.test', 'password' => 'rahasia123'])->assertRedirect();
+        $b = User::where('email', 'b@pickme.test')->firstOrFail();
+        $this->assertTrue($b->is_admin);
+
+        $this->post("/admin/pengguna/admin/{$this->admin->id}/status")->assertSessionHasErrors('admin');
+        $this->post("/admin/pengguna/admin/{$b->id}/status")->assertRedirect();
+        $this->assertFalse($b->fresh()->is_admin);
+        $this->actingAs($b->fresh())->get('/admin')->assertForbidden();
+    }
+
+    public function test_participants_can_be_edited_reset_and_blocked_but_not_created(): void
+    {
+        $p = $this->participant();
+        $this->actingAs($this->admin);
+        $this->get('/admin/pengguna?tab=peserta')->assertInertia(fn ($page) => $page->where('participants.0.id', $p->id));
+        $this->post('/admin/pengguna/peserta', ['name' => 'Baru'])->assertNotFound();
+
+        $this->post("/admin/pengguna/peserta/{$p->id}/pin")->assertRedirect()->assertSessionHas('partner_pin');
+        $pin = session('partner_pin')['pin'];
+        $this->assertTrue(Hash::check($pin, $p->fresh()->pin_hash));
+        // Tautan WhatsApp ke nomor peserta dengan pesan berisi PIN baru.
+        $this->assertStringStartsWith('https://wa.me/62', session('partner_pin')['wa']);
+        $this->assertStringContainsString($pin, rawurldecode(session('partner_pin')['wa']));
+        $this->get('/admin/pengguna?tab=peserta')->assertInertia(fn ($page) => $page->where('participants.0.wa', fn ($wa) => str_starts_with($wa, 'https://wa.me/62')));
+
+        $this->post("/admin/pengguna/peserta/{$p->id}/blokir", ['reason' => ''])->assertSessionHasErrors('reason');
+        $this->post("/admin/pengguna/peserta/{$p->id}/blokir", ['reason' => 'Foto dipakai berulang'])->assertRedirect();
+        $this->assertNotNull($p->fresh()->blocked_at);
+
+        // Peserta terblokir tidak bisa masuk; yang sedang masuk dikeluarkan.
+        $this->post('/participant/masuk', ['whatsapp' => $p->whatsapp, 'pin' => $pin])->assertSessionHasErrors('pin');
+        $this->withSession(['participant_id' => $p->id])->get('/participant/hadiah')->assertRedirect('/participant/masuk');
+
+        $this->post("/admin/pengguna/peserta/{$p->id}/blokir")->assertRedirect();
+        $this->assertNull($p->fresh()->blocked_at);
     }
 }

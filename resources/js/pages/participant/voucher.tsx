@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { Check, Copy, Gift } from 'lucide-react';
 import { useState } from 'react';
 
-type VoucherData = { id: number; code: string; type: string; status: string; destination?: string | null; expires_at?: string | null };
+type VoucherData = { id: number; code: string; type: string; status: string; destination?: string | null };
 
 function Row({ label, value }: { label: string; value: string }) {
     return (
@@ -91,9 +91,6 @@ export default function VoucherPage({ voucher, reward }: { voucher: VoucherData;
 
                         <div className="divide-ink/8 mt-3 divide-y text-[12px] md:text-[13px]">
                             {reward.value && <Row label="Nilai" value={reward.value} />}
-                            {isVoucher && voucher.expires_at && (
-                                <Row label="Berlaku sampai" value={`${voucher.expires_at} (${reward.days_left} hari lagi)`} />
-                            )}
                             {voucher.destination && <Row label="Nomor tujuan" value={voucher.destination} />}
                             {!isVoucher && <Row label="Dikirim lewat" value="WhatsApp" />}
                         </div>

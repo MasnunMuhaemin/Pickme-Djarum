@@ -58,11 +58,12 @@ class AdminSeeder extends Seeder
 
         $prizes = app(SlotPrizeService::class);
         $prizes->fillMissing();
+        $prizes->fixOutletMismatch();
 
         // Titik kedua untuk uji coba; tidak dibuat ulang bila sudah ada.
         if (! Outlet::where('code', 'W08')->exists()) {
             $area = Area::firstOrCreate(['name' => 'Sukapura'], ['is_delivery_area' => true]);
-            $prizes->createOutlet('W08', 'Warung Sukapura', $area->id);
+            $prizes->createOutlet('W08', 'Warung Sukapura', [$area->id]);
         }
     }
 }

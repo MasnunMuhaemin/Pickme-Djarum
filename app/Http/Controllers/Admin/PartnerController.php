@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Models\Outlet;
 use App\Models\Partner;
 use App\Models\PartnerPayout;
 use App\Models\Voucher;
 use App\Support\ActivityLogger;
+use App\Support\Pin;
 use App\Support\Mask;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
@@ -28,7 +30,6 @@ class PartnerController extends Controller
 
     public function index(Request $request): Response
     {
-        $tab = $request->query('tab') === 'akun' ? 'akun' : 'rekap';
         $thisWeek = now()->startOfWeek(CarbonInterface::MONDAY);
         $lastWeek = $thisWeek->copy()->subWeek();
         $partners = Partner::with(['area', 'voucherTypes'])->orderBy('name')->get();
@@ -57,24 +58,11 @@ class PartnerController extends Controller
             ];
         })->filter(fn ($row) => $row['count'] > 0 || $row['status'] === 'dibayar')->values();
 
-        return Inertia::render('admin/mitra', [
-            'tab' => $tab,
+        return Inertia::render('admin/pembayaran', [
             'weekLabel' => $thisWeek->translatedFormat('d M').' sampai '.$thisWeek->copy()->endOfWeek(CarbonInterface::SUNDAY)->translatedFormat('d M'),
             'lastWeekLabel' => $lastWeek->translatedFormat('d M').' sampai '.$lastWeek->copy()->endOfWeek(CarbonInterface::SUNDAY)->translatedFormat('d M'),
             'running' => $running,
             'last' => $last,
-            'partners' => $partners->map(fn (Partner $p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'type' => self::TYPES[$p->type] ?? $p->type,
-                'area' => $p->area?->name,
-                'whatsapp' => Mask::whatsapp($p->whatsapp),
-                'active' => $p->status === 'active',
-                'has_pin' => (bool) $p->pin_hash,
-                'voucher_types' => $p->voucherTypes->pluck('name')->implode(', '),
-            ]),
-            'types' => collect(self::TYPES)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values(),
-            'areas' => Area::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -83,25 +71,34 @@ class PartnerController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:80'],
             'type' => ['required', Rule::in(array_keys(self::TYPES))],
-            'area_id' => ['nullable', 'exists:areas,id'],
+            // Akun warung terikat ke satu warung titik (PRD keputusan 18); mitra voucher dan kuota tidak punya area.
+            'outlet_id' => [Rule::requiredIf($request->input('type') === 'outlet'), 'nullable', 'exists:outlets,id', 'unique:partners,outlet_id'],
             'whatsapp' => ['required', 'regex:/^08[0-9]{8,11}$/'],
-        ], ['whatsapp.regex' => 'Nomor WhatsApp diawali 08, 10 sampai 13 angka.']);
+        ], [
+            'whatsapp.regex' => 'Nomor WhatsApp diawali 08, 10 sampai 13 angka.',
+            'outlet_id.required' => 'Pilih warung untuk akun ini.',
+            'outlet_id.unique' => 'Warung ini sudah punya akun.',
+        ]);
+        $data['area_id'] = $data['type'] === 'outlet' ? Outlet::find($data['outlet_id'])->area_id : null;
+        if ($data['type'] !== 'outlet') {
+            $data['outlet_id'] = null;
+        }
 
-        $pin = $this->newPin();
+        $pin = Pin::generate();
         $partner = Partner::create([...$data, 'pin_hash' => Hash::make($pin), 'status' => 'active']);
         ActivityLogger::log('partner.created', 'partner', $partner->id, ['name' => $partner->name], $request->user());
 
-        return back()->with('status', "Mitra {$partner->name} ditambahkan.")->with('partner_pin', ['name' => $partner->name, 'pin' => $pin]);
+        return back()->with('status', "Mitra {$partner->name} ditambahkan.")->with('partner_pin', $this->pinFlash($partner, $pin));
     }
 
     /** PIN baru hanya ditampilkan sekali ke admin; admin tidak pernah bisa melihat PIN lama (PRD 2.1). */
     public function resetPin(Request $request, Partner $partner): RedirectResponse
     {
-        $pin = $this->newPin();
+        $pin = Pin::generate();
         $partner->update(['pin_hash' => Hash::make($pin)]);
         ActivityLogger::log('partner.pin_reset', 'partner', $partner->id, [], $request->user());
 
-        return back()->with('status', "PIN {$partner->name} direset.")->with('partner_pin', ['name' => $partner->name, 'pin' => $pin]);
+        return back()->with('status', "PIN {$partner->name} direset.")->with('partner_pin', $this->pinFlash($partner, $pin));
     }
 
     public function toggleStatus(Request $request, Partner $partner): RedirectResponse
@@ -110,6 +107,16 @@ class PartnerController extends Controller
         ActivityLogger::log('partner.status', 'partner', $partner->id, ['status' => $partner->status], $request->user());
 
         return back()->with('status', "Status {$partner->name}: ".($partner->status === 'active' ? 'aktif' : 'nonaktif').'.');
+    }
+
+    /** PIN baru untuk popup admin, dengan tautan WhatsApp berisi PIN untuk dikirim ke pemilik akun. */
+    private function pinFlash(Partner $partner, string $pin): array
+    {
+        return [
+            'name' => $partner->name,
+            'pin' => $pin,
+            'wa' => Mask::waLink($partner->whatsapp, "Halo {$partner->name}, PIN akun mitra PICKME kamu: {$pin}. Jangan bagikan PIN ke siapa pun."),
+        ];
     }
 
     public function markPaid(Request $request, Partner $partner): RedirectResponse
@@ -173,15 +180,5 @@ class PartnerController extends Controller
     private function unitValue(Partner $partner): int
     {
         return (int) ($partner->voucherTypes->first()?->value ?? config('participant.prize_values.voucher', 0));
-    }
-
-    private function newPin(): string
-    {
-        do {
-            $pin = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-            $weak = count(array_unique(str_split($pin))) === 1 || str_contains('0123456789', $pin) || str_contains('9876543210', $pin);
-        } while ($weak);
-
-        return $pin;
     }
 }

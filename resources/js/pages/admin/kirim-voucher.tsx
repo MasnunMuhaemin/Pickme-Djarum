@@ -1,4 +1,4 @@
-import { Card, Chip, Empty, PillTabs, Table, Td } from '@/features/admin/ui';
+import { Card, Chip, Empty, Phone, PillTabs, Table, Td } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
@@ -18,7 +18,15 @@ type Row = {
 };
 
 /** Kirim voucher mitra ke peserta lewat WhatsApp; status terkirim dicatat atas nama admin. */
-export default function KirimVoucher({ tab, counts, rows }: { tab: 'perlu' | 'sudah'; counts: { perlu: number }; rows: Row[] }) {
+export default function KirimVoucher({
+    tab,
+    counts,
+    rows,
+}: {
+    tab: 'semua' | 'perlu' | 'sudah';
+    counts: { perlu: number; sudah: number };
+    rows: Row[];
+}) {
     const [selectedId, setSelectedId] = useState<number | null>(rows[0]?.id ?? null);
     const selected = rows.find((r) => r.id === selectedId) ?? rows[0];
 
@@ -28,16 +36,21 @@ export default function KirimVoucher({ tab, counts, rows }: { tab: 'perlu' | 'su
     }
 
     return (
-        <AdminLayout active="kirim-voucher" title="Kirim voucher" subtitle="Voucher mitra yang menunggu dikirim ke peserta lewat WhatsApp">
+        <AdminLayout
+            active="kirim-voucher"
+            title="Kirim voucher"
+            subtitle="Voucher mitra ke peserta lewat WhatsApp · yang sudah dikirim tetap tercatat"
+        >
             <PillTabs
                 active={tab}
                 tabs={[
-                    { key: 'perlu', label: 'Perlu dikirim', href: '/admin/kirim-voucher', count: counts.perlu },
-                    { key: 'sudah', label: 'Sudah dikirim', href: '/admin/kirim-voucher?tab=sudah' },
+                    { key: 'semua', label: `Semua (${counts.perlu + counts.sudah})`, href: '/admin/kirim-voucher' },
+                    { key: 'perlu', label: 'Belum dikirim', href: '/admin/kirim-voucher?tab=perlu', count: counts.perlu },
+                    { key: 'sudah', label: `Sudah dikirim (${counts.sudah})`, href: '/admin/kirim-voucher?tab=sudah' },
                 ]}
             />
 
-            <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
                 <Card>
                     {rows.length ? (
                         <Table head={['Peserta', 'Voucher', 'Nilai', 'Kode', 'Status', 'Aksi']}>
@@ -45,30 +58,39 @@ export default function KirimVoucher({ tab, counts, rows }: { tab: 'perlu' | 'su
                                 <tr
                                     key={row.id}
                                     onClick={() => setSelectedId(row.id)}
-                                    className={cn('cursor-pointer', selected?.id === row.id && 'bg-[#fffbd6]')}
+                                    className={cn('cursor-pointer', selected?.id === row.id && 'bg-lime-soft/50')}
                                 >
                                     <Td>
                                         <p className="font-extrabold">{row.name}</p>
-                                        <p className="text-[10px] text-black/45">{row.whatsapp}</p>
+                                        <Phone value={row.whatsapp} className="text-ink/45 text-[10px]" />
                                     </Td>
                                     <Td>
                                         <p className="font-bold">{row.kind}</p>
-                                        <p className="text-[10px] text-black/45">{row.partner}</p>
+                                        <p className="text-ink/45 text-[10px]">{row.partner}</p>
                                     </Td>
                                     <Td className="font-bold">{row.value}</Td>
                                     <Td className="font-mono font-bold">{row.code}</Td>
                                     <Td>
-                                        {row.sent_at ? <Chip tone="green">Terkirim {row.sent_at}</Chip> : <Chip tone="yellow">Perlu dikirim</Chip>}
+                                        {row.sent_at ? (
+                                            <>
+                                                <Chip tone="green">Sudah dikirim</Chip>
+                                                <span className="text-ink/45 mt-0.5 block text-[10px]">{row.sent_at}</span>
+                                            </>
+                                        ) : (
+                                            <Chip tone="yellow">Belum dikirim</Chip>
+                                        )}
                                     </Td>
                                     <Td>
-                                        {!row.sent_at && (
+                                        {row.sent_at ? (
+                                            <span className="text-ink/45 text-[11px]">Selesai</span>
+                                        ) : (
                                             <button
                                                 type="button"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     send(row);
                                                 }}
-                                                className="inline-flex h-8 items-center rounded-full bg-black px-3.5 text-[11px] font-bold text-white"
+                                                className="bg-ink inline-flex h-8 items-center rounded-full px-3.5 text-[11px] font-bold whitespace-nowrap text-white"
                                             >
                                                 Kirim WhatsApp
                                             </button>
@@ -78,7 +100,13 @@ export default function KirimVoucher({ tab, counts, rows }: { tab: 'perlu' | 'su
                             ))}
                         </Table>
                     ) : (
-                        <Empty>{tab === 'perlu' ? 'Semua voucher sudah dikirim.' : 'Belum ada voucher yang dikirim.'}</Empty>
+                        <Empty>
+                            {tab === 'perlu'
+                                ? 'Semua voucher sudah dikirim.'
+                                : tab === 'sudah'
+                                  ? 'Belum ada voucher yang dikirim.'
+                                  : 'Belum ada voucher mitra.'}
+                        </Empty>
                     )}
                 </Card>
 
@@ -87,18 +115,11 @@ export default function KirimVoucher({ tab, counts, rows }: { tab: 'perlu' | 'su
                         {selected ? (
                             <p className="rounded-xl bg-[#e7f7dc] p-3 text-[12px] leading-relaxed whitespace-pre-line">{selected.message}</p>
                         ) : (
-                            <p className="text-[12px] text-black/50">Pilih baris untuk melihat pesannya.</p>
+                            <p className="text-ink/50 text-[12px]">Pilih baris untuk melihat pesannya.</p>
                         )}
-                        <p className="mt-3 text-[11px] leading-relaxed text-black/45">
+                        <p className="text-ink/45 mt-3 text-[11px] leading-relaxed">
                             Tombol membuka WhatsApp dengan pesan ini sudah terisi. Status berubah ke Terkirim setelah admin menandai kirim, atas nama
                             akun.
-                        </p>
-                    </Card>
-                    <Card>
-                        <Chip tone="yellow">[Konfirmasi: kanal voucher]</Chip>
-                        <p className="mt-2 text-[11px] leading-relaxed text-black/55">
-                            Prototype ini mengirim voucher lewat WhatsApp dan menampilkan kode di webapp. PRD FR-14 sama: kode tampil di halaman
-                            Hadiahku peserta. Pilih salah satu kanal utama.
                         </p>
                     </Card>
                 </div>

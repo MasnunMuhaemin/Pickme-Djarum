@@ -98,6 +98,8 @@ class ClaimController extends Controller
         PhotoService $photos,
         SlotAssignmentService $slots,
         ClaimFlagService $flagger,
+        ClaimVerificationService $verification,
+        RewardCreationService $rewards,
     ): RedirectResponse {
         $participant = $this->participant($request);
         $outlet = Outlet::where('code', $this->outletCode($request))->firstOrFail();
@@ -121,7 +123,14 @@ class ClaimController extends Controller
             return to_route('participant.papan')->withErrors(['claim' => $assigned['error']]);
         }
 
-        return to_route('participant.slot');
+        // Tanpa input kode dan tanpa persetujuan admin: foto diterima berarti kode slot langsung jadi milik peserta.
+        $result = $verification->submitCode($assigned['claim'], $assigned['claim']->slot->code);
+        if (isset($result['error'])) {
+            return to_route('participant.slot')->withErrors(['code' => $result['error']]);
+        }
+        $rewards->create($result['claim']);
+
+        return to_route('participant.klaim.berhasil');
     }
 
     /** P6: slot yang ditunjuk dan input kode. */
@@ -171,11 +180,6 @@ class ClaimController extends Controller
         $result = $verification->submitCode($claim, $form->input('code'));
         if (isset($result['error'])) {
             return back()->withErrors(['code' => $result['error']]);
-        }
-
-        // Klaim bertanda menunggu admin: cap dan hadiah baru dibuat saat disetujui (PRD bagian 6).
-        if (! $result['claim']->isApproved()) {
-            return to_route('participant.klaim.diperiksa', $result['claim']->id);
         }
 
         $rewards->create($result['claim']);

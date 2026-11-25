@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Participant extends Model
 {
-    protected $fillable = ['name', 'whatsapp', 'birth_date', 'area_id', 'pin_hash', 'caps', 'is_student', 'registered_at'];
+    protected $fillable = ['name', 'whatsapp', 'birth_date', 'area_id', 'pin_hash', 'caps', 'is_student', 'registered_at', 'blocked_at', 'blocked_reason'];
 
     protected $hidden = ['pin_hash'];
 
@@ -18,6 +18,7 @@ class Participant extends Model
         'caps' => 'integer',
         'is_student' => 'boolean',
         'registered_at' => 'datetime',
+        'blocked_at' => 'datetime',
     ];
 
     public function area(): BelongsTo

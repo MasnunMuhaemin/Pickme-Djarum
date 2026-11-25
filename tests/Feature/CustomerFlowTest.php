@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Area;
-use App\Models\Board;
 use App\Models\Claim;
 use App\Models\Gift;
 use App\Models\Outlet;
@@ -80,7 +79,7 @@ class CustomerFlowTest extends TestCase
     private function uploadPhoto(int $gray = 120, int $seed = 0): Claim
     {
         $this->get('/participant/foto');
-        $this->post('/participant/foto', ['photo' => $this->photo($gray, $seed), 'outlet' => 'W07'])->assertRedirect('/participant/slot');
+        $this->post('/participant/foto', ['photo' => $this->photo($gray, $seed), 'outlet' => 'W07'])->assertRedirect('/participant/klaim/berhasil');
 
         return Claim::latest('id')->firstOrFail();
     }
@@ -110,16 +109,11 @@ class CustomerFlowTest extends TestCase
         $this->assertDatabaseCount('claims', 0);
         $claim = $this->uploadPhoto();
 
-        $this->assertSame('draft', $claim->status);
+        // Foto diterima: kode slot langsung dipakai tanpa input kode dan tanpa persetujuan admin.
         $this->assertNull($claim->flag);
-        $this->assertMatchesRegularExpression('/^KLM-\d{4}$/', $claim->claim_code);
-        $this->assertSame('held', $claim->slot->status);
+        $this->assertMatchesRegularExpression('/^KLM\d{4}$/', $claim->claim_code);
         $this->assertDatabaseHas('claim_photos', ['claim_id' => $claim->id]);
-
-        $this->post('/participant/slot', ['code' => 'ZZZZZZ'])->assertSessionHasErrors('code');
-        $this->assertSame('held', $claim->fresh()->slot->status);
-
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
+        $this->assertSame($claim->slot->code, $claim->code);
         $this->assertSame('approved', $claim->fresh()->status);
         $this->assertSame('used', $claim->fresh()->slot->status);
         $this->assertSame(1, $participant->fresh()->caps);
@@ -156,7 +150,6 @@ class CustomerFlowTest extends TestCase
         $claim = $this->uploadPhoto(gray: 10);
         $this->assertContains('dark_photo', $claim->flags());
 
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
         $this->assertSame('approved', $claim->fresh()->status);
         $this->assertContains('dark_photo', $claim->fresh()->flags());
     }
@@ -166,7 +159,6 @@ class CustomerFlowTest extends TestCase
         $this->readyParticipant();
         $this->prizesAre('token');
         $claim = $this->uploadPhoto(seed: 31);
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
 
         $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page
             ->where('reward.follow_up.title', 'Lengkapi data token listrik')
@@ -180,7 +172,6 @@ class CustomerFlowTest extends TestCase
         $this->readyParticipant();
         $this->prizesAre('voucher');
         $claim = $this->uploadPhoto(seed: 32);
-        $this->post('/participant/slot', ['code' => $claim->slot->code]);
 
         $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page->where('reward.follow_up', null));
     }
@@ -192,8 +183,6 @@ class CustomerFlowTest extends TestCase
         $claim = $this->uploadPhoto(gray: 10);
         $this->assertSame(['dark_photo'], $claim->flags());
 
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
-
         $claim->refresh();
         $this->assertSame('approved', $claim->status);
         $this->assertSame(['dark_photo'], $claim->flags());
@@ -202,36 +191,6 @@ class CustomerFlowTest extends TestCase
         $this->assertTrue(Voucher::where('claim_id', $claim->id)->exists());
     }
 
-    public function test_pending_and_rejected_claims_show_in_hadiahku_with_their_pages(): void
-    {
-        $this->readyParticipant();
-        $this->prizesAre('token');
-        $pending = $this->uploadPhoto(gray: 10);
-        $pending->update(['status' => 'pending', 'submitted_at' => now()]);
-        $rejected = $this->uploadPhoto(seed: 21);
-        $rejected->update(['status' => 'rejected', 'submitted_at' => now()]);
-
-        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
-            ->where('rewards.0.kind', 'claim_pending')
-            ->where('rewards.0.status_label', 'Sedang diperiksa')
-            ->where('rewards.0.href', route('participant.klaim.diperiksa', $pending->id))
-            ->where('rewards.1.kind', 'claim_rejected')
-            ->where('rewards.1.href', route('participant.klaim.ditolak', $rejected->id))
-        );
-
-        $this->get("/participant/klaim/diperiksa/{$pending->id}")->assertInertia(fn ($page) => $page
-            ->component('participant/klaim-diperiksa')
-            ->where('claim.claim_code', $pending->claim_code)
-        );
-        $this->get("/participant/klaim/ditolak/{$rejected->id}")->assertInertia(fn ($page) => $page
-            ->component('participant/klaim-ditolak')
-            ->where('claim.claim_code', $rejected->claim_code)
-        );
-
-        // Klaim yang sudah diputuskan tidak lagi tampil sebagai ditangguhkan.
-        $pending->update(['status' => 'approved']);
-        $this->get("/participant/klaim/diperiksa/{$pending->id}")->assertRedirect('/participant/hadiah');
-    }
 
     public function test_first_photo_and_similar_photo_are_flagged(): void
     {
@@ -240,69 +199,17 @@ class CustomerFlowTest extends TestCase
 
         $first = $this->uploadPhoto(seed: 7);
         $this->assertContains('first_photo', $first->flags());
-        $this->post('/participant/slot', ['code' => $first->slot->code]);
 
         $second = $this->uploadPhoto(seed: 7);
         $this->assertNotContains('first_photo', $second->flags());
         $this->assertContains('similar_photo', $second->flags());
     }
 
-    public function test_slot_code_checks_follow_prd_rules(): void
-    {
-        $this->readyParticipant();
-        $this->prizesAre('token');
-        $claim = $this->uploadPhoto(seed: 1);
-        $board = $claim->outlet->board;
-
-        // Kode dari papan titik lain.
-        $other = Outlet::create(['code' => 'W08', 'name' => 'Warung Lain', 'area_id' => Area::first()->id, 'status' => 'active']);
-        $otherBoard = Board::create(['outlet_id' => $other->id, 'code' => 'W08-BOARD', 'week_label' => 'W08', 'status' => 'active']);
-        Slot::create(['board_id' => $otherBoard->id, 'position' => 'A1', 'code' => 'QWERTY', 'prize_type' => 'voucher', 'status' => 'empty']);
-        $this->post('/participant/slot', ['code' => 'QWERTY'])->assertSessionHasErrors(['code' => 'Kode ini dari papan titik lain. Ambil slot di papan W07.']);
-
-        // Kode yang sudah dipakai.
-        $used = $board->slots()->where('status', 'used')->first();
-        $this->post('/participant/slot', ['code' => $used->code])->assertSessionHasErrors(['code' => 'Kode ini sudah pernah dipakai. Ambil slot yang ditunjuk untukmu.']);
-
-        // Slot yang sedang ditahan peserta lain.
-        $otherParticipant = Participant::create(['name' => 'Lain', 'whatsapp' => '081111111111', 'birth_date' => '2000-01-01', 'area_id' => Area::first()->id, 'pin_hash' => 'x']);
-        $heldByOther = $board->slots()->where('status', 'empty')->first();
-        $heldByOther->update(['status' => 'held', 'holder_id' => $otherParticipant->id, 'held_until' => now()->addMinutes(10)]);
-        $this->post('/participant/slot', ['code' => $heldByOther->code])->assertSessionHasErrors('code');
-
-        // Slot kosong lain di papan yang sama: diterima dengan tanda, slot yang ditunjuk dilepas.
-        $assigned = $claim->slot;
-        $different = $board->slots()->where('status', 'empty')->first();
-        $this->post('/participant/slot', ['code' => $different->code])->assertRedirect('/participant/klaim/berhasil');
-        $claim->refresh();
-        $this->assertContains('different_slot', $claim->flags());
-        $this->assertSame($different->id, $claim->slot_id);
-        $this->assertSame('empty', $assigned->fresh()->status);
-        $this->assertDatabaseHas('rejects', ['reason' => 'wrong_board']);
-        $this->assertDatabaseHas('rejects', ['reason' => 'slot_used']);
-    }
-
-    public function test_late_code_is_accepted_with_flag(): void
-    {
-        $this->readyParticipant();
-        $this->prizesAre('token');
-        $claim = $this->uploadPhoto(seed: 2);
-        $this->travel(31)->minutes();
-
-        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
-        $this->assertContains('late_code', $claim->fresh()->flags());
-    }
-
-    public function test_only_assigned_slot_code_is_sent_to_the_browser(): void
+    public function test_board_never_sends_slot_codes_to_the_browser(): void
     {
         $this->readyParticipant();
         $this->uploadPhoto(seed: 3);
 
-        $claim = Claim::latest('id')->first();
-        // Hanya kode slot yang ditunjuk yang dikirim; papan tidak pernah mengirim kode slot lain.
-        $this->get('/participant/slot')->assertInertia(fn ($page) => $page
-            ->where('claim.slot.code', $claim->slot->code)
-            ->where('claim.claim_code', $claim->claim_code));
         $this->get('/participant/papan')->assertInertia(fn ($page) => $page->missing('slots.0.code'));
     }
 
@@ -345,7 +252,6 @@ class CustomerFlowTest extends TestCase
     {
         $this->readyParticipant();
         $claim = $this->uploadPhoto(seed: 41);
-        $this->post('/participant/slot', ['code' => $claim->slot->code]);
 
         // Keluar lalu masuk lagi dari Beranda tanpa scan QR: warung klaim terakhir dipakai.
         $this->post('/participant/keluar');
@@ -445,8 +351,8 @@ class CustomerFlowTest extends TestCase
     public function test_token_destination_must_be_entered_twice(): void
     {
         $participant = $this->readyParticipant();
-        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM-0001', 'status' => 'approved']);
-        $voucher = Voucher::create(['claim_id' => $claim->id, 'code' => 'KGR-TOKEN1', 'type' => 'token', 'status' => 'pending_data']);
+        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM0001', 'status' => 'approved']);
+        $voucher = Voucher::create(['claim_id' => $claim->id, 'code' => 'KGRTOKEN1', 'type' => 'token', 'status' => 'pending_data']);
 
         $this->post("/participant/nomor-tujuan/{$voucher->id}", ['destination' => '12345678901', 'destination_confirmation' => '12345678900'])
             ->assertSessionHasErrors(['destination' => 'Kedua isian nomor belum sama.']);
@@ -464,8 +370,8 @@ class CustomerFlowTest extends TestCase
     public function test_bensin_has_no_form_and_no_action(): void
     {
         $participant = $this->readyParticipant();
-        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM-0002', 'status' => 'approved']);
-        Voucher::create(['claim_id' => $claim->id, 'code' => 'KGR-BENSIN', 'type' => 'bensin', 'status' => 'pending']);
+        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM0002', 'status' => 'approved']);
+        Voucher::create(['claim_id' => $claim->id, 'code' => 'KGRBENSIN', 'type' => 'bensin', 'status' => 'pending']);
 
         $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
             ->where('rewards.0.kind', 'bensin')
@@ -478,7 +384,7 @@ class CustomerFlowTest extends TestCase
     public function test_address_must_be_in_delivery_area(): void
     {
         $participant = $this->readyParticipant();
-        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM-0003', 'status' => 'approved']);
+        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM0003', 'status' => 'approved']);
         $gift = Gift::create(['claim_id' => $claim->id, 'type' => 'merchandise', 'status' => 'pending_address']);
         Area::create(['name' => 'Dayeuhkolot', 'is_delivery_area' => false]);
 
@@ -512,8 +418,7 @@ class CustomerFlowTest extends TestCase
         $participant = $this->readyParticipant();
 
         foreach (range(1, 5) as $i) {
-            $claim = $this->uploadPhoto(seed: 10 + $i);
-            $this->post('/participant/slot', ['code' => $claim->slot->code]);
+            $this->uploadPhoto(seed: 10 + $i);
         }
 
         $this->assertSame(5, $participant->fresh()->caps);
@@ -532,8 +437,7 @@ class CustomerFlowTest extends TestCase
         $participant = $this->readyParticipant();
 
         foreach (range(1, 5) as $i) {
-            $claim = $this->uploadPhoto(seed: 30 + $i);
-            $this->post('/participant/slot', ['code' => $claim->slot->code]);
+            $this->uploadPhoto(seed: 30 + $i);
         }
 
         $this->assertSame(5, $participant->fresh()->caps);
@@ -547,15 +451,15 @@ class CustomerFlowTest extends TestCase
         );
     }
 
-    public function test_sent_voucher_expires_after_validity(): void
+    public function test_voucher_never_expires(): void
     {
         $participant = $this->readyParticipant();
-        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM-0004', 'status' => 'approved']);
-        $voucher = Voucher::create(['claim_id' => $claim->id, 'code' => 'KGR-OLD001', 'type' => 'voucher', 'status' => 'sent', 'expires_at' => now()->subDay()]);
+        $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM0004', 'status' => 'approved']);
+        // Voucher tidak punya masa berlaku: kolomnya sudah dihapus dan tidak pernah berstatus kadaluarsa.
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('vouchers', 'expires_at'));
+        Voucher::create(['claim_id' => $claim->id, 'code' => 'KGROLD001', 'type' => 'voucher', 'status' => 'sent', 'created_at' => now()->subYear()]);
 
-        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page->where('rewards.0.status_label', 'Kadaluarsa'));
-        $this->artisan('vouchers:expire')->assertSuccessful();
-        $this->assertSame('expired', $voucher->fresh()->status);
+        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page->where('rewards.0.status_label', 'Terkirim'));
     }
 
     public function test_leaderboard_ranks_by_approved_claims_then_who_reached_first(): void
@@ -565,10 +469,10 @@ class CustomerFlowTest extends TestCase
         $make = function (string $name, string $wa, array $times) use ($outlet, $area) {
             $p = Participant::create(['name' => $name, 'whatsapp' => $wa, 'birth_date' => '2000-01-01', 'area_id' => $area, 'pin_hash' => 'x', 'caps' => count($times)]);
             foreach ($times as $i => $time) {
-                Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM-{$wa}{$i}", 'status' => 'approved', 'submitted_at' => $time]);
+                Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM{$wa}{$i}", 'status' => 'approved', 'submitted_at' => $time]);
             }
             // Klaim antre dan ditolak tidak dihitung.
-            Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM-{$wa}X", 'status' => 'rejected', 'submitted_at' => now()]);
+            Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM{$wa}X", 'status' => 'rejected', 'submitted_at' => now()]);
 
             return $p;
         };

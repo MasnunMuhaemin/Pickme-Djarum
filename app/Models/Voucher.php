@@ -8,12 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Voucher extends Model
 {
     protected $fillable = [
-        'claim_id', 'code', 'type', 'source', 'status', 'destination', 'failed_attempts', 'expires_at',
+        'claim_id', 'code', 'type', 'source', 'status', 'destination', 'failed_attempts',
         'sent_at', 'processed_at', 'reference', 'partner_id', 'voucher_type_id', 'value', 'redeemed_at', 'fail_reason',
     ];
 
     protected $casts = [
-        'expires_at' => 'datetime',
         'sent_at' => 'datetime',
         'processed_at' => 'datetime',
         'redeemed_at' => 'datetime',
@@ -43,10 +42,4 @@ class Voucher extends Model
         return $this->belongsTo(Partner::class);
     }
 
-    /** Voucher mitra yang sudah terkirim tapi lewat masa berlaku dianggap kadaluarsa (PRD bagian 17). */
-    public function isExpired(): bool
-    {
-        return $this->status === 'expired'
-            || ($this->status === 'sent' && $this->type === 'voucher' && $this->expires_at?->isPast());
-    }
 }

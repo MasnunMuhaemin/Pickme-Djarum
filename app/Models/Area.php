@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Area extends Model
@@ -19,5 +20,16 @@ class Area extends Model
     public function outlets(): HasMany
     {
         return $this->hasMany(Outlet::class);
+    }
+
+    public function partners(): HasMany
+    {
+        return $this->hasMany(Partner::class);
+    }
+
+    /** Warung yang mencakup area ini (satu warung bisa mencakup banyak area kos). */
+    public function coveringOutlets(): BelongsToMany
+    {
+        return $this->belongsToMany(Outlet::class);
     }
 }

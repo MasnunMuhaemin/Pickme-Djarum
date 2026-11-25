@@ -14,14 +14,13 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * A1 Beranda: ringkasan hari ini (klaim masuk, antrean foto, antrean pemenuhan, slot terpakai), slot terpakai
+ * A1 Beranda: ringkasan hari ini (klaim masuk, voucher belum dikirim, antrean pemenuhan, slot terpakai), slot terpakai
  * per area, dan daftar yang perlu perhatian dengan tautan langsung ke antreannya.
  */
 class DashboardController extends Controller
 {
     public function index(): Response
     {
-        $oldestPending = AdminQueues::photos()->min('submitted_at');
         $tokens = AdminQueues::tokens()->count();
         $fuel = AdminQueues::fuel()->count();
         $goods = AdminQueues::goods()->count();
@@ -47,10 +46,7 @@ class DashboardController extends Controller
         }
         $unpaid = PartnerPayout::where('status', 'menunggu_bayar')->count();
         if ($unpaid) {
-            $attention[] = ['text' => "{$unpaid} rekap mitra menunggu dibayar", 'href' => route('admin.mitra')];
-        }
-        if ($oldestPending && now()->diffInHours($oldestPending, true) >= 24) {
-            $attention[] = ['text' => 'Ada klaim di antrean foto lebih dari 1×24 jam', 'href' => route('admin.antrean-foto')];
+            $attention[] = ['text' => "{$unpaid} rekap mitra menunggu dibayar", 'href' => route('admin.pembayaran')];
         }
         $pausedOutlets = Outlet::where('status', '!=', 'active')->count();
         $attention[] = Setting::programPaused()
@@ -62,8 +58,7 @@ class DashboardController extends Controller
         return Inertia::render('admin/beranda', [
             'stats' => [
                 'claimsToday' => Claim::whereDate('submitted_at', today())->count(),
-                'photoQueue' => AdminQueues::photos()->count(),
-                'oldestPendingHours' => $oldestPending ? (int) now()->diffInHours($oldestPending, true) : null,
+                'toDispatch' => AdminQueues::dispatch()->count(),
                 'fulfillment' => $tokens + $fuel + $goods,
                 'fulfillmentBreakdown' => "{$tokens} token, {$fuel} bensin, {$goods} merch dan LE",
                 'usedSlots' => $usedSlots,

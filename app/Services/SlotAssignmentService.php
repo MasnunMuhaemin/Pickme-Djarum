@@ -77,10 +77,11 @@ class SlotAssignmentService
         Claim::whereIn('slot_id', $expired)->where('status', 'draft')->update(['slot_id' => null, 'code' => null]);
     }
 
+    /** Kode klaim KLM + 4 angka, tanpa spasi dan tanpa strip (seragam dengan kode slot dan kode voucher). */
     private function claimCode(): string
     {
         do {
-            $code = 'KLM-'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
+            $code = 'KLM'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT);
         } while (Claim::where('claim_code', $code)->exists());
 
         return $code;

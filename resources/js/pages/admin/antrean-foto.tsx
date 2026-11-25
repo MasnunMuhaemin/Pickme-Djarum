@@ -1,150 +1,194 @@
-import { Btn, Card, Chip, Empty, SelectInput } from '@/features/admin/ui';
+import { Btn, Card, Chip, Empty, Modal, Phone, SelectInput, useConfirm } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
-import { cn } from '@/lib/utils';
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
+import { ImageOff, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
-type QueueItem = { id: number; name: string; outlet: string; time: string; flags: string[] };
-type ClaimDetail = {
+type PhotoItem = {
     id: number;
     claim_code: string;
-    status: 'pending' | 'approved' | 'rejected' | string;
+    status: string;
     outlet: string;
     time: string;
+    date: string;
     photo_url: string | null;
     participant: string;
+    whatsapp: string | null;
     history: string;
     flags: string[];
     slot: string | null;
-    decided: { by: string | null; at: string | null; reason: string | null } | null;
-    can_undo: boolean;
+    reward: string | null;
+    voucher_code: string | null;
 };
 
-function flagTone(flag: string): 'red' | 'yellow' | 'green' {
-    if (/mirip|berbeda|lebih dari|lama/i.test(flag)) return 'red';
-    if (/pertama/i.test(flag)) return 'green';
-    return 'yellow';
-}
+const STATUS: Record<string, { label: string; tone: 'green' | 'yellow' | 'red' | 'gray' }> = {
+    approved: { label: 'Berhasil', tone: 'green' },
+    pending: { label: 'Klaim lama: menunggu', tone: 'yellow' },
+    rejected: { label: 'Klaim lama: ditolak', tone: 'red' },
+};
 
-/** A2 Antrean foto: daftar klaim bertanda di kiri, rincian dan keputusan di kanan. */
-export default function AntreanFoto({ queue, claim, rejectReasons }: { queue: QueueItem[]; claim: ClaimDetail | null; rejectReasons: string[] }) {
-    const errors = usePage().props.errors as Record<string, string>;
-    const [reason, setReason] = useState('');
-    const [busy, setBusy] = useState(false);
+/** A2 Foto klaim: galeri foto bungkus tiap klaim, terbaru dulu. Tidak ada persetujuan admin lagi. */
+export default function FotoKlaim({
+    photos,
+    pagination,
+    outlets,
+    outlet,
+}: {
+    photos: PhotoItem[];
+    pagination: { current: number; last: number; total: number };
+    outlets: string[];
+    outlet: string | null;
+}) {
+    const [open, setOpen] = useState<PhotoItem | null>(null);
+    const [confirm, confirmDialog] = useConfirm();
 
-    function act(path: string, data: Record<string, string> = {}) {
-        if (!claim) return;
-        setBusy(true);
-        router.post(`/admin/antrean-foto/${claim.id}/${path}`, data, {
-            preserveScroll: true,
-            onFinish: () => setBusy(false),
-            onSuccess: () => setReason(''),
+    function askDelete(p: PhotoItem) {
+        confirm({
+            title: `Hapus foto klaim ${p.claim_code}?`,
+            message: 'File foto dihapus permanen dan tidak bisa dikembalikan. Klaim dan hadiah peserta tetap ada. Penghapusan tercatat di log.',
+            confirmLabel: 'Hapus foto',
+            danger: true,
+            onConfirm: () => router.delete(`/admin/antrean-foto/${p.id}/foto`, { preserveScroll: true, onSuccess: () => setOpen(null) }),
         });
     }
+    const query = (page: number, code: string | null = outlet) => {
+        const q = new URLSearchParams();
+        if (code) q.set('warung', code);
+        if (page > 1) q.set('page', String(page));
+        return `/admin/antrean-foto${q.size ? `?${q}` : ''}`;
+    };
 
     return (
-        <AdminLayout active="antrean-foto" title="Antrean foto" subtitle={`${queue.length} klaim bertanda · target diputuskan paling lama 1×24 jam`}>
-            <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
-                <div className="space-y-2">
-                    {queue.map((item) => (
-                        <Link
-                            key={item.id}
-                            href={`/admin/antrean-foto?claim=${item.id}`}
-                            preserveScroll
-                            className={cn(
-                                'block rounded-xl border bg-white p-3 transition',
-                                claim?.id === item.id ? 'border-black bg-[#fffbd6]' : 'border-black/5 hover:border-black/20',
+        <AdminLayout active="antrean-foto" title="Foto klaim" subtitle={`${pagination.total} foto bungkus dari peserta · terbaru di atas`}>
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-ink/55 text-[11px] font-bold">Warung</span>
+                <SelectInput
+                    value={outlet ?? ''}
+                    onChange={(code) => router.get(query(1, code || null), {}, { preserveScroll: true })}
+                    placeholder="Semua warung"
+                    options={outlets.map((code) => ({ value: code, label: code }))}
+                    className="w-56"
+                />
+            </div>
+
+            <Card className="mt-4">
+                {photos.length ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
+                        {photos.map((p) => (
+                            <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setOpen(p)}
+                                className="border-ink/10 hover:border-ink group overflow-hidden rounded-xl border text-left transition"
+                            >
+                                <div className="bg-night-soft relative aspect-square">
+                                    {p.photo_url ? (
+                                        <img src={p.photo_url} alt={`Foto klaim ${p.claim_code}`} loading="lazy" className="size-full object-cover" />
+                                    ) : (
+                                        <span className="text-cream/50 grid size-full place-items-center">
+                                            <ImageOff className="size-6" />
+                                        </span>
+                                    )}
+                                    <span className="bg-lime absolute bottom-2 left-2 rounded px-1.5 py-0.5 font-mono text-[9px] font-bold">
+                                        {p.outlet} · {p.claim_code}
+                                    </span>
+                                </div>
+                                <div className="p-2.5">
+                                    <p className="truncate text-[12px] font-extrabold">{p.participant}</p>
+                                    <p className="text-ink/50 text-[10px]">
+                                        {p.date} · {p.time}
+                                    </p>
+                                    {p.status !== 'approved' && (
+                                        <Chip tone={STATUS[p.status]?.tone ?? 'gray'} className="mt-1">
+                                            {STATUS[p.status]?.label ?? p.status}
+                                        </Chip>
+                                    )}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                ) : (
+                    <Empty>Belum ada foto klaim{outlet ? ` di ${outlet}` : ''}.</Empty>
+                )}
+
+                {pagination.last > 1 && (
+                    <div className="mt-4 flex items-center justify-end gap-2 text-[12px]">
+                        {pagination.current > 1 && (
+                            <Link href={query(pagination.current - 1)} className="border-ink/15 rounded-full border px-3 py-1 font-bold">
+                                Sebelumnya
+                            </Link>
+                        )}
+                        <span className="text-ink/50">
+                            Halaman {pagination.current} dari {pagination.last}
+                        </span>
+                        {pagination.current < pagination.last && (
+                            <Link href={query(pagination.current + 1)} className="border-ink/15 rounded-full border px-3 py-1 font-bold">
+                                Berikutnya
+                            </Link>
+                        )}
+                    </div>
+                )}
+            </Card>
+
+            <Modal open={open !== null} onClose={() => setOpen(null)} width="max-w-2xl">
+                {open && (
+                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                        <div className="bg-night-soft overflow-hidden rounded-xl">
+                            {open.photo_url ? (
+                                <img src={open.photo_url} alt={`Foto klaim ${open.claim_code}`} className="max-h-[70dvh] w-full object-contain" />
+                            ) : (
+                                <span className="text-cream/50 grid h-60 place-items-center">Foto tidak tersedia</span>
                             )}
-                        >
-                            <div className="flex items-center justify-between text-[12px]">
-                                <span className="font-extrabold">
-                                    {item.name} · {item.outlet}
-                                </span>
-                                <span className="text-black/45">{item.time}</span>
-                            </div>
-                            <div className="mt-1.5 flex flex-wrap gap-1">
-                                {item.flags.map((f) => (
-                                    <Chip key={f} tone={flagTone(f)}>
-                                        {f}
-                                    </Chip>
-                                ))}
-                            </div>
-                        </Link>
-                    ))}
-                    {queue.length === 0 && <Empty>Tidak ada klaim bertanda. Antrean kosong.</Empty>}
-                </div>
-
-                <Card>
-                    {claim ? (
-                        <div>
-                            <div className="relative grid h-[340px] place-items-center overflow-hidden rounded-xl bg-[#2a2a2a]">
-                                {claim.photo_url ? (
-                                    <img src={claim.photo_url} alt={`Foto bungkus ${claim.claim_code}`} className="size-full object-contain" />
-                                ) : (
-                                    <span className="text-[12px] text-white/50">Foto tidak tersedia</span>
-                                )}
-                                <span className="absolute bottom-3 left-3 rounded bg-[#ffe500] px-2 py-0.5 font-mono text-[10px] font-bold">
-                                    {claim.time} · {claim.outlet} · {claim.claim_code}
-                                </span>
-                            </div>
-
-                            <dl className="mt-3 divide-y divide-black/5 text-[12px]">
-                                {[
-                                    ['Peserta', claim.participant],
-                                    ['Riwayat', claim.history],
-                                    ['Tanda', claim.flags.join(', ') || '-'],
-                                    ['Slot dituju', claim.slot ?? '-'],
-                                ].map(([label, value]) => (
-                                    <div key={label} className="flex justify-between gap-4 py-2">
-                                        <dt className="text-black/50">{label}</dt>
+                        </div>
+                        <div className="pr-6">
+                            <h2 className="text-[16px] font-extrabold">{open.claim_code}</h2>
+                            <dl className="divide-ink/5 mt-2 divide-y text-[12px]">
+                                {(
+                                    [
+                                        ['Peserta', open.participant],
+                                        ['WhatsApp', <Phone key="wa" value={open.whatsapp} />],
+                                        ['Warung', open.outlet],
+                                        ['Waktu', `${open.date} · ${open.time}`],
+                                        ['Slot', open.slot ?? '-'],
+                                        ['Hadiah', open.reward ?? '-'],
+                                        [
+                                            'Kode voucher',
+                                            open.voucher_code ? (
+                                                <span key="kode" className="font-mono tracking-wider">
+                                                    {open.voucher_code}
+                                                </span>
+                                            ) : (
+                                                '-'
+                                            ),
+                                        ],
+                                        ['Riwayat', open.history],
+                                    ] as const
+                                ).map(([label, value]) => (
+                                    <div key={label} className="flex justify-between gap-3 py-2">
+                                        <dt className="text-ink/50">{label}</dt>
                                         <dd className="text-right font-bold">{value}</dd>
                                     </div>
                                 ))}
                             </dl>
-
-                            {claim.status === 'pending' ? (
-                                <div className="mt-3 flex flex-wrap items-center gap-2">
-                                    <Btn variant="black" disabled={busy} onClick={() => act('setujui')}>
-                                        Setujui
-                                    </Btn>
-                                    <Btn variant="outline" disabled={busy || !reason} onClick={() => act('tolak', { reason })}>
-                                        Tolak
-                                    </Btn>
-                                    <SelectInput
-                                        value={reason}
-                                        onChange={(e) => setReason(e.target.value)}
-                                        placeholder="Alasan penolakan (wajib saat Tolak)"
-                                        options={rejectReasons.map((r) => ({ value: r, label: r }))}
-                                        className="max-w-[280px] rounded-full"
-                                    />
-                                    <Btn variant="ghost" disabled>
-                                        Urungkan
-                                    </Btn>
-                                </div>
-                            ) : (
-                                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-black/[0.03] p-3 text-[12px]">
-                                    <Chip tone={claim.status === 'approved' ? 'green' : 'red'}>
-                                        {claim.status === 'approved' ? 'Disetujui' : 'Ditolak'}
-                                    </Chip>
-                                    <span className="text-black/60">
-                                        {claim.decided?.by ? `oleh ${claim.decided.by} · ${claim.decided.at}` : ''}
-                                        {claim.decided?.reason ? ` · ${claim.decided.reason}` : ''}
-                                    </span>
-                                    <Btn variant="outline" className="ml-auto" disabled={busy || !claim.can_undo} onClick={() => act('urungkan')}>
-                                        Urungkan
-                                    </Btn>
+                            {open.flags.length > 0 && (
+                                <div className="mt-2">
+                                    <p className="text-ink/50 text-[11px]">Catatan sistem</p>
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                        {open.flags.map((f) => (
+                                            <Chip key={f}>{f}</Chip>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
-                            {(errors.reason || errors.undo) && (
-                                <p className="mt-2 text-[11px] font-semibold text-[#b42318]">{errors.reason ?? errors.undo}</p>
-                            )}
-                            <p className="mt-3 text-[11px] text-black/45">Urungkan aktif setelah ada keputusan, selama hadiah belum diproses.</p>
+                            <Btn variant="red" className="mt-4" onClick={() => askDelete(open)}>
+                                <Trash2 className="size-3.5" />
+                                Hapus foto
+                            </Btn>
                         </div>
-                    ) : (
-                        <Empty>Pilih klaim di kiri untuk melihat rinciannya.</Empty>
-                    )}
-                </Card>
-            </div>
+                    </div>
+                )}
+            </Modal>
+            {confirmDialog}
         </AdminLayout>
     );
 }

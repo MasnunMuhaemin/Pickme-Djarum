@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Outlet;
 use App\Models\Slot;
 use App\Support\ActivityLogger;
+use App\Support\RewardPresenter;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -49,24 +50,33 @@ class BoardController extends Controller
         $selected = $outlets->firstWhere('code', strtoupper((string) $request->query('titik'))) ?? $outlets->first();
 
         $slots = $selected?->board
-            ? $selected->board->slots()->with(['holder', 'claim.participant', 'voucherType'])->orderBy('position')->get()
+            ? $selected->board->slots()->with(['holder', 'claim.participant', 'claim.voucher.voucherType', 'claim.voucher.partner', 'voucherType.partner'])->orderBy('position')->get()
             : collect();
 
-        $stock = Slot::query()->selectRaw("prize_type, count(*) as total, sum(status = 'used') as used")->groupBy('prize_type')->get()
-            ->map(fn ($row) => [
-                'label' => self::PRIZE_LABELS[$row->prize_type] ?? ucfirst($row->prize_type),
-                'total' => (int) $row->total,
-                'used' => (int) $row->used,
-                'left' => (int) $row->total - (int) $row->used,
-            ]);
+        // Isi hadiah papan titik terpilih per jenis voucher, supaya terlihat voucher apa saja yang ada di warung itu.
+        $stock = $slots->groupBy(fn (Slot $s) => $this->prizeLabel($s))
+            ->map(fn ($group, $label) => [
+                'label' => $label,
+                'partner' => $group->first()->voucherType?->partner?->name ?? $group->first()->voucherType?->partner_label,
+                'total' => $group->count(),
+                'used' => $group->where('status', 'used')->count(),
+                'left' => $group->where('status', '!=', 'used')->count(),
+            ])
+            ->sortBy('label')
+            ->values();
+
+        // Hitungan slot semua papan dalam satu query (warung bisa puluhan).
+        $counts = Slot::query()->selectRaw("board_id, count(*) as total, sum(case when status = 'used' then 1 else 0 end) as used")
+            ->groupBy('board_id')->get()->keyBy('board_id');
 
         return Inertia::render('admin/papan', [
             'outlets' => $outlets->map(fn (Outlet $o) => [
                 'id' => $o->id,
                 'code' => $o->code,
+                'name' => $o->name,
                 'area' => $o->area?->name,
-                'used' => $o->board ? $o->board->slots()->where('status', 'used')->count() : 0,
-                'total' => $o->board ? $o->board->slots()->count() : 0,
+                'used' => (int) ($counts[$o->board?->id]->used ?? 0),
+                'total' => (int) ($counts[$o->board?->id]->total ?? 0),
                 'active' => $o->status === 'active',
             ]),
             'selected' => $selected ? [
@@ -80,6 +90,10 @@ class BoardController extends Controller
                     'status' => $s->status,
                     'prize' => $this->prizeLabel($s),
                     'by' => $s->claim?->participant?->name ?? $s->holder?->name,
+                    'voucher_code' => $s->claim?->voucher?->code ?? $s->voucher_code,
+                    'claimed' => (bool) $s->claim?->voucher,
+                    // Label status sama dengan yang dilihat peserta di Hadiahku.
+                    'voucher_status' => $s->claim?->voucher ? RewardPresenter::voucher($s->claim->voucher)['status_label'] : null,
                     'at' => ($s->used_at ?? $s->held_until)?->format('d M H:i'),
                 ]),
             ] : null,
