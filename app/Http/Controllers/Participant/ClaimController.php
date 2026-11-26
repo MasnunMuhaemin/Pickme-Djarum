@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Participant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PhotoUploadRequest;
 use App\Http\Requests\SlotCodeRequest;
-use App\Models\Area;
 use App\Models\Claim;
 use App\Models\Gift;
 use App\Models\Outlet;
@@ -35,53 +34,28 @@ class ClaimController extends Controller
         return strtoupper((string) ($request->input('outlet') ?: $request->session()->get('claim_outlet') ?: 'W07'));
     }
 
-    /** P1/P4: beranda dan papan titik. */
-    public function showBoard(Request $request): Response
+    /** Batas klaim harian per peserta; klaim yang ditolak tidak dihitung. */
+    private function dailyLimitReached(Request $request): bool
     {
-        $code = $this->outletCode($request);
-        $request->session()->put('claim_outlet', $code);
-        $outlet = Outlet::with(['board.slots', 'area'])->where('code', $code)->firstOrFail();
-        $participant = $request->session()->get('participant_id') ? $this->participant($request) : null;
-        $activeClaim = $participant?->claims()->where('status', 'draft')->latest()->first();
-        $available = $outlet->board->slots->where('status', 'empty')->count();
+        $id = $request->session()->get('participant_id');
 
-        return Inertia::render('participant/papan', [
-            'outlet' => [...$outlet->only(['id', 'code', 'name', 'status']), 'area' => $outlet->area?->name],
-            // Kode slot tidak dikirim ke browser: kode hanya ada di balik slot fisik.
-            'slots' => $outlet->board->slots->map(fn ($s) => [
-                'position' => $s->position,
-                'status' => $s->status,
-            ]),
-            'availableCount' => $available,
-            'totalSlots' => $outlet->board->slots->count(),
-            'activeClaim' => $activeClaim?->only(['id', 'status', 'claim_code', 'slot_id']),
-            'canClaim' => $outlet->isActive() && $outlet->board?->status === 'active' && $available > 0,
-            'paused' => ! $outlet->isActive() || $outlet->board?->status !== 'active',
-            'board' => $outlet->board?->only(['week_label', 'status']),
-            'modal' => $request->query('modal'),
-            'areas' => Area::orderBy('name')->get(['id', 'name']),
-        ]);
-    }
+        $limit = (int) config('participant.daily_claim_limit');
 
-    public function start(Request $request): RedirectResponse
-    {
-        $code = $this->outletCode($request);
-        $request->session()->put('claim_outlet', $code);
-        $outlet = Outlet::with('board')->where('code', $code)->firstOrFail();
-
-        if (! $outlet->isActive()) {
-            return back()->withErrors(['claim' => 'Papan sedang dijeda. Coba lagi nanti.']);
-        }
-        if (! $outlet->board->slots()->where('status', 'empty')->exists()) {
-            return back()->withErrors(['claim' => 'Papan ini sudah penuh. Coba klaim di titik lain.']);
-        }
-
-        return to_route('participant.foto', ['outlet' => $code]);
+        return $id && $limit > 0 && Participant::claimsTodayOf($id) >= $limit;
     }
 
     /** P5: foto bungkus. Jam server saat kamera dibuka dipakai untuk watermark (PRD FR-35). */
-    public function showPhoto(Request $request): Response
+    public function showPhoto(Request $request): Response|RedirectResponse
     {
+        // Dicek sebelum kamera dibuka supaya peserta tidak memfoto sia-sia.
+        if ($this->dailyLimitReached($request)) {
+            return to_route('participant.home')->withErrors(['limit' => 'Batas klaim hari ini tercapai.']);
+        }
+        $outlet = Outlet::with('board')->where('code', $this->outletCode($request))->first();
+        if ($outlet && ! $outlet->board->slots()->where('status', 'empty')->exists()) {
+            return to_route('participant.home')->withErrors(['full' => 'Papan ini sudah penuh. Coba klaim di titik lain.']);
+        }
+
         $openedAt = now();
         $request->session()->put('photo_opened_at', $openedAt->toIso8601String());
 
@@ -102,6 +76,10 @@ class ClaimController extends Controller
         RewardCreationService $rewards,
     ): RedirectResponse {
         $participant = $this->participant($request);
+        // Dicek lagi di sini supaya batas tidak bisa dilewati dengan mengirim foto langsung.
+        if ($this->dailyLimitReached($request)) {
+            return to_route('participant.home')->withErrors(['limit' => 'Batas klaim hari ini tercapai.']);
+        }
         $outlet = Outlet::where('code', $this->outletCode($request))->firstOrFail();
         $openedAt = $request->session()->pull('photo_opened_at');
         $openedAt = $openedAt ? Carbon::parse($openedAt) : null;
@@ -120,7 +98,7 @@ class ClaimController extends Controller
 
         $assigned = $slots->assignToClaim($claim);
         if (isset($assigned['error'])) {
-            return to_route('participant.papan')->withErrors(['claim' => $assigned['error']]);
+            return to_route('participant.home')->withErrors(['claim' => $assigned['error']]);
         }
 
         // Tanpa input kode dan tanpa persetujuan admin: foto diterima berarti kode slot langsung jadi milik peserta.
@@ -140,7 +118,7 @@ class ClaimController extends Controller
         if ($claim && ! $claim->slot_id) {
             $assigned = app(SlotAssignmentService::class)->assignToClaim($claim);
             if (isset($assigned['error'])) {
-                return to_route('participant.papan')->withErrors(['claim' => $assigned['error']]);
+                return to_route('participant.home')->withErrors(['claim' => $assigned['error']]);
             }
             $claim = $claim->fresh('slot');
         }
@@ -174,7 +152,7 @@ class ClaimController extends Controller
     ): RedirectResponse {
         $claim = $this->activeDraft($request);
         if (! $claim || ! $claim->slot_id) {
-            return to_route('participant.papan')->withErrors(['claim' => 'Klaim tidak ditemukan atau slot belum ditunjuk.']);
+            return to_route('participant.home')->withErrors(['claim' => 'Klaim tidak ditemukan atau slot belum ditunjuk.']);
         }
 
         $result = $verification->submitCode($claim, $form->input('code'));
@@ -208,9 +186,12 @@ class ClaimController extends Controller
             'claim' => [
                 'claim_code' => $claim->claim_code,
                 'outlet' => $claim->outlet->code,
+                'slot' => $claim->slot?->position,
                 'submitted_at' => $claim->submitted_at?->format('d M Y H:i'),
             ],
             'caps' => $participant->fresh()->caps,
+            // Token, bensin, dan merchandise: cap baru bertambah setelah admin menyelesaikan hadiahnya.
+            'capPending' => ! $claim->cap_at,
         ]);
     }
 

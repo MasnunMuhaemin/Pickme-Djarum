@@ -27,6 +27,8 @@ export default function ParticipantLayout({
                 <div
                     className={cn(
                         'relative flex min-h-dvh min-w-0 flex-1 flex-col lg:min-h-0',
+                        // Tinggi bottom nav HP (pt-2 + h-14 + jarak bawah aman); tombol yang menempel di bawah duduk di atasnya.
+                        !hideBottomNav && '[--nav-h:calc(4rem+max(0.75rem,env(safe-area-inset-bottom)))] md:[--nav-h:0px]',
                         dark ? 'bg-night text-cream' : 'bg-cream text-ink',
                         className,
                     )}

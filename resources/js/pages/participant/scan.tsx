@@ -145,7 +145,7 @@ export default function Scan({ modal, areas = [] }: { modal?: string; areas?: Ar
                 </div>
 
                 <div className="relative flex min-h-0 flex-1 items-center justify-center">
-                    <div className="relative aspect-square w-[270px] max-w-[78vw] rounded-2xl shadow-[0_0_0_200vmax_rgba(0,0,0,0.35)]">
+                    <div className="relative aspect-square w-[270px] max-w-[78vw] rounded-2xl shadow-[0_0_0_200vmax_rgba(0,0,0,0.6)]">
                         {!cameraOn && (
                             <div className="absolute inset-0 grid place-items-center rounded-2xl bg-black/30">
                                 <div className="text-center">

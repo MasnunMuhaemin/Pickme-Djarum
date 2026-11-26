@@ -27,6 +27,7 @@ export function LimePage({
     hideBottomNav,
     footer,
     panelClassName,
+    decoration,
     children,
 }: {
     title: ReactNode;
@@ -39,13 +40,16 @@ export function LimePage({
     hideBottomNav?: boolean;
     footer?: ReactNode;
     panelClassName?: string;
+    /** Hiasan di header (mis. ilustrasi gurita di pojok kanan bawah). */
+    decoration?: ReactNode;
     children: ReactNode;
 }) {
     const isLoggedIn = useIsLoggedIn();
 
     return (
         <ParticipantLayout title={tabTitle ?? (typeof title === 'string' ? title : undefined)} nav={nav} hideBottomNav={hideBottomNav}>
-            <div className="bg-lime px-5 pt-4 pb-14 md:px-8 md:pt-6">
+            <div className="lime-hero relative px-5 pt-4 pb-14 md:px-8 md:pt-6">
+                {decoration}
                 {(back || right || isLoggedIn) && (
                     <div className="flex min-h-10 items-center justify-between gap-3">
                         {back ? (
@@ -65,6 +69,8 @@ export function LimePage({
                     className={cn(
                         'text-[34px] leading-[1.05] font-extrabold tracking-tight md:text-[44px]',
                         back || right || isLoggedIn ? 'mt-3' : 'mt-1',
+                        // Sisakan ruang untuk hiasan di kanan supaya judul turun baris, tidak tertutup.
+                        decoration && 'relative max-w-[58%] md:max-w-[65%]',
                     )}
                 >
                     {title}
@@ -75,7 +81,7 @@ export function LimePage({
             <div className={cn('bg-cream relative -mt-7 flex flex-1 flex-col rounded-t-[2rem] px-5 pt-6 pb-6 md:px-8 md:pt-8', panelClassName)}>
                 <div className="flex-1 md:mx-auto md:w-full md:max-w-[720px]">{children}</div>
                 {footer && (
-                    <div className="bg-cream sticky bottom-0 -mx-5 mt-6 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:static md:mx-auto md:w-full md:max-w-[720px] md:px-0">
+                    <div className="bg-cream sticky bottom-[var(--nav-h,0px)] -mx-5 mt-6 px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] md:static md:mx-auto md:w-full md:max-w-[720px] md:px-0">
                         {footer}
                     </div>
                 )}

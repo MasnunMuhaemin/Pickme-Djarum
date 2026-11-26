@@ -1,64 +1,59 @@
-import { Input, OutlineButton, PageHeader, PrimaryButton, StepList, toWhatsapp, WHATSAPP_MAX } from '@/features/participant/components/ui';
-import ParticipantLayout from '@/layouts/participant-layout';
-import { useForm } from '@inertiajs/react';
-import { FormEvent } from 'react';
+import { LimePage } from '@/features/participant/components/lime-page';
+import { OutlineButton } from '@/features/participant/components/ui';
+import { router } from '@inertiajs/react';
+import { MessageSquare } from 'lucide-react';
 
-export default function LupaPin({ sent }: { sent?: boolean }) {
-    const form = useForm({ whatsapp: '' });
+const STEPS = ['Hubungi admin', 'Terima PIN sementara', 'Masuk, lalu ganti PIN'];
 
-    function submit(e: FormEvent) {
-        e.preventDefault();
-        form.post('/participant/lupa-pin', { preserveScroll: true });
-    }
+/** Lupa PIN: admin membuatkan PIN sementara lewat WhatsApp. Nomor peserta dibawa dari form masuk. */
+export default function LupaPin({ whatsapp, adminWhatsapp }: { whatsapp?: string | null; adminWhatsapp?: string | null }) {
+    const message = `Halo admin Pickme, saya lupa PIN.${whatsapp ? ` Nomor WhatsApp terdaftar: ${whatsapp}.` : ''} Mohon dibuatkan PIN sementara.`;
+    const link = adminWhatsapp ? `https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(message)}` : null;
 
     return (
-        <ParticipantLayout title="Lupa PIN">
-            <PageHeader back="/participant/masuk" title="Lupa PIN?" />
-            <div className="flex-1 px-4 pb-8 md:mx-auto md:w-full md:max-w-[620px] md:px-8 md:pt-2 md:pb-10">
-                <h2 className="text-xl font-extrabold tracking-tight">Admin bantu buatkan PIN sementara.</h2>
-                <p className="text-ink-soft mt-2 text-[12px] leading-relaxed">
-                    Hubungi admin lewat nomor WhatsApp yang terdaftar. Setelah itu masuk pakai PIN baru, lalu ganti PIN sendiri.
+        <LimePage
+            title="Lupa PIN?"
+            back="/participant/masuk"
+            footer={
+                <div className="space-y-2">
+                    <OutlineButton href="/participant/masuk">Kembali ke masuk</OutlineButton>
+                    {link ? (
+                        <a
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            // Permintaan dicatat untuk admin bila nomornya diketahui.
+                            onClick={() => whatsapp && router.post('/participant/lupa-pin', { whatsapp }, { preserveScroll: true })}
+                            className="bg-lime text-ink flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-bold shadow-sm transition active:scale-[0.99]"
+                        >
+                            <MessageSquare className="size-5" /> Hubungi admin
+                        </a>
+                    ) : (
+                        <p className="text-ink-soft text-center text-[12px]">Nomor WhatsApp admin belum diatur.</p>
+                    )}
+                </div>
+            }
+        >
+            <h2 className="text-[26px] leading-tight font-extrabold tracking-tight">Admin bantu buatkan PIN sementara.</h2>
+            <p className="text-ink-soft mt-2 text-[14px] leading-relaxed">
+                Hubungi admin lewat nomor WhatsApp yang kamu pakai saat daftar. PIN sementara dipakai sekali untuk masuk, lalu kamu membuat PIN baru.
+            </p>
+            {whatsapp && (
+                <p className="mt-3 text-[13px]">
+                    Nomor kamu: <span className="font-extrabold">{whatsapp}</span>
                 </p>
+            )}
 
-                <div className="border-ink/10 bg-cream-soft mt-6 rounded-2xl border p-4">
-                    <StepList
-                        steps={[
-                            { title: 'Hubungi admin', text: 'Sebutkan nomor WhatsApp yang terdaftar di akun kamu.' },
-                            { title: 'Terima PIN sementara', text: 'Admin mengirim PIN sementara lewat WhatsApp.' },
-                            { title: 'Masuk, lalu ganti PIN', text: 'Ganti PIN setelah berhasil masuk supaya akun tetap aman.' },
-                        ]}
-                    />
-                </div>
-
-                <p className="text-ink-soft mt-3 text-[10px] leading-relaxed">Demi keamanan, nomor WhatsApp akan dicek dulu sebelum PIN diberikan.</p>
-
-                <form onSubmit={submit} className="border-ink/10 bg-cream-soft mt-4 rounded-2xl border p-4">
-                    <p className="text-[12px] font-extrabold">Minta bantuan admin</p>
-                    <p className="text-ink-soft mt-1 text-[10px] leading-relaxed">Permintaan dicatat. Admin menghubungi lewat WhatsApp.</p>
-                    <Input
-                        inputMode="tel"
-                        maxLength={WHATSAPP_MAX}
-                        value={form.data.whatsapp}
-                        onChange={(e) => form.setData('whatsapp', toWhatsapp(e.target.value))}
-                        placeholder="Nomor WhatsApp terdaftar"
-                        className="mt-2"
-                    />
-                    {form.errors.whatsapp && <span className="text-danger mt-1 block text-[11px]">{form.errors.whatsapp}</span>}
-                    {sent && <span className="text-ink mt-1 block text-[11px] font-bold">Permintaan terkirim.</span>}
-                    <button
-                        type="submit"
-                        disabled={form.processing}
-                        className="text-ink bg-lime mt-2 rounded-full px-4 py-2 text-[11px] font-bold disabled:opacity-50"
-                    >
-                        Kirim permintaan
-                    </button>
-                </form>
-
-                <div className="mt-6 space-y-2">
-                    <PrimaryButton href="/participant/masuk">Kembali ke masuk</PrimaryButton>
-                    <OutlineButton onClick={() => window.open('https://wa.me/6281234567890', '_blank')}>Hubungi admin</OutlineButton>
-                </div>
-            </div>
-        </ParticipantLayout>
+            <ol className="mt-5 space-y-5 rounded-3xl bg-white p-6">
+                {STEPS.map((step, i) => (
+                    <li key={step} className="flex items-center gap-4">
+                        <span className="bg-ink text-cream grid size-10 shrink-0 place-items-center rounded-full text-[16px] font-extrabold">
+                            {i + 1}
+                        </span>
+                        <span className="text-[16px] font-extrabold">{step}</span>
+                    </li>
+                ))}
+            </ol>
+        </LimePage>
     );
 }

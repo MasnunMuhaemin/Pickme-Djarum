@@ -1,4 +1,4 @@
-import { BackLink, LogoutButton } from '@/features/participant/components/ui';
+import { BackLink, LogoutButton, NoticeSheet } from '@/features/participant/components/ui';
 import { Head, Link, useForm } from '@inertiajs/react';
 import imageCompression from 'browser-image-compression';
 import { Camera, ChevronLeft, RotateCcw } from 'lucide-react';
@@ -167,26 +167,6 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
                 <p className="mt-3 text-center text-[13px] font-extrabold">Foto hanya dari kamera. Tidak ada pilihan galeri.</p>
                 <p className="text-cream/60 mt-0.5 text-center text-[11px]">Kamera tidak terbuka? Buka halaman ini di Chrome atau Safari.</p>
 
-                {cameraError && (
-                    <div className="mt-3 rounded-2xl bg-white/10 p-3.5 text-[12px] leading-relaxed">
-                        <p className="font-extrabold text-[#f3a59a]">
-                            {cameraError === 'unsupported' ? 'Browser ini tidak bisa membuka kamera' : 'Kamera belum diizinkan'}
-                        </p>
-                        <ol className="text-cream/85 mt-1.5 list-decimal space-y-1 pl-4">
-                            <li>Buka halaman ini di Chrome atau Safari, bukan dari dalam Instagram atau WhatsApp.</li>
-                            <li>Ketuk ikon gembok di kolom alamat, lalu izinkan Kamera.</li>
-                            <li>Muat ulang halaman ini.</li>
-                        </ol>
-                        <button
-                            type="button"
-                            onClick={() => window.location.reload()}
-                            className="bg-cream text-ink mt-2.5 rounded-full px-3.5 py-1.5 text-[11px] font-bold"
-                        >
-                            Coba lagi
-                        </button>
-                    </div>
-                )}
-
                 {form.errors.photo && <p className="mt-3 text-center text-[12px] font-bold text-[#f3a59a]">{form.errors.photo}</p>}
 
                 {/* Tombol bawah: rana sebelum foto; ulangi dan kirim setelah foto. */}
@@ -224,6 +204,21 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
                     )}
                 </div>
             </form>
+
+            <NoticeSheet
+                open={Boolean(cameraError)}
+                onClose={() => setCameraError('')}
+                tone="danger"
+                icon="!"
+                title={cameraError === 'unsupported' ? 'Kamera tidak bisa dibuka' : 'Kamera belum diizinkan'}
+                text={
+                    cameraError === 'unsupported'
+                        ? 'Browser ini tidak bisa membuka kamera. Buka halaman ini di Chrome atau Safari, bukan dari dalam Instagram atau WhatsApp.'
+                        : 'Izinkan akses kamera di pengaturan browser (ikon gembok di kolom alamat) untuk memfoto bungkus.'
+                }
+                secondary={{ label: 'Kembali', href: '/participant' }}
+                primary={{ label: 'Coba lagi', onClick: () => window.location.reload() }}
+            />
         </div>
     );
 }

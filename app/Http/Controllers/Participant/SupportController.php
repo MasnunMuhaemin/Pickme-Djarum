@@ -12,9 +12,16 @@ use Inertia\Response;
 
 class SupportController extends Controller
 {
-    public function showForgotPin(): Response
+    public function showForgotPin(Request $request): Response
     {
-        return Inertia::render('participant/lupa-pin');
+        // Nomor dibawa dari form masuk (?wa=) atau dari akun yang sedang masuk, supaya tidak diketik ulang.
+        $id = $request->session()->get('participant_id');
+        $whatsapp = preg_replace('/\D/', '', (string) $request->query('wa')) ?: ($id ? Participant::find($id)?->whatsapp : null);
+
+        return Inertia::render('participant/lupa-pin', [
+            'whatsapp' => $whatsapp ?: null,
+            'adminWhatsapp' => config('participant.admin_whatsapp'),
+        ]);
     }
 
     public function storeForgotPin(Request $request): RedirectResponse

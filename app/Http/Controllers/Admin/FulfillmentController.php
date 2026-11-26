@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Gift;
 use App\Models\Voucher;
+use App\Services\RewardCreationService;
 use App\Support\ActivityLogger;
 use App\Support\AdminQueues;
 use App\Support\Mask;
@@ -93,6 +94,7 @@ class FulfillmentController extends Controller
         );
 
         $voucher->update(['status' => 'sent', 'reference' => $data['reference'], 'processed_at' => now(), 'fail_reason' => null]);
+        $this->capFor($voucher->source === 'claim' ? $voucher->claim : null);
         ActivityLogger::log('token.sent', 'voucher', $voucher->id, ['reference' => $data['reference']], $request->user());
 
         return back()->with('status', 'Token listrik ditandai berhasil.');
@@ -137,6 +139,7 @@ class FulfillmentController extends Controller
         );
 
         $voucher->update(['status' => 'handed_over', 'processed_at' => $data['date'], 'reference' => $data['recipient']]);
+        $this->capFor($voucher->source === 'claim' ? $voucher->claim : null);
         ActivityLogger::log('fuel.handed_over', 'voucher', $voucher->id, $data, $request->user());
 
         return back()->with('status', 'Bensin tunai ditandai sudah diserahkan.');
@@ -155,9 +158,18 @@ class FulfillmentController extends Controller
     {
         abort_unless(in_array($gift->type, AdminQueues::GIFT_TYPES, true) && $gift->status === 'shipping', 422);
         $gift->update(['status' => 'done', 'completed_at' => now()]);
+        $this->capFor($gift->type === 'merchandise' ? $gift->claim : null);
         ActivityLogger::log('gift.completed', 'gift', $gift->id, [], $request->user());
 
         return back()->with('status', 'Hadiah ditandai selesai diterima.');
+    }
+
+    /** Hadiah klaim selesai diproses admin: capnya baru dihitung sekarang. Hadiah mystery gift tidak menambah cap. */
+    private function capFor(?\App\Models\Claim $claim): void
+    {
+        if ($claim) {
+            app(RewardCreationService::class)->grantCap($claim);
+        }
     }
 
     private function person($participant): array

@@ -93,7 +93,10 @@ export function AuthSheet({
                         >
                             Belum punya akun? Daftar
                         </button>
-                        <Link href="/participant/lupa-pin" className="text-ink font-semibold underline underline-offset-2">
+                        <Link
+                            href={login.data.whatsapp ? `/participant/lupa-pin?wa=${login.data.whatsapp}` : '/participant/lupa-pin'}
+                            className="text-ink font-semibold underline underline-offset-2"
+                        >
                             Lupa PIN?
                         </Link>
                     </div>

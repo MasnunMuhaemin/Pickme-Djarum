@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Participant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Outlet;
 use App\Models\Participant;
 use App\Services\RankingService;
 use Illuminate\Http\Request;
@@ -31,6 +32,9 @@ class CardController extends Controller
             'caps' => $participant?->caps ?? 0,
             'name' => $participant?->name,
             'mysteryAt' => 5,
+            // Mystery gift yang sudah terbentuk; kartu menampilkan "Siap diklaim" sampai dibuka.
+            'mystery' => $participant ? RewardController::mysteryReward($participant) : null,
+            'outlets' => Outlet::where('status', 'active')->count(),
             'leaderboard' => [
                 'total' => $this->top($total, $participant),
                 'weekly' => $this->top($weekly, $participant),

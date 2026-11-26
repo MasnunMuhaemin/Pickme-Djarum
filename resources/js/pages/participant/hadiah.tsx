@@ -1,6 +1,7 @@
 import { FollowUpNotice } from '@/features/participant/components/follow-up-notice';
 import { limeLogoutClass } from '@/features/participant/components/lime-page';
 import { LogoutButton } from '@/features/participant/components/ui';
+import { voucherImage } from '@/features/participant/components/voucher-art';
 import { type Reward, rewardIcons, rewardStub, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { useCaps } from '@/lib/participant';
@@ -36,9 +37,17 @@ function TicketBody({ reward, Icon, stub }: { reward: Reward; Icon: LucideIcon; 
     return (
         <>
             {/* Sobekan tiket kiri */}
-            <div className={cn('grid w-[84px] shrink-0 place-items-center rounded-l-2xl md:w-[96px]', stub.bg)}>
-                <Icon className={cn('size-7', stub.icon)} strokeWidth={2} />
-            </div>
+            {reward.kind === 'voucher' && reward.code ? (
+                <div className="relative w-[84px] shrink-0 overflow-hidden rounded-l-2xl md:w-[96px]">
+                    <img src={voucherImage(reward.code)} alt="" aria-hidden className="absolute inset-0 size-full object-cover" loading="lazy" />
+                    {/* Lapisan gelap supaya gambar tampak lebih elegan dan teks di sebelahnya menonjol. */}
+                    <span aria-hidden className="absolute inset-0 bg-black/40" />
+                </div>
+            ) : (
+                <div className={cn('grid w-[84px] shrink-0 place-items-center rounded-l-2xl md:w-[96px]', stub.bg)}>
+                    <Icon className={cn('size-7', stub.icon)} strokeWidth={2} />
+                </div>
+            )}
 
             {/* Badan tiket, dipisah garis putus-putus dengan lubang di atas dan bawah */}
             <div className="relative min-w-0 flex-1 rounded-r-2xl border-l-2 border-dashed border-[#e8e1c4] bg-white px-3.5 py-3 md:px-5 md:py-4">
@@ -73,7 +82,7 @@ export default function Hadiahku({ rewards = [], approvedClaims = 0 }: { rewards
 
     return (
         <ParticipantLayout title="Hadiahku" nav="hadiah">
-            <div className="bg-lime px-5 pt-4 pb-14 md:px-8 md:pt-6">
+            <div className="lime-hero px-5 pt-4 pb-14 md:px-8 md:pt-6">
                 <div className="flex items-center justify-end gap-2">
                     <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
                     <LogoutButton className={limeLogoutClass} />

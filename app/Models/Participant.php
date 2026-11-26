@@ -31,6 +31,15 @@ class Participant extends Model
         return $this->hasMany(Consent::class);
     }
 
+    /** Jumlah klaim hari ini yang dihitung untuk batas harian (klaim ditolak tidak dihitung). */
+    public static function claimsTodayOf(int $id): int
+    {
+        return Claim::where('participant_id', $id)
+            ->where('status', '!=', 'rejected')
+            ->where('created_at', '>=', today())
+            ->count();
+    }
+
     public function claims(): HasMany
     {
         return $this->hasMany(Claim::class);

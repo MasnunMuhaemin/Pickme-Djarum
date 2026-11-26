@@ -3,14 +3,15 @@ import { useSlidingIndicator } from '@/hooks/use-sliding-indicator';
 import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Camera, CreditCard, Gift, LayoutGrid } from 'lucide-react';
+import { CreditCard, Gift, House, ScanLine, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 const items = [
-    { key: 'papan', label: 'Papan', href: '/participant', icon: LayoutGrid },
+    { key: 'beranda', label: 'Beranda', href: '/participant', icon: House },
     { key: 'hadiah', label: 'Hadiahku', href: '/participant/hadiah', icon: Gift },
-    { key: 'scan', label: 'Scan', href: '/participant/scan', icon: Camera },
-    { key: 'kartu', label: 'Kartu', href: '/participant/kartu', icon: CreditCard },
+    { key: 'scan', label: 'Scan', href: '/participant/scan', icon: ScanLine },
+    { key: 'kartu', label: 'Leaderboard', href: '/participant/kartu', icon: CreditCard },
+    { key: 'profil', label: 'Profil', href: '/participant/profil', icon: UserRound },
 ];
 
 function activeKey(url: string): string {
@@ -18,18 +19,18 @@ function activeKey(url: string): string {
     if (
         path === '/participant' ||
         path === '/participant/' ||
-        path.startsWith('/participant/papan') ||
         path.startsWith('/participant/slot') ||
         path.startsWith('/participant/foto') ||
         path.startsWith('/participant/daftar') ||
         path.startsWith('/participant/persetujuan')
     ) {
-        return 'papan';
+        return 'beranda';
     }
+    if (path.startsWith('/participant/profil')) return 'profil';
     if (path.startsWith('/participant/scan') || path.startsWith('/participant/qr-tidak-dikenal') || path.startsWith('/participant/lupa-pin')) {
         return 'scan';
     }
-    if (path.startsWith('/participant/kartu') || path.startsWith('/participant/mahasiswa')) {
+    if (path.startsWith('/participant/kartu') || path.startsWith('/participant/mystery-gift') || path.startsWith('/participant/mahasiswa')) {
         return 'kartu';
     }
     if (
@@ -42,7 +43,7 @@ function activeKey(url: string): string {
     ) {
         return 'hadiah';
     }
-    return 'papan';
+    return 'beranda';
 }
 
 function useIsScanPage(): boolean {
@@ -57,7 +58,7 @@ function useIsLoggedIn(): boolean {
 
 function useNavItems() {
     const isLoggedIn = useIsLoggedIn();
-    return isLoggedIn ? items : items.filter((item) => item.key !== 'hadiah');
+    return isLoggedIn ? items : items.filter((item) => item.key !== 'hadiah' && item.key !== 'profil');
 }
 
 function useActiveNav(): string {

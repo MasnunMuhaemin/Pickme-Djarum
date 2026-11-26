@@ -19,7 +19,8 @@ class RewardCreationService
     private const MYSTERY_VOUCHER_TYPES = ['voucher', 'token', 'bensin'];
 
     /**
-     * Klaim yang disetujui membentuk tepat satu hadiah dan menambah satu cap (PRD FR-13).
+     * Klaim yang disetujui membentuk tepat satu hadiah (PRD FR-13). Cap langsung bertambah untuk voucher mitra;
+     * token, bensin, dan merchandise baru menambah cap setelah admin menyelesaikannya (lihat grantCap).
      * Aman dipanggil berulang: klaim yang sudah punya hadiah tidak dibuatkan lagi.
      */
     public function create(Claim $claim): Claim
@@ -41,11 +42,27 @@ class RewardCreationService
                 $this->createVoucher($claim, $type, 'claim', $claim->slot->voucherType);
             }
 
-            $claim->participant()->increment('caps');
             ActivityLogger::log('reward.created', 'claim', $claim->id, ['type' => $type], $claim->participant);
-            $this->mysteryGift($claim->participant()->first());
+            if ($type === 'voucher') {
+                $this->grantCap($claim);
+            }
 
             return $claim->load(['voucher', 'gifts', 'participant']);
+        });
+    }
+
+    /** Tambah satu cap untuk klaim ini (sekali saja), lalu cek mystery gift cap ke-5. */
+    public function grantCap(Claim $claim): void
+    {
+        DB::transaction(function () use ($claim) {
+            $claim = Claim::lockForUpdate()->find($claim->id);
+            if (! $claim || $claim->cap_at || ! $claim->isApproved()) {
+                return;
+            }
+            $claim->update(['cap_at' => now()]);
+            $claim->participant()->increment('caps');
+            ActivityLogger::log('cap.granted', 'claim', $claim->id, [], $claim->participant);
+            $this->mysteryGift($claim->participant()->first());
         });
     }
 

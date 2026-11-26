@@ -38,7 +38,6 @@ Route::prefix('participant')->name('participant.')->group(function () {
         // Langkah klaim (P4 sampai P6): wajib sudah menyetujui teks versi terbaru, wajib mahasiswa, dan
         // tidak bisa dibuka saat program atau titik dijeda (PRD bagian 10).
         Route::middleware(['consented', 'student', 'claim-open'])->group(function () {
-            Route::post('klaim/mulai', [ClaimController::class, 'start'])->name('klaim.mulai');
             Route::get('foto', [ClaimController::class, 'showPhoto'])->name('foto');
             Route::post('foto', [ClaimController::class, 'storePhoto'])->name('foto.store');
             Route::get('slot', [ClaimController::class, 'showSlot'])->name('slot');
@@ -48,11 +47,14 @@ Route::prefix('participant')->name('participant.')->group(function () {
         Route::get('klaim/berhasil', [ClaimController::class, 'showSuccess'])->name('klaim.berhasil');
     });
 
-    Route::get('papan', [ClaimController::class, 'showBoard'])->name('papan');
+    // Layar papan lama sudah dihapus; tautan lama diarahkan ke beranda.
+    Route::redirect('papan', '/participant');
 
 
     Route::middleware('participant')->group(function () {
         Route::get('hadiah', [RewardController::class, 'index'])->name('hadiah');
+        Route::get('mystery-gift', [RewardController::class, 'mystery'])->name('mystery-gift');
+        Route::get('profil', [HomeController::class, 'profile'])->name('profil');
         Route::get('voucher/{code?}', [VoucherController::class, 'show'])->name('voucher');
         Route::get('nomor-tujuan/{voucherId?}', [GiftController::class, 'showDestination'])->name('nomor-tujuan');
         Route::post('nomor-tujuan/{voucherId?}', [GiftController::class, 'storeDestination'])->name('nomor-tujuan.store');

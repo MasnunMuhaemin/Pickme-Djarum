@@ -22,9 +22,11 @@ class RankingService
     {
         return Claim::query()
             ->where('status', 'approved')
-            ->when($since, fn ($q) => $q->where('submitted_at', '>=', $since))
+            // Hanya klaim yang capnya sudah dihitung (hadiah dengan proses admin dihitung setelah selesai).
+            ->whereNotNull('cap_at')
+            ->when($since, fn ($q) => $q->where('cap_at', '>=', $since))
             ->groupBy('participant_id')
-            ->selectRaw('participant_id, count(*) as caps, max(submitted_at) as reached_at')
+            ->selectRaw('participant_id, count(*) as caps, max(cap_at) as reached_at')
             ->orderByDesc('caps')
             ->orderBy('reached_at')
             ->get()

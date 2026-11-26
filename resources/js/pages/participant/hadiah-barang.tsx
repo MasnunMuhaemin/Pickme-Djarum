@@ -35,7 +35,7 @@ export default function HadiahBarang({ gift, reward }: { gift: GiftData; reward:
 
     return (
         <ParticipantLayout title="Detail hadiah" nav="hadiah">
-            <div className="bg-lime px-5 pt-4 pb-14 md:px-8 md:pt-6">
+            <div className="lime-hero px-5 pt-4 pb-14 md:px-8 md:pt-6">
                 <div className="flex items-center justify-end gap-2">
                     <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
                     <LogoutButton className={limeLogoutClass} />

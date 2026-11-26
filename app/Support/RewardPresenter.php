@@ -61,6 +61,8 @@ class RewardPresenter
         return [
             'id' => $voucher->id,
             'kind' => $voucher->type,
+            // Kode tampil di kotak putih gambar voucher (Klaim berhasil dan halaman Voucher).
+            'code' => $voucher->code,
             'title' => $title,
             'description' => $description,
             'value' => $value,

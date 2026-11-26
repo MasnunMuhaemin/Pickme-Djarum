@@ -37,6 +37,9 @@ return [
     'login_lock_minutes' => (int) env('LOGIN_LOCK_MINUTES', 15),
     'register_per_ip_per_day' => (int) env('REGISTER_PER_IP_PER_DAY', 3),
 
+    // Batas klaim per nomor per hari (PRD FR batas klaim harian). Klaim yang ditolak tidak dihitung. 0 = tanpa batas.
+    'daily_claim_limit' => (int) env('DAILY_CLAIM_LIMIT', 2),
+
     // Mystery gift di cap ke-5: peluang voucher (persen), sisanya 1 bungkus gratis.
     'mystery_voucher_chance' => (int) env('MYSTERY_VOUCHER_CHANCE', 50),
 

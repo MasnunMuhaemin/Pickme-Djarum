@@ -19,7 +19,7 @@ class EnsureClaimOpen
         $outlet = Outlet::with('board')->where('code', $code)->first();
 
         if (! $outlet || ! $outlet->isActive() || $outlet->board?->status !== 'active') {
-            return to_route('participant.papan', ['outlet' => $code])
+            return to_route('participant.home')
                 ->withErrors(['claim' => 'Program sedang dijeda. Klaimmu aman dan bisa dilanjutkan nanti.']);
         }
 

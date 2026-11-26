@@ -9,6 +9,7 @@ use App\Models\Outlet;
 use App\Models\Participant;
 use App\Models\Setting;
 use App\Models\Slot;
+use App\Models\User;
 use App\Models\Voucher;
 use Database\Seeders\CustomerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -95,16 +96,15 @@ class CustomerFlowTest extends TestCase
 
     public function test_full_claim_flow_creates_reward_and_adds_cap(): void
     {
+        $this->prizesAre('voucher');
         $this->post('/participant/daftar', $this->register())->assertRedirect('/participant/persetujuan');
         $participant = Participant::firstOrFail();
         $this->assertSame('Sakinah', $participant->name);
 
         $this->post('/participant/persetujuan', ['accepted' => true])->assertRedirect('/participant/foto');
         // Belum menjawab pertanyaan mahasiswa: klaim ditahan, lalu lanjut ke foto setelah menjawab "ya".
-        $this->post('/participant/klaim/mulai', ['outlet' => 'W07'])->assertRedirect('/participant/mahasiswa');
-        $this->get('/participant/foto')->assertRedirect('/participant/mahasiswa');
+        $this->get('/participant/foto?outlet=W07')->assertRedirect('/participant/mahasiswa');
         $this->post('/participant/mahasiswa', ['is_student' => true])->assertRedirect('/participant/foto?outlet=W07');
-        $this->post('/participant/klaim/mulai', ['outlet' => 'W07'])->assertRedirect('/participant/foto?outlet=W07');
 
         $this->assertDatabaseCount('claims', 0);
         $claim = $this->uploadPhoto();
@@ -187,8 +187,29 @@ class CustomerFlowTest extends TestCase
         $this->assertSame('approved', $claim->status);
         $this->assertSame(['dark_photo'], $claim->flags());
         $this->assertSame('used', $claim->slot->status);
-        $this->assertSame(1, $participant->fresh()->caps);
         $this->assertTrue(Voucher::where('claim_id', $claim->id)->exists());
+    }
+
+    public function test_token_cap_counts_only_after_admin_marks_it_sent(): void
+    {
+        $participant = $this->readyParticipant();
+        $this->prizesAre('token');
+        $claim = $this->uploadPhoto(seed: 41);
+
+        // Token butuh proses admin: cap dan peringkat belum bertambah.
+        $this->assertSame(0, $participant->fresh()->caps);
+        $this->assertNull($claim->fresh()->cap_at);
+        $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page->where('capPending', true));
+        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->has('leaderboard.total', 0));
+
+        $voucher = Voucher::where('claim_id', $claim->id)->firstOrFail();
+        $voucher->update(['status' => 'pending_process']);
+        $this->actingAs(User::factory()->create(['is_admin' => true]))
+            ->post("/admin/pemenuhan/token/{$voucher->id}/berhasil", ['reference' => 'REF123']);
+
+        $this->assertSame(1, $participant->fresh()->caps);
+        $this->assertNotNull($claim->fresh()->cap_at);
+        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->where('leaderboard.total.0.caps', 1));
     }
 
 
@@ -205,12 +226,36 @@ class CustomerFlowTest extends TestCase
         $this->assertContains('similar_photo', $second->flags());
     }
 
-    public function test_board_never_sends_slot_codes_to_the_browser(): void
+    public function test_old_board_page_redirects_home_and_home_shows_participant_summary(): void
     {
         $this->readyParticipant();
+        $this->prizesAre('voucher');
         $this->uploadPhoto(seed: 3);
 
-        $this->get('/participant/papan')->assertInertia(fn ($page) => $page->missing('slots.0.code'));
+        $this->get('/participant/papan')->assertRedirect('/participant');
+        $this->get('/participant')->assertInertia(fn ($page) => $page
+            ->component('participant/home')
+            ->where('me.caps', 1)
+            ->where('me.claims_today', 1)
+            ->where('me.rank', 1)
+            ->where('me.last_outlet', 'W07')
+        );
+        $this->get('/participant/profil')->assertInertia(fn ($page) => $page
+            ->component('participant/profil')
+            ->where('me.whatsapp', '08** **** 7890')
+            ->where('me.is_student', true)
+        );
+    }
+
+    public function test_third_claim_on_the_same_day_is_refused(): void
+    {
+        $this->readyParticipant();
+        $this->uploadPhoto(seed: 1);
+        $this->uploadPhoto(seed: 2);
+
+        $this->get('/participant/foto')->assertRedirect('/participant')->assertSessionHasErrors('limit');
+        $this->post('/participant/foto', ['photo' => $this->photo(seed: 3), 'outlet' => 'W07'])->assertSessionHasErrors('limit');
+        $this->assertDatabaseCount('claims', 2);
     }
 
     public function test_consent_is_required_before_claiming(): void
@@ -218,18 +263,19 @@ class CustomerFlowTest extends TestCase
         $this->post('/participant/daftar', $this->register());
         Participant::first()->update(['is_student' => true]);
 
-        $this->post('/participant/klaim/mulai', ['outlet' => 'W07'])->assertRedirect('/participant/persetujuan');
+        $this->get('/participant/foto?outlet=W07')->assertRedirect('/participant/persetujuan');
     }
 
     public function test_paused_program_or_outlet_blocks_photo_submit_and_creates_nothing(): void
     {
         $participant = $this->readyParticipant();
+        $this->prizesAre('voucher');
         $this->get('/participant/foto');
 
         // Seluruh program dijeda: kirim foto ditolak, tidak ada klaim, voucher, atau cap baru.
         Setting::put('program_paused', '1');
         $this->post('/participant/foto', ['photo' => $this->photo(seed: 61), 'outlet' => 'W07'])
-            ->assertRedirect('/participant/papan?outlet=W07')->assertSessionHasErrors('claim');
+            ->assertRedirect('/participant')->assertSessionHasErrors('claim');
         $this->assertSame(0, Claim::count());
         $this->assertSame(0, Voucher::count());
         $this->assertSame(0, $participant->fresh()->caps);
@@ -251,16 +297,14 @@ class CustomerFlowTest extends TestCase
         $this->readyParticipant();
         Setting::put('program_paused', '1');
 
-        $this->get('/participant/foto')->assertRedirect('/participant/papan?outlet=W07');
-        $this->get('/participant/papan')->assertInertia(fn ($page) => $page->where('paused', true)->where('canClaim', false));
+        $this->get('/participant/foto')->assertRedirect('/participant')->assertSessionHasErrors('claim');
     }
 
     public function test_logged_in_participant_with_scanned_outlet_goes_straight_to_photo(): void
     {
         $this->readyParticipant();
 
-        // Baru buka papan (warung default), belum pernah scan QR: halaman Scan tetap tampil.
-        $this->get('/participant/papan');
+        // Belum pernah scan QR: halaman Scan tetap tampil.
         $this->get('/participant/scan')->assertOk();
 
         // Setelah QR terbaca: menu Scan langsung ke foto, kecuali minta ganti warung.
@@ -268,8 +312,9 @@ class CustomerFlowTest extends TestCase
         $this->get('/participant/scan')->assertRedirect('/participant/foto?outlet=W07');
         $this->get('/participant/scan?ganti=1')->assertOk();
 
-        // Setelah keluar, warung yang terbaca dilupakan.
-        $this->post('/participant/keluar');
+        // Setelah keluar: kembali ke beranda tamu dan warung yang terbaca dilupakan.
+        $this->post('/participant/keluar')->assertRedirect('/participant');
+        $this->get('/participant')->assertInertia(fn ($page) => $page->missing('me')->where('auth.participant', null));
         $this->get('/participant/scan')->assertOk();
     }
 
@@ -335,7 +380,7 @@ class CustomerFlowTest extends TestCase
         $this->post('/participant/persetujuan', ['accepted' => true]);
         $this->post('/participant/mahasiswa', ['is_student' => false]);
 
-        $this->post('/participant/klaim/mulai')->assertRedirect('/participant/mahasiswa/khusus');
+        $this->get('/participant/foto')->assertRedirect('/participant/mahasiswa/khusus');
         $this->assertDatabaseMissing('claims', ['participant_id' => Participant::first()->id]);
     }
 
@@ -439,8 +484,9 @@ class CustomerFlowTest extends TestCase
 
     public function test_mystery_gift_at_fifth_cap_can_be_a_voucher(): void
     {
-        config(['participant.mystery_voucher_chance' => 100]);
+        config(['participant.mystery_voucher_chance' => 100, 'participant.daily_claim_limit' => 10]);
         $participant = $this->readyParticipant();
+        $this->prizesAre('voucher');
 
         foreach (range(1, 5) as $i) {
             $this->uploadPhoto(seed: 10 + $i);
@@ -454,12 +500,15 @@ class CustomerFlowTest extends TestCase
             ->where('rewards.0.mystery', true)
             ->has('rewards', 6)
         );
+        $this->get('/participant/mystery-gift')->assertInertia(fn ($page) => $page->where('reward.mystery', true));
+        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->where('mystery.mystery', true));
     }
 
     public function test_free_pack_mystery_gift_waits_for_admin(): void
     {
-        config(['participant.mystery_voucher_chance' => 0]);
+        config(['participant.mystery_voucher_chance' => 0, 'participant.daily_claim_limit' => 10]);
         $participant = $this->readyParticipant();
+        $this->prizesAre('voucher');
 
         foreach (range(1, 5) as $i) {
             $this->uploadPhoto(seed: 30 + $i);
@@ -494,7 +543,7 @@ class CustomerFlowTest extends TestCase
         $make = function (string $name, string $wa, array $times) use ($outlet, $area) {
             $p = Participant::create(['name' => $name, 'whatsapp' => $wa, 'birth_date' => '2000-01-01', 'area_id' => $area, 'pin_hash' => 'x', 'caps' => count($times)]);
             foreach ($times as $i => $time) {
-                Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM{$wa}{$i}", 'status' => 'approved', 'submitted_at' => $time]);
+                Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM{$wa}{$i}", 'status' => 'approved', 'submitted_at' => $time, 'cap_at' => $time]);
             }
             // Klaim antre dan ditolak tidak dihitung.
             Claim::create(['participant_id' => $p->id, 'outlet_id' => $outlet->id, 'claim_code' => "KLM{$wa}X", 'status' => 'rejected', 'submitted_at' => now()]);

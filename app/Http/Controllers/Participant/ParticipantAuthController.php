@@ -135,7 +135,9 @@ class ParticipantAuthController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         $request->session()->forget(['participant_id', 'claim_outlet', 'outlet_scanned']);
+        // ID sesi baru supaya sesi lama tidak bisa dipakai lagi; login admin di sesi yang sama tetap aman.
+        $request->session()->regenerate();
 
-        return to_route('participant.masuk');
+        return to_route('participant.home');
     }
 }

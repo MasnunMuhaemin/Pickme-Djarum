@@ -24,6 +24,15 @@ export function Badge({ children, tone = 'lime', className }: { children: ReactN
     );
 }
 
+/**
+ * Keluar dari akun peserta. Halaman yang dimuat lebih dulu (prefetch) masih berisi status masuk, jadi cache dibuang
+ * sebelum dan sesudah keluar supaya tidak ada halaman yang masih terbaca masuk.
+ */
+export function logoutParticipant() {
+    router.flushAll();
+    router.post('/participant/keluar', {}, { onFinish: () => router.flushAll() });
+}
+
 export function LogoutButton({ dark, className }: { dark?: boolean; className?: string }) {
     const { props } = usePage();
     const isLoggedIn = Boolean((props.auth as { participant?: unknown } | undefined)?.participant);
@@ -34,7 +43,7 @@ export function LogoutButton({ dark, className }: { dark?: boolean; className?: 
             type="button"
             aria-label="Keluar"
             title="Keluar"
-            onClick={() => router.post('/participant/keluar')}
+            onClick={logoutParticipant}
             className={cn(
                 'grid size-10 shrink-0 place-items-center rounded-full transition',
                 dark ? 'text-cream/70 hover:text-cream hover:bg-white/10' : 'text-ink-soft hover:bg-cream-deep hover:text-ink',
@@ -73,6 +82,7 @@ export function PageHeader({
     close,
     right,
     dark,
+    icon,
     className,
 }: {
     title?: string;
@@ -80,35 +90,60 @@ export function PageHeader({
     close?: string;
     right?: ReactNode;
     dark?: boolean;
+    /** Ikon di depan judul, mis. tanda centang di "Klaim berhasil". */
+    icon?: ReactNode;
     className?: string;
 }) {
+    // Layar gelap (kamera) tetap memakai bilah tipis; layar lain memakai header lime bergambar kota seperti desain.
+    if (dark) {
+        return (
+            <header className={cn('text-cream flex h-14 shrink-0 items-center justify-between gap-2 px-3 md:px-8', className)}>
+                <div className="flex items-center">
+                    {back && (
+                        <BackLink fallback={back} className="grid size-10 place-items-center rounded-full hover:bg-white/10">
+                            <ArrowLeft className="size-5" />
+                        </BackLink>
+                    )}
+                </div>
+                <h1 className="min-w-0 truncate text-center text-sm font-bold">{title}</h1>
+                <div className="flex items-center justify-end gap-1">
+                    {right}
+                    <LogoutButton dark />
+                </div>
+            </header>
+        );
+    }
+
+    const roundButton = 'bg-ink text-lime grid size-10 shrink-0 place-items-center rounded-full';
     return (
-        // Tiga kolom dengan sisi kiri dan kanan sama lebar, supaya judul tetap di tengah layar
-        // walau hanya ada tombol di satu sisi (mis. tombol kembali tanpa tombol keluar).
-        <header
-            className={cn(
-                'grid h-14 shrink-0 grid-cols-[minmax(max-content,1fr)_minmax(0,auto)_minmax(max-content,1fr)] items-center gap-2 px-3 md:px-8',
-                dark ? 'text-cream' : 'text-ink',
-                className,
-            )}
-        >
-            <div className="flex items-center">
-                {back && (
-                    <BackLink fallback={back} className="grid size-10 place-items-center rounded-full hover:bg-black/5">
-                        <ArrowLeft className="size-5" />
-                    </BackLink>
-                )}
-                {close && (
-                    <Link href={close} aria-label="Tutup" className="grid size-10 place-items-center rounded-full hover:bg-black/5">
-                        <X className="size-5" />
-                    </Link>
+        <header className={cn('lime-hero text-ink shrink-0', className)}>
+            <div className="px-5 pt-4 pb-10 md:px-8 md:pt-6">
+                <div className="flex min-h-10 items-center justify-between gap-3">
+                    {back ? (
+                        <BackLink fallback={back} className={roundButton}>
+                            <ArrowLeft className="size-5" strokeWidth={2.5} />
+                        </BackLink>
+                    ) : close ? (
+                        <Link href={close} aria-label="Tutup" className={roundButton}>
+                            <X className="size-5" strokeWidth={2.5} />
+                        </Link>
+                    ) : (
+                        <span />
+                    )}
+                    <div className="flex items-center gap-2">
+                        {right}
+                        <LogoutButton className="bg-ink text-lime hover:bg-ink/85 hover:text-lime md:hidden" />
+                    </div>
+                </div>
+                {title && (
+                    <h1 className="mt-3 flex items-center gap-2.5 text-[30px] leading-[1.05] font-extrabold tracking-tight md:text-[40px]">
+                        {icon}
+                        <span className="min-w-0">{title}</span>
+                    </h1>
                 )}
             </div>
-            <h1 className="min-w-0 truncate text-center text-sm font-bold">{title}</h1>
-            <div className="flex items-center justify-end gap-1">
-                {right}
-                <LogoutButton dark={dark} />
-            </div>
+            {/* Lengkung krem: konten halaman di bawahnya tampak seperti panel yang menutupi header. */}
+            <div aria-hidden className="bg-cream -mt-px h-7 rounded-t-[2rem]" />
         </header>
     );
 }
@@ -439,6 +474,57 @@ export function Checkbox({ checked, onChange, children }: { checked: boolean; on
 }
 
 type SheetProps = { open: boolean; onClose: () => void; title?: string; children: ReactNode };
+
+/**
+ * Sheet pemberitahuan: lingkaran ikon (merah untuk masalah, hitam untuk angka/status), judul, keterangan, dan
+ * satu atau dua tombol. Dipakai untuk batas klaim, papan penuh, dan kamera belum diizinkan.
+ */
+export function NoticeSheet({
+    open,
+    onClose,
+    icon,
+    tone = 'dark',
+    title,
+    text,
+    primary,
+    secondary,
+}: {
+    open: boolean;
+    onClose: () => void;
+    icon: ReactNode;
+    tone?: 'danger' | 'dark';
+    title: string;
+    text: string;
+    primary: { label: string; href?: string; onClick?: () => void };
+    secondary?: { label: string; href?: string; onClick?: () => void };
+}) {
+    return (
+        <Sheet open={open} onClose={onClose}>
+            <div className="py-1">
+                <span
+                    className={cn(
+                        'grid size-14 place-items-center rounded-full text-[20px] font-extrabold',
+                        tone === 'danger' ? 'bg-danger text-white' : 'bg-ink text-lime',
+                    )}
+                >
+                    {icon}
+                </span>
+                <h2 className="mt-4 text-[24px] leading-tight font-extrabold tracking-tight">{title}</h2>
+                <p className="text-ink-soft mt-1.5 text-[13px] leading-relaxed">{text}</p>
+            </div>
+            <div className="mt-5 flex gap-2.5">
+                {secondary && (
+                    <OutlineButton href={secondary.href} onClick={secondary.onClick ?? (secondary.href ? undefined : onClose)}>
+                        {secondary.label}
+                    </OutlineButton>
+                )}
+                <PrimaryButton href={primary.href} onClick={primary.onClick ?? (primary.href ? undefined : onClose)}>
+                    {primary.label}
+                </PrimaryButton>
+            </div>
+        </Sheet>
+    );
+}
 
 export function Sheet(props: SheetProps) {
     if (!props.open) return null;

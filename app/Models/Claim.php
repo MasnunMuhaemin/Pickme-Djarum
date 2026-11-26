@@ -10,10 +10,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Claim extends Model
 {
     protected $fillable = [
-        'participant_id', 'outlet_id', 'slot_id', 'code', 'claim_code', 'flag', 'status', 'submitted_at',
+        'participant_id', 'outlet_id', 'slot_id', 'code', 'claim_code', 'flag', 'status', 'submitted_at', 'cap_at',
     ];
 
-    protected $casts = ['submitted_at' => 'datetime'];
+    protected $casts = ['submitted_at' => 'datetime', 'cap_at' => 'datetime'];
 
 
     public function participant(): BelongsTo
