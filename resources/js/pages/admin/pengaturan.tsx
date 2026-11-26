@@ -1,4 +1,4 @@
-import { Btn, Card, Chip, FieldError, Req, RequiredNote, Table, Td, TextInput } from '@/features/admin/ui';
+import { Btn, Card, Chip, FieldError, Req, RequiredNote, Table, Td, TextArea, TextInput } from '@/features/admin/ui';
 import AdminLayout, { type AdminShared, EmergencyDialog } from '@/layouts/admin-layout';
 import { useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
@@ -13,11 +13,13 @@ export default function Pengaturan({
     parameters,
     paused,
     pauseReason,
+    voucherLines,
 }: {
     fixed: { label: string; value: string; stored: string }[];
     parameters: Param[];
     paused: boolean;
     pauseReason: string | null;
+    voucherLines: string;
 }) {
     const admin = usePage().props.admin as AdminShared;
     const [dialog, setDialog] = useState<'program' | 'outlet' | null>(null);
@@ -25,6 +27,7 @@ export default function Pengaturan({
         values: Object.fromEntries(parameters.map((p) => [fieldKey(p.key), String(p.value)])),
     });
     const errors = form.errors as Record<string, string>;
+    const lines = useForm({ lines: voucherLines });
     const dirty = parameters.some((p) => form.data.values[fieldKey(p.key)] !== String(p.value));
 
     return (
@@ -105,6 +108,35 @@ export default function Pengaturan({
                         );
                     })}
                 </Table>
+            </Card>
+
+            <Card
+                className="mt-4"
+                title="Kalimat voucher"
+                right={
+                    <Btn
+                        disabled={lines.data.lines === voucherLines || lines.processing}
+                        onClick={() => lines.post('/admin/pengaturan/kalimat-voucher', { preserveScroll: true })}
+                    >
+                        Simpan kalimat
+                    </Btn>
+                }
+            >
+                <p className="text-ink/60 text-[12px] leading-relaxed">
+                    Kalimat nyeleneh di gambar voucher peserta. Satu kalimat per baris, maksimal 60 karakter. Tiap voucher memakai satu kalimat yang
+                    dipilih dari kodenya, jadi voucher yang sama selalu tampil sama.
+                </p>
+                <label htmlFor="voucher-lines" className="mt-3 block text-[12px] font-bold">
+                    Daftar kalimat
+                    <Req />
+                </label>
+                <TextArea
+                    id="voucher-lines"
+                    value={lines.data.lines}
+                    onChange={(e) => lines.setData('lines', e.target.value)}
+                    className="mt-1 h-48"
+                />
+                <FieldError message={lines.errors.lines} />
             </Card>
 
             {admin && dialog && <EmergencyDialog open onClose={() => setDialog(null)} admin={admin} initialScope={dialog} />}

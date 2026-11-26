@@ -48,9 +48,9 @@ export function LoadingOverlay() {
             className="fixed inset-0 z-[100] grid place-items-center bg-[#0f1c1a]/55 backdrop-blur-[2px]"
             onClickCapture={(e) => e.stopPropagation()}
         >
-            <div className="flex flex-col items-center gap-3 rounded-3xl bg-[#f7f3e3] px-7 py-5 shadow-2xl">
+            <div className="bg-cream flex flex-col items-center gap-3 rounded-3xl px-7 py-5 shadow-2xl">
                 <span className="relative grid size-12 place-items-center">
-                    <span className="absolute inset-0 animate-spin rounded-full border-4 border-[#a9d65b]/30 border-t-[#a9d65b]" />
+                    <span className="absolute inset-0 animate-spin rounded-full border-4 border-[#8fc31f]/30 border-t-[#8fc31f]" />
                     <span className="size-3 rounded-full bg-[#1b3a1a]" />
                 </span>
                 <p className="text-[13px] font-extrabold text-[#1b3a1a]">{label}</p>

@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { usePage } from '@inertiajs/react';
 
 /**
  * Gambar voucher bergaya komik. Kode voucher tampil di kotak putih kecil, kotak besar berisi kalimat nyeleneh.
@@ -34,17 +35,6 @@ const VARIANTS: Variant[] = [
     },
 ];
 
-const LINES = [
-    'padahal bukan tombol tapi selalu tertekan',
-    'dompet tipis, voucher tebal',
-    'kode ini lebih setia dari mantan',
-    'tunjukkan ke kasir, bukan ke mantan',
-    'rezeki anak kos tidak ke mana',
-    'kopi dulu, skripsi belakangan',
-    'gratisan adalah bahasa cinta',
-    'hemat itu keren, gratis itu legenda',
-];
-
 function hash(text: string): number {
     let h = 0;
     for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
@@ -61,7 +51,9 @@ const pos = (b: Box) => ({ left: `${b.left}%`, top: `${b.top}%`, width: `${b.wid
 export function VoucherArt({ code, value, className }: { code: string; value?: string; className?: string }) {
     const h = hash(code);
     const v = VARIANTS[h % VARIANTS.length];
-    const line = LINES[(h >>> 3) % LINES.length];
+    // Kalimat diatur admin di Pengaturan (Setting::voucherLines).
+    const lines = (usePage().props.voucherLines as string[] | null) ?? [];
+    const line = lines.length ? lines[(h >>> 3) % lines.length] : '';
 
     return (
         // @container: ukuran huruf mengikuti lebar gambar (cqw), bukan lebar layar.

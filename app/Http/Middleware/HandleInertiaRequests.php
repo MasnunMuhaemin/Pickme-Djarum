@@ -59,6 +59,8 @@ class HandleInertiaRequests extends Middleware
                 'pauseReason' => Setting::get('program_pause_reason'),
                 'outlets' => Outlet::orderBy('code')->get(['id', 'code', 'name', 'status']),
             ] : null,
+            // Kalimat di gambar voucher peserta (diatur admin di Pengaturan).
+            'voucherLines' => fn () => $request->is('participant', 'participant/*') ? Setting::voucherLines() : null,
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
                 'pin' => fn () => $request->session()->get('partner_pin'),

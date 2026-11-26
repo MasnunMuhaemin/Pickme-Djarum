@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import { FormEventHandler } from 'react';
+import { Eye, EyeOff, LoaderCircle } from 'lucide-react';
+import { FormEventHandler, useState } from 'react';
 
 import InputError from '@/components/input-error';
 
@@ -21,6 +21,7 @@ export default function Login({ status }: LoginProps) {
         email: '',
         password: '',
     });
+    const [showPassword, setShowPassword] = useState(false);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -85,16 +86,27 @@ export default function Login({ status }: LoginProps) {
                             <label htmlFor="password" className="text-xs font-bold">
                                 Kata sandi
                             </label>
-                            <input
-                                id="password"
-                                type="password"
-                                required
-                                autoComplete="current-password"
-                                value={data.password}
-                                onChange={(e) => setData('password', e.target.value)}
-                                placeholder="••••••••"
-                                className={inputClass}
-                            />
+                            <div className="relative">
+                                <input
+                                    id="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    required
+                                    autoComplete="current-password"
+                                    value={data.password}
+                                    onChange={(e) => setData('password', e.target.value)}
+                                    placeholder="••••••••"
+                                    className={`${inputClass} pr-12`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword((v) => !v)}
+                                    aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                                    aria-pressed={showPassword}
+                                    className="text-ink-soft hover:text-ink focus-visible:ring-lime/40 absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl outline-none focus-visible:ring-4"
+                                >
+                                    {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                                </button>
+                            </div>
                             <InputError message={errors.password} />
                         </div>
 

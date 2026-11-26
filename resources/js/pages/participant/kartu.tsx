@@ -54,7 +54,7 @@ function CapCard({ caps, mysteryAt, outlets, mysteryReady }: { caps: number; mys
                                 className={cn(
                                     'text-ink grid size-12 place-items-center rounded-full bg-white ring-4 ring-[#8fcf3a] md:size-14',
                                     mysteryReady &&
-                                        'shadow-[0_0_18px_4px_rgba(169,214,91,0.65)] motion-safe:animate-[gift-glow_1.8s_ease-in-out_infinite]',
+                                        'shadow-[0_0_18px_4px_rgba(143,195,31,0.65)] motion-safe:animate-[gift-glow_1.8s_ease-in-out_infinite]',
                                 )}
                             >
                                 <Gift className="size-5" />
@@ -151,30 +151,45 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
 /** Podium tiga besar: juara 1 di tengah (blok lime tertinggi), juara 2 kiri, juara 3 kanan. */
 function Podium({ rows }: { rows: LeaderRow[] }) {
     const order = [rows[1], rows[0], rows[2]];
-    const blocks = ['h-16 bg-ink text-cream', 'h-24 bg-lime text-ink', 'h-12 bg-ink text-cream'];
+    const blocks = ['bg-ink text-lime', 'bg-lime text-ink', 'bg-ink text-lime'];
+    const heights = [96, 128, 72];
+    // Urutan naik: juara 3, juara 2, juara 1 (kolom: juara 2, juara 1, juara 3). Nama kelas ditulis utuh untuk Tailwind.
+    const bar = [
+        'motion-safe:animate-[podium-loop-2_6s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-loop-3_6s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-loop-1_6s_ease-in-out_infinite]',
+    ];
+    const show = [
+        'motion-safe:animate-[podium-show-2_6s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-show-3_6s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-show-1_6s_ease-in-out_infinite]',
+    ];
     return (
-        <div className="mt-6 grid grid-cols-3 items-end gap-3">
+        <div className="mt-6 grid min-h-[300px] grid-cols-3 items-end gap-3 md:min-h-[310px] md:gap-4">
             {order.map((row, i) =>
                 row ? (
                     <div
                         key={row.rank}
-                        className="flex min-w-0 flex-col items-center text-center motion-safe:animate-[rise-in_.5s_ease-out_both]"
-                        style={{ animationDelay: `${[250, 0, 450][i]}ms` }}
+                        className="flex min-w-0 flex-col items-center text-center"
+                        style={{ '--h': `${heights[i]}px` } as React.CSSProperties}
                     >
-                        {i === 1 && <Crown className="text-ink mb-1 size-6" strokeWidth={2.25} />}
-                        <Avatar name={row.name} size={i === 1 ? 'lg' : 'md'} />
-                        <p className="mt-2 w-full truncate text-[15px] font-extrabold">{row.name}</p>
-                        <p className="text-ink-soft text-[13px] font-bold">
-                            {row.caps} cap{row.is_me && ' · kamu'}
-                        </p>
+                        {/* Avatar dan nama muncul dan hilang bersama bar; tinggi podium dikunci (min-h) supaya bar tumbuh dari dasar ke atas. */}
+                        <div className={cn('flex w-full flex-col items-center', show[i])}>
+                            {i === 1 && <Crown className="text-ink mb-1 size-6" strokeWidth={2.25} />}
+                            <Avatar name={row.name} size={i === 1 ? 'lg' : 'md'} />
+                            <p className="mt-1.5 w-full truncate text-[16px] font-extrabold">{row.name}</p>
+                            <p className="text-ink-soft text-[14px] font-bold">
+                                {row.caps} cap{row.is_me && ' · kamu'}
+                            </p>
+                        </div>
                         <div
                             className={cn(
-                                'mt-2 grid w-full origin-bottom place-items-center rounded-t-2xl text-[22px] font-extrabold motion-safe:animate-[podium-rise_.6s_cubic-bezier(.2,.8,.3,1.2)_both]',
+                                'mt-2 grid h-(--h) w-full place-items-center overflow-hidden rounded-2xl text-[44px] leading-none font-extrabold',
+                                bar[i],
                                 blocks[i],
                             )}
-                            style={{ animationDelay: `${[250, 0, 450][i] + 150}ms` }}
                         >
-                            {row.rank}
+                            <span className={show[i]}>{row.rank}</span>
                         </div>
                     </div>
                 ) : (
@@ -243,40 +258,52 @@ export default function Kartu({
 
                 {rows.length > 0 && <Podium key={tab} rows={rows.slice(0, 3)} />}
 
-                <div className="mt-4">
-                    {rows.slice(3).map((row, i) => (
-                        <div
-                            key={`${tab}-${row.rank}`}
-                            style={{ animationDelay: `${600 + i * 90}ms` }}
-                            className={cn(
-                                'flex items-center gap-3 py-2.5 motion-safe:animate-[rise-in_.45s_ease-out_both]',
-                                row.is_me ? 'bg-lime -mx-2 my-1 rounded-2xl px-2' : 'border-b border-[#e8e1c4]',
-                            )}
-                        >
-                            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-[13px] font-extrabold">
-                                {row.rank}
-                            </span>
-                            <p className="min-w-0 flex-1 truncate text-[15px] font-extrabold">{row.is_me ? `Kamu · ${row.name}` : row.name}</p>
-                            {row.prize && (
-                                <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold', prizeBadge[row.prize].className)}>
-                                    {prizeBadge[row.prize].label}
+                {rows.length > 3 && (
+                    <div className="mt-4 rounded-3xl bg-white px-4 py-1">
+                        {rows.slice(3).map((row, i) => (
+                            <div
+                                key={`${tab}-${row.rank}`}
+                                style={{ animationDelay: `${600 + i * 90}ms` }}
+                                className={cn(
+                                    'flex items-center gap-3 py-3 motion-safe:animate-[rise-in_.45s_ease-out_both]',
+                                    row.is_me ? 'bg-lime -mx-2 my-1 rounded-2xl px-2' : 'border-cream-deep border-b last:border-b-0',
+                                )}
+                            >
+                                <span className="text-ink-soft w-6 shrink-0 text-[14px] font-bold tabular-nums">
+                                    {String(row.rank).padStart(2, '0')}
                                 </span>
-                            )}
-                            <span className="w-14 shrink-0 text-right text-[14px] font-extrabold">{row.caps} cap</span>
-                        </div>
-                    ))}
+                                <span className="bg-ink text-lime grid size-9 shrink-0 place-items-center rounded-full text-[15px] font-extrabold">
+                                    {row.name.trim().charAt(0).toUpperCase() || '?'}
+                                </span>
+                                <p className="min-w-0 flex-1 truncate text-[16px] font-extrabold">{row.is_me ? `Kamu · ${row.name}` : row.name}</p>
+                                {row.prize && (
+                                    <span
+                                        className={cn(
+                                            'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold',
+                                            prizeBadge[row.prize].className,
+                                        )}
+                                    >
+                                        {prizeBadge[row.prize].label}
+                                    </span>
+                                )}
+                                <span className="shrink-0 text-right text-[16px] font-extrabold">{row.caps} cap</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
+                <div>
                     {/* Posisi peserta sendiri bila di luar 10 teratas. */}
                     {name && !meInTop && (
                         <div
                             key={`me-${tab}`}
-                            className="bg-lime mt-2 flex items-center gap-3 rounded-2xl px-3 py-2.5 motion-safe:animate-[rise-in_.45s_ease-out_both] motion-safe:[animation-delay:700ms]"
+                            className="bg-lime mt-4 flex items-center gap-3 rounded-2xl px-4 py-3.5 motion-safe:animate-[rise-in_.45s_ease-out_both] motion-safe:[animation-delay:700ms]"
                         >
-                            <span className="bg-ink text-lime grid size-9 shrink-0 place-items-center rounded-full text-[13px] font-extrabold">
+                            <span className="bg-ink text-cream grid size-9 shrink-0 place-items-center rounded-full text-[13px] font-extrabold">
                                 {myPosition?.rank ?? '-'}
                             </span>
-                            <p className="min-w-0 flex-1 truncate text-[15px] font-extrabold">Kamu · {name}</p>
-                            <span className="text-[14px] font-extrabold">{myPosition?.caps ?? 0} cap</span>
+                            <p className="min-w-0 flex-1 truncate text-[17px] font-extrabold">Kamu · {name}</p>
+                            <span className="text-[16px] font-extrabold">{myPosition?.caps ?? 0} cap</span>
                         </div>
                     )}
 

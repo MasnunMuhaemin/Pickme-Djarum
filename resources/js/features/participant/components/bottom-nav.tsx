@@ -199,21 +199,13 @@ export function BottomNav() {
                 }}
                 className={cn(
                     'pointer-events-auto relative mx-auto h-14 touch-none items-center rounded-full bg-[#0b0b0b] px-1.5 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.45)] select-none',
-                    // 3 menu (kamera di tengah): kolom kiri dan kanan sama lebar sehingga kamera selalu tepat di tengah,
-                    // navbar dibuat ringkas. 4 menu: jarak antar menu dibagi rata.
-                    cameraCentered ? 'grid max-w-[264px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1' : 'flex max-w-[384px] justify-between',
+                    // 3 menu (kamera di tengah): tiga kolom tetap sama lebar, jadi menu lain diam saat pil berpindah.
+                    // 5 menu: jarak antar menu dibagi rata.
+                    cameraCentered ? 'grid max-w-[324px] grid-cols-3 gap-0.5' : 'flex max-w-[384px] justify-between',
                 )}
             >
                 <span aria-hidden className="bg-lime pointer-events-none absolute top-0 left-0 rounded-full" style={indicatorStyle} />
-                {cameraCentered ? (
-                    <>
-                        <div className="flex min-w-0">{renderItem(visibleItems[0], true)}</div>
-                        {renderItem(visibleItems[1])}
-                        <div className="flex min-w-0">{renderItem(visibleItems[2], true)}</div>
-                    </>
-                ) : (
-                    visibleItems.map((item) => renderItem(item))
-                )}
+                {cameraCentered ? <>{visibleItems.map((item) => renderItem(item, true))}</> : visibleItems.map((item) => renderItem(item))}
             </div>
         </nav>
     );
@@ -261,12 +253,13 @@ export function BottomNav() {
                     // Tinggi 44px tetap nyaman untuk jempol (PRD bagian 14).
                     'relative flex h-11 items-center justify-center rounded-full transition-colors duration-200',
                     isActive ? 'text-ink gap-1 px-3 text-[12px] font-extrabold' : 'text-cream w-10 hover:bg-white/10',
-                    // Menu kiri/kanan selebar kolomnya agar tampilan simetris di sekitar kamera.
-                    fill && 'w-full',
+                    // Menu selebar kolomnya agar posisinya tidak bergeser.
+                    fill && 'w-full min-w-0',
+                    fill && isActive && 'gap-0.5 px-1.5 text-[11px]',
                 )}
             >
                 <Icon className="size-5 shrink-0" strokeWidth={isActive ? 2.25 : 1.75} />
-                {isActive && <span className="whitespace-nowrap">{NAV_LABELS[item.key] ?? item.label}</span>}
+                {isActive && <span className="truncate">{NAV_LABELS[item.key] ?? item.label}</span>}
             </Link>
         );
     }

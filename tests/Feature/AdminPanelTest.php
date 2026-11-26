@@ -438,4 +438,23 @@ class AdminPanelTest extends TestCase
             ->where('logs.0.action', 'Mengubah data mitra'));
         $this->get('/admin/log?q=zzzzzz')->assertInertia(fn ($page) => $page->where('logs', []));
     }
+
+    public function test_admin_edits_voucher_lines_shown_to_participants(): void
+    {
+        $this->actingAs($this->admin)
+            ->post('/admin/pengaturan/kalimat-voucher', ['lines' => "  kalimat satu 
+
+kalimat dua
+"])
+            ->assertSessionHasNoErrors();
+        $this->assertSame(['kalimat satu', 'kalimat dua'], Setting::voucherLines());
+
+        $this->post('/admin/pengaturan/kalimat-voucher', ['lines' => str_repeat('a', 61)])->assertSessionHasErrors('lines');
+        $this->post('/admin/pengaturan/kalimat-voucher', ['lines' => "
+ 
+"])->assertSessionHasErrors('lines');
+        $this->assertSame(['kalimat satu', 'kalimat dua'], Setting::voucherLines());
+
+        $this->get('/participant')->assertInertia(fn ($page) => $page->where('voucherLines', ['kalimat satu', 'kalimat dua']));
+    }
 }

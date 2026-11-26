@@ -11,7 +11,7 @@
 
         <title inertia>{{ config('app.name', 'PICKME') }}</title>
         <meta name="description" content="Beli bungkus, foto, ambil slot. Hadiah langsung dari warung.">
-        <meta name="theme-color" content="#a9d65b">
+        <meta name="theme-color" content="#8fc31f">
 
         <link rel="icon" href="/favicon.ico" sizes="48x48">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">

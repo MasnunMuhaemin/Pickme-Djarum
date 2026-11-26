@@ -49,7 +49,28 @@ class SettingsController extends Controller
             'parameters' => $editable,
             'paused' => Setting::programPaused(),
             'pauseReason' => Setting::get('program_pause_reason'),
+            'voucherLines' => implode("
+", Setting::voucherLines()),
         ]);
+    }
+
+    /** Kalimat nyeleneh di gambar voucher: satu kalimat per baris. Gambar voucher memilih kalimat dari kode voucher. */
+    public function updateVoucherLines(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['lines' => ['required', 'string', 'max:5000']], ['lines.required' => 'Isi minimal satu kalimat.']);
+        $lines = array_values(array_filter(array_map('trim', preg_split('/\R/', $data['lines']))));
+        if (! $lines) {
+            return back()->withErrors(['lines' => 'Isi minimal satu kalimat.']);
+        }
+        if (collect($lines)->contains(fn ($line) => mb_strlen($line) > 60)) {
+            return back()->withErrors(['lines' => 'Tiap kalimat maksimal 60 karakter supaya muat di gambar voucher.']);
+        }
+
+        Setting::put('voucher_lines', implode("
+", $lines));
+        ActivityLogger::log('settings.voucher_lines', 'settings', null, ['count' => count($lines)], $request->user());
+
+        return back()->with('status', count($lines).' kalimat voucher disimpan.');
     }
 
     public function update(Request $request): RedirectResponse

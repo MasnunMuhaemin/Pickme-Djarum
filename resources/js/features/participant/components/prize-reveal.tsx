@@ -4,7 +4,7 @@ import { type CSSProperties, type PointerEvent, useEffect, useRef, useState } fr
 
 /** Bagian kartu yang harus tergosok sebelum kartu dianggap terbuka penuh. */
 const SCRATCH_DONE = 0.6;
-const CONFETTI_COLORS = ['#a9d65b', '#1b3a1a', '#e23b2e', '#f7f3e3', '#86b23f'];
+const CONFETTI_COLORS = ['#8fc31f', '#1b3a1a', '#e23b2e', '#fdf8d5', '#72a012'];
 
 type Phase = 'cover' | 'done';
 
@@ -29,11 +29,11 @@ function paintCover(canvas: HTMLCanvasElement, label: string) {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, w, h);
 
-    ctx.fillStyle = 'rgba(169,214,91,0.18)';
+    ctx.fillStyle = 'rgba(143,195,31,0.18)';
     for (let x = w * 0.08; x < w; x += w * 0.12) for (let y = h * 0.08; y < h; y += h * 0.09) ctx.fillRect(x, y, 2, 2);
 
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#a9d65b';
+    ctx.fillStyle = '#8fc31f';
     ctx.font = `800 ${Math.round(w * 0.04)}px Instrument Sans, sans-serif`;
     ctx.fillText(label.toUpperCase(), w / 2, h * 0.14);
     ctx.font = `800 ${Math.round(w * 0.42)}px Instrument Sans, sans-serif`;

@@ -74,6 +74,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     // A7 Pengaturan dan tombol darurat
     Route::get('pengaturan', [SettingsController::class, 'index'])->name('pengaturan');
     Route::post('pengaturan', [SettingsController::class, 'update'])->name('pengaturan.update');
+    Route::post('pengaturan/kalimat-voucher', [SettingsController::class, 'updateVoucherLines'])->name('pengaturan.kalimat');
     Route::post('darurat/jeda', [EmergencyController::class, 'pause'])->name('darurat.jeda');
     Route::post('darurat/lanjutkan', [EmergencyController::class, 'resume'])->name('darurat.lanjutkan');
 

@@ -306,7 +306,7 @@ function Landing({ modal, areas = [], prizes = [] }: { modal?: string; areas?: A
     return (
         <ParticipantLayout title="Beli bungkus, ambil slot" nav="beranda">
             {/* Hero: ilustrasi warung sebagai latar penuh, digelapkan ke bawah supaya teks terbaca. */}
-            <div className="relative overflow-hidden bg-[#0d1b15] px-5 pt-[236px] pb-16 md:px-8 md:pt-[280px]">
+            <div className="bg-night relative overflow-hidden px-5 pt-10 pb-16 md:px-8 md:pt-12">
                 <img
                     src="/images/banner.webp"
                     alt=""
@@ -316,7 +316,8 @@ function Landing({ modal, areas = [], prizes = [] }: { modal?: string; areas?: A
                 {/* Tombol keluar di pojok kanan atas, hanya saat sudah masuk. */}
                 <LogoutButton className="bg-ink/80 text-lime hover:bg-ink hover:text-lime absolute top-4 right-4 z-10 md:hidden" />
                 <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,27,21,0)_0%,rgba(13,27,21,0.1)_35%,rgba(13,27,21,0.72)_58%,#0d1b15_80%)]" />
-                <span className="bg-lime text-ink relative inline-block rounded-full px-3.5 py-1.5 text-[13px] font-extrabold">
+                <img src="/images/logo.webp" alt="Papan Pick(me)" className="relative h-14 w-auto md:h-16" />
+                <span className="bg-lime text-ink relative mt-3 inline-block rounded-full px-3.5 py-1.5 text-[13px] font-extrabold">
                     Scan QR di papan warung
                 </span>
                 <h1 className="text-cream relative mt-3 text-[40px] leading-[1.02] font-extrabold tracking-tight md:text-[52px]">

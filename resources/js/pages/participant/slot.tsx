@@ -69,7 +69,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                     <h1 className="text-[34px] leading-none font-extrabold tracking-tight">Ambil slot</h1>
                 </header>
 
-                <main className="flex flex-1 flex-col rounded-t-[28px] bg-[#f7f3e3] px-5 pt-5 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
+                <main className="bg-cream flex flex-1 flex-col rounded-t-[28px] px-5 pt-5 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
                     <div className="flex items-center justify-between gap-3">
                         <span className="bg-lime-soft text-ink inline-flex w-fit items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold">
                             <Check className="size-3.5" />

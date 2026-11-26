@@ -142,7 +142,7 @@ export default function FotoKlaim({
             <Modal open={open !== null} onClose={() => setOpen(null)} width="max-w-2xl">
                 {open && (
                     <div className="grid gap-4 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-                        <div className="bg-night-soft overflow-hidden rounded-xl">
+                        <div className="bg-night-soft flex items-center justify-center overflow-hidden rounded-xl">
                             {open.photo_url ? (
                                 <img src={open.photo_url} alt={`Foto klaim ${open.claim_code}`} className="max-h-[70dvh] w-full object-contain" />
                             ) : (
