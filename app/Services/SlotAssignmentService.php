@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Claim;
 use App\Models\Outlet;
 use App\Models\Participant;
-use App\Models\Slot;
 use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
@@ -32,49 +31,22 @@ class SlotAssignmentService
         }
 
         return DB::transaction(function () use ($claim, $outlet) {
-            $this->releaseExpiredHolds($outlet);
-
-            $slot = $outlet->board->slots()
-                ->where('status', 'empty')
-                ->lockForUpdate()
-                ->inRandomOrder()
-                ->first();
+            // Saran slot tanpa penahanan: utamakan slot kosong yang belum disarankan ke peserta lain.
+            $suggested = Claim::where('status', 'draft')->whereNotNull('slot_id')->pluck('slot_id');
+            $slots = $outlet->board->slots()->where('status', '!=', 'used')->lockForUpdate();
+            $slot = (clone $slots)->whereNotIn('id', $suggested)->inRandomOrder()->first() ?? $slots->inRandomOrder()->first();
 
             if (! $slot) {
                 return ['error' => 'Papan penuh. Semua slot sudah diambil.'];
             }
 
+            // slot_id unik per klaim: saran lama di klaim draf lain dilepas.
+            Claim::where('slot_id', $slot->id)->where('status', 'draft')->where('id', '!=', $claim->id)->update(['slot_id' => null, 'code' => null]);
             $claim->update(['slot_id' => $slot->id, 'code' => $slot->code]);
-            $slot->update([
-                'status' => 'held',
-                'holder_id' => $claim->participant_id,
-                'held_until' => now()->addMinutes(config('participant.slot_hold_minutes')),
-            ]);
-
             ActivityLogger::log('slot.assigned', 'claim', $claim->id, ['slot' => $slot->position], $claim->participant);
 
             return ['claim' => $claim->fresh()->load('slot')];
         });
-    }
-
-    /**
-     * Slot yang masa tahannya habis kembali kosong (PRD bagian 17). Klaim draf pemegangnya melepas slot itu
-     * dan akan ditunjuk slot baru saat membuka layar slot lagi.
-     */
-    public function releaseExpiredHolds(Outlet $outlet): void
-    {
-        $expired = $outlet->board->slots()
-            ->where('status', 'held')
-            ->where('held_until', '<', now())
-            ->lockForUpdate()
-            ->pluck('id');
-
-        if ($expired->isEmpty()) {
-            return;
-        }
-
-        Slot::whereIn('id', $expired)->update(['status' => 'empty', 'holder_id' => null, 'held_until' => null]);
-        Claim::whereIn('slot_id', $expired)->where('status', 'draft')->update(['slot_id' => null, 'code' => null]);
     }
 
     /** Kode klaim KLM + 4 angka, tanpa spasi dan tanpa strip (seragam dengan kode slot dan kode voucher). */

@@ -18,5 +18,6 @@ class DatabaseSeeder extends Seeder
         $this->call(AdminSeeder::class);
         // Setelah AdminSeeder: butuh jenis voucher Kopi dan Kuota internet.
         $this->call(DemoPartnerSeeder::class);
+        $this->call(MysteryPrizeSeeder::class);
     }
 }

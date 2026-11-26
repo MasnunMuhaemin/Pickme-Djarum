@@ -20,11 +20,13 @@ function Row({ label, value }: { label: string; value: string }) {
 export default function KlaimDitolak({
     claim,
     capTrail = [],
+    hasMystery = false,
     dailyLimit = 0,
     adminWhatsapp,
 }: {
     claim: { claim_code: string; reason: string | null; rejected_at: string | null };
     capTrail?: CapMark[];
+    hasMystery?: boolean;
     dailyLimit?: number;
     adminWhatsapp?: string | null;
 }) {
@@ -76,7 +78,7 @@ export default function KlaimDitolak({
                     </div>
 
                     <div className="mt-4">
-                        <CapStrip trail={capTrail} />
+                        <CapStrip trail={capTrail} won={hasMystery} />
                     </div>
                 </div>
 

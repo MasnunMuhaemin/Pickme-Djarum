@@ -45,6 +45,11 @@ class ConsentController extends Controller
         );
         ActivityLogger::log('consent.accepted', 'participant', $participant->id, ['version' => config('participant.consent_version')], $participant);
 
-        return to_route('participant.foto');
+        // QR yang dipindai sebelum daftar tetap dipakai: langsung ke foto. Tanpa QR, scan papan dulu.
+        $outlet = $request->session()->get('claim_outlet');
+
+        return $outlet
+            ? to_route('participant.foto', ['outlet' => $outlet])
+            : to_route('participant.scan');
     }
 }

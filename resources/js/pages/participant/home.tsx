@@ -33,11 +33,28 @@ const prizeStyle: Record<string, { icon: LucideIcon; tile: string }> = {
 
 const steps = ['Beli bungkus', 'Foto bungkus', 'Ambil slot'];
 
-export default function Home({ modal, areas = [], prizes = [], me }: { modal?: string; areas?: Area[]; prizes?: Prize[]; me?: Me }) {
+type LastBoard = { code: string; name: string; area: string | null; total: number; used: number; filled: boolean[] } | null;
+type Leader = { name: string; caps: number };
+
+export default function Home({
+    modal,
+    areas = [],
+    prizes = [],
+    me,
+    lastBoard = null,
+    leaders = [],
+}: {
+    modal?: string;
+    areas?: Area[];
+    prizes?: Prize[];
+    me?: Me;
+    lastBoard?: LastBoard;
+    leaders?: Leader[];
+}) {
     if (me) {
         return (
             <ParticipantLayout title="Beranda" nav="beranda">
-                <Dashboard me={me} />
+                <Dashboard me={me} lastBoard={lastBoard} leaders={leaders} />
                 <ClaimNotices limit={me.daily_limit} />
             </ParticipantLayout>
         );
@@ -102,12 +119,13 @@ function ClaimNotices({ limit = 2 }: { limit?: number }) {
 }
 
 /** Beranda peserta yang sudah masuk (desain "Siang, Sasa!"): kartu cap, pintasan, dan info program. */
-function Dashboard({ me }: { me: Me }) {
+function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; leaders: Leader[] }) {
     const mysteryReady = useMysteryReady(me.mystery);
     const [hour, setHour] = useState(12);
     useEffect(() => setHour(new Date().getHours()), []);
     // Baris cap yang sedang diisi: 1-5, lalu 6-10 setelah mystery gift dibuka.
-    const slots = capSlots(me.cap_trail);
+    const mysteryEnabled = usePage().props.mysteryEnabled as boolean | null;
+    const slots = capSlots(me.cap_trail, 5, 10, { won: Boolean(me.mystery), enabled: mysteryEnabled !== false });
     // Desain: satu baris 5 cap. Baris 1-5 sampai mystery gift dibuka, lalu baris 6-10.
     const rowStart = slots.used < 5 || (mysteryReady && slots.giftAt <= 5) ? 0 : 5;
 
@@ -283,9 +301,95 @@ function Dashboard({ me }: { me: Me }) {
                             image="/images/design-voucher3.webp"
                         />
                     </div>
+
+                    {lastBoard && <LastBoardCard board={lastBoard} />}
+                    {leaders.length > 0 && <LeaderCard leaders={leaders} />}
+
+                    {/* Penutup beranda: maskot matahari dan slogan. */}
+                    <div className="mt-10 mb-4 flex flex-col items-center gap-2 text-center">
+                        <img src="/images/pemburu-bulat.webp" alt="" aria-hidden loading="lazy" className="size-20 object-contain" />
+                        <p className="text-ink-soft text-[13px] font-bold">Pick me, choose me, love me.</p>
+                    </div>
                 </div>
             </div>
         </div>
+    );
+}
+
+/** Papan terakhir (desain): titik 5×5 slot terisi, nama warung, dan progres slot. */
+function LastBoardCard({ board }: { board: NonNullable<LastBoard> }) {
+    const left = board.total - board.used;
+    return (
+        <section className="mt-8">
+            <div className="flex items-center justify-between">
+                <h2 className="text-[18px] font-extrabold tracking-tight">Papan terakhir</h2>
+                <Link href="/participant/scan" className="text-[13px] font-extrabold">
+                    Lihat papan
+                </Link>
+            </div>
+            <div className="mt-3 rounded-[1.75rem] bg-white p-5">
+                <div className="flex items-center gap-4">
+                    <div
+                        className="bg-cream grid shrink-0 grid-cols-5 gap-1.5 rounded-2xl p-3"
+                        aria-label={`${board.used} dari ${board.total} slot terisi`}
+                    >
+                        {board.filled.map((filled, i) => (
+                            <span key={i} className={cn('size-3.5 rounded-full', filled ? 'bg-lime' : 'border border-[#b9b08a]')} />
+                        ))}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <p className="truncate text-[18px] font-extrabold">{board.name}</p>
+                        <p className="text-ink-soft truncate text-[13px]">
+                            {board.area ? `${board.area} · ` : ''}
+                            {board.total} slot sekali habis
+                        </p>
+                        <span className="mt-2 block h-2.5 overflow-hidden rounded-full bg-[#e3dcb0]">
+                            <span
+                                className="bg-lime block h-full rounded-full"
+                                style={{ width: `${board.total ? (board.used / board.total) * 100 : 0}%` }}
+                            />
+                        </span>
+                        <p className="mt-1.5 flex justify-between text-[13px] font-extrabold">
+                            <span>
+                                {board.used} / {board.total} slot terisi
+                            </span>
+                            <span className="text-lime-dark">Sisa {left}</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+/** Sedang memimpin (desain): inisial tiga teratas dan pemimpin peringkat. */
+function LeaderCard({ leaders }: { leaders: Leader[] }) {
+    const top = leaders[0];
+    return (
+        <Link href="/participant/kartu" className="mt-4 flex items-center gap-3 rounded-[1.75rem] bg-white p-4">
+            <span className="flex shrink-0">
+                {leaders.map((l, i) => (
+                    <span
+                        key={i}
+                        className={cn(
+                            'text-lime grid size-11 place-items-center rounded-full border-2 border-white bg-[#0b0b0b] text-[15px] font-extrabold',
+                            i > 0 && '-ml-3',
+                        )}
+                    >
+                        {l.name.charAt(0).toUpperCase()}
+                    </span>
+                ))}
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="text-ink-soft block text-[12px]">Sedang memimpin</span>
+                <span className="block truncate text-[18px] font-extrabold">
+                    {top.name} · {top.caps} cap
+                </span>
+            </span>
+            <span className="bg-cream grid size-10 shrink-0 place-items-center rounded-full">
+                <ChevronRight className="size-4" />
+            </span>
+        </Link>
     );
 }
 

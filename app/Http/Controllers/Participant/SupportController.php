@@ -41,9 +41,24 @@ class SupportController extends Controller
         return back()->with('sent', true);
     }
 
-    public function showStudent(): Response
+    /** Pertanyaan status mahasiswa tampil sebagai popup di atas kamera scan. */
+    public function showStudent(Request $request): Response|RedirectResponse
     {
-        return Inertia::render('participant/mahasiswa');
+        if (! $request->session()->get('participant_id')) {
+            return to_route('participant.scan');
+        }
+
+        return Inertia::render('participant/scan', ['student' => true]);
+    }
+
+    /** Jawaban "Bukan mahasiswa" juga popup, bukan halaman sendiri. */
+    public function showStudentBlocked(Request $request): Response|RedirectResponse
+    {
+        if (! $request->session()->get('participant_id')) {
+            return to_route('participant.scan');
+        }
+
+        return Inertia::render('participant/scan', ['studentBlocked' => true]);
     }
 
     public function storeStudent(Request $request): RedirectResponse

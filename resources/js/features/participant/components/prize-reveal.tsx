@@ -5,7 +5,7 @@ import { type CSSProperties, type PointerEvent, useEffect, useRef, useState } fr
 /** Bagian kartu yang harus tergosok sebelum kartu dianggap terbuka penuh. */
 // Kartu terbuka setelah 85% penutup tergosok; sisa penutup lalu memudar.
 const SCRATCH_DONE = 0.85;
-const CONFETTI_COLORS = ['#8fc31f', '#1b3a1a', '#e23b2e', '#fdf8d5', '#72a012'];
+const CONFETTI_COLORS = ['#8fc31f', '#1b3a1a', '#e23b2e', '#fdf8d5', '#72a012', '#f5c542', '#ef8b2c'];
 
 type Phase = 'cover' | 'done';
 
@@ -117,36 +117,6 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
 
     return (
         <div className="bg-cream fixed inset-0 z-[90] overflow-y-auto" role="dialog" aria-modal aria-label="Buka hadiah">
-            {done && !reduced && (
-                <div aria-hidden className="pointer-events-none fixed inset-0 z-[95] overflow-hidden">
-                    {Array.from({ length: 90 }, (_, i) => {
-                        // Sebaran semu-acak yang tetap (tanpa Math.random) supaya hasil render stabil.
-                        const r = (n: number) => ((i * 9301 + n * 49297) % 233280) / 233280;
-                        const shape = i % 3;
-                        return (
-                            <span
-                                key={i}
-                                className={cn(
-                                    'absolute -top-6 block animate-[confetti_var(--dur)_cubic-bezier(.2,.6,.4,1)_forwards]',
-                                    shape === 0 && 'h-3 w-1.5 rounded-[1px]',
-                                    shape === 1 && 'size-2.5 rounded-full',
-                                    shape === 2 && 'h-2 w-3 rounded-[2px]',
-                                )}
-                                style={
-                                    {
-                                        left: `${r(1) * 100}%`,
-                                        backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-                                        animationDelay: `${Math.round(r(2) * 900)}ms`,
-                                        '--dur': `${(2.2 + r(3) * 1.6).toFixed(2)}s`,
-                                        '--dx': `${Math.round((r(4) - 0.5) * 220)}px`,
-                                        '--rot': `${Math.round(360 + r(5) * 720)}deg`,
-                                    } as CSSProperties
-                                }
-                            />
-                        );
-                    })}
-                </div>
-            )}
             <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col md:max-w-[560px]">
                 <header className="lime-hero px-5 pt-8 pb-10">
                     <p className="text-ink/70 text-[10px] font-extrabold tracking-[0.2em] uppercase">Kartu hadiah</p>
@@ -156,15 +126,69 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
                 </header>
 
                 <main className="relative -mt-5 flex flex-1 flex-col items-center overflow-hidden rounded-t-[28px] bg-[repeating-conic-gradient(from_0deg_at_50%_32%,#f2f7d6_0deg_9deg,#fbf8e6_9deg_18deg)] px-5 pt-8 pb-8">
-                    <img
-                        src="/images/banner.webp"
-                        alt=""
+                    {/* Ilustrasi kota memenuhi area dari bawah sampai atas, lalu memudar di tengah. */}
+                    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+                        <img
+                            src="/images/banner.webp"
+                            alt=""
+                            className="absolute inset-0 size-full object-cover object-bottom opacity-35 select-none"
+                            style={{
+                                maskImage: 'linear-gradient(to top, black 0%, black 26%, transparent 72%)',
+                                WebkitMaskImage: 'linear-gradient(to top, black 0%, black 26%, transparent 72%)',
+                            }}
+                        />
+                    </div>
+
+                    {/* Sinar hijau dari tengah, memudar ke luar seperti pancaran matahari. */}
+                    <span
                         aria-hidden
-                        className="pointer-events-none absolute inset-x-0 bottom-0 h-[42%] w-full object-cover object-center opacity-25 select-none"
+                        className="pointer-events-none absolute top-[30%] left-1/2 aspect-square w-[820px] -translate-x-1/2 -translate-y-1/2 bg-[repeating-conic-gradient(from_0deg_at_50%_50%,rgba(143,195,31,0.6)_0deg_8deg,rgba(253,248,213,0)_8deg_18deg)]"
+                        style={{
+                            maskImage: 'radial-gradient(circle, black 0%, black 38%, transparent 72%)',
+                            WebkitMaskImage: 'radial-gradient(circle, black 0%, black 38%, transparent 72%)',
+                        }}
                     />
+
+                    {/* Cahaya hijau di belakang kartu. */}
+                    <span
+                        aria-hidden
+                        className="pointer-events-none absolute top-[34%] left-1/2 size-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(143,195,31,0.7)_0%,rgba(114,160,18,0.35)_40%,transparent_70%)] blur-sm"
+                    />
+
+                    {/* Konfeti: satu keping SVG dipakai ulang dengan warna dan ukuran berbeda. */}
+                    {done && !reduced && (
+                        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+                            {Array.from({ length: 180 }, (_, i) => {
+                                // Sebaran semu-acak yang tetap (tanpa Math.random) supaya hasil render stabil.
+                                const r = (n: number) => ((i * 9301 + n * 49297) % 233280) / 233280;
+                                return (
+                                    <span
+                                        key={i}
+                                        className="confetti-flake absolute -top-8 block animate-[confetti_var(--dur)_cubic-bezier(.2,.6,.4,1)_forwards]"
+                                        style={
+                                            {
+                                                left: `${r(1) * 100}%`,
+                                                width: `${6 + Math.round(r(6) * 10)}px`,
+                                                height: `${9 + Math.round(r(7) * 12)}px`,
+                                                backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+                                                animationDelay: `${Math.round(r(2) * 900) - 250}ms`,
+                                                '--dur': `${(2.6 + r(3) * 2.2).toFixed(2)}s`,
+                                                '--dx': `${Math.round((r(4) - 0.5) * 300)}px`,
+                                                '--rot': `${Math.round(540 + r(5) * 900)}deg`,
+                                            } as CSSProperties
+                                        }
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {/* Kartu: muka hasil di bawah, lapisan penutup (canvas) di atas. */}
                     <div className="relative w-[min(76vw,300px)]">
+                        <span
+                            aria-hidden
+                            className="absolute -inset-12 rounded-[56px] bg-[radial-gradient(circle,rgba(143,195,31,0.9),rgba(114,160,18,0.4)_55%,transparent_74%)] blur-2xl"
+                        />
                         <span aria-hidden className="bg-ink absolute inset-0 translate-x-2 translate-y-2 -rotate-3 rounded-[22px] opacity-80" />
                         <div
                             className={cn(
@@ -174,10 +198,10 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
                         >
                             <div className="bg-lime absolute inset-0 flex flex-col items-center justify-between px-4 py-[12%] text-center">
                                 <p className="text-ink text-[11px] font-extrabold tracking-[0.18em] uppercase">Selamat · {label}</p>
-                                <span className="relative grid size-[42%] place-items-center">
+                                <span className="relative grid aspect-square w-[42%] shrink-0 place-items-center">
                                     <span
                                         aria-hidden
-                                        className="bg-ink absolute inset-0 [clip-path:polygon(50%_0%,61%_11%,75%_5%,79%_20%,94%_22%,91%_37%,100%_50%,91%_63%,94%_78%,79%_80%,75%_95%,61%_89%,50%_100%,39%_89%,25%_95%,21%_80%,6%_78%,9%_63%,0%_50%,9%_37%,6%_22%,21%_20%,25%_5%,39%_11%)]"
+                                        className="absolute inset-0 bg-[#0b0b0b] [clip-path:polygon(50%_0%,61%_11%,75%_5%,79%_20%,94%_22%,91%_37%,100%_50%,91%_63%,94%_78%,79%_80%,75%_95%,61%_89%,50%_100%,39%_89%,25%_95%,21%_80%,6%_78%,9%_63%,0%_50%,9%_37%,6%_22%,21%_20%,25%_5%,39%_11%)]"
                                     />
                                     <Check className="relative size-[45%] text-white" strokeWidth={3.5} />
                                 </span>

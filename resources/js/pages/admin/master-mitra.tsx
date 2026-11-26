@@ -1,9 +1,9 @@
 import { PARTNER_TYPE_LABEL, PartnerDialog, type PartnerKind } from '@/features/admin/master';
-import { Btn, BtnLink, Card, Chip, Empty, Phone, SearchInput, Table, Td, matches, useConfirm } from '@/features/admin/ui';
+import { Btn, BtnLink, Chip, Empty, Phone, SearchInput, matches, useConfirm } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { cn } from '@/lib/utils';
 import { router } from '@inertiajs/react';
-import { Pencil } from 'lucide-react';
+import { ChevronRight, MessageCircle, Pencil } from 'lucide-react';
 import { useState } from 'react';
 
 type PartnerRow = {
@@ -16,6 +16,10 @@ type PartnerRow = {
     active: boolean;
     has_pin: boolean;
     types: number;
+    type_names: string;
+    address: string | null;
+    maps_url: string | null;
+    last_login: string | null;
 };
 
 type Tab = 'mitra' | 'warung';
@@ -32,11 +36,13 @@ function initialTab(): Tab {
 export default function MasterMitra({ partners, freeOutlets }: { partners: PartnerRow[]; freeOutlets: { id: number; name: string }[] }) {
     const [tab, setTab] = useState<Tab>(initialTab);
     const [editing, setEditing] = useState<PartnerRow | null | 'new'>(null);
+    const [selectedId, setSelectedId] = useState<number | null>(null);
     const [q, setQ] = useState('');
     const [confirm, confirmDialog] = useConfirm();
     const isOutlet = tab === 'warung';
     const inTab = partners.filter((p) => (isOutlet ? p.kind === 'outlet' : p.kind !== 'outlet'));
     const rows = inTab.filter((p) => matches(q, p.name, p.whatsapp, p.outlet, PARTNER_TYPE_LABEL[p.kind]));
+    const selected = rows.find((p) => p.id === selectedId) ?? rows[0] ?? null;
 
     function switchTab(next: Tab) {
         setTab(next);
@@ -47,18 +53,10 @@ export default function MasterMitra({ partners, freeOutlets }: { partners: Partn
 
     function actions(p: PartnerRow) {
         return (
-            <span className="inline-flex gap-1.5">
-                {p.wa && (
-                    <BtnLink href={p.wa} external variant="yellow">
-                        WhatsApp
-                    </BtnLink>
-                )}
-                <Btn variant="outline" onClick={() => setEditing(p)}>
-                    <Pencil className="size-3.5" />
-                    Ubah
-                </Btn>
+            <>
                 <Btn
                     variant="outline"
+                    className="w-full justify-center rounded-full border-2"
                     onClick={() =>
                         confirm({
                             title: `${p.has_pin ? 'Reset' : 'Buat'} PIN ${p.name}?`,
@@ -74,7 +72,8 @@ export default function MasterMitra({ partners, freeOutlets }: { partners: Partn
                     {p.has_pin ? 'Reset PIN' : 'Buat PIN'}
                 </Btn>
                 <Btn
-                    variant="ghost"
+                    variant="outline"
+                    className={cn('w-full justify-center rounded-full border-2', p.active && 'border-[#d0271d] text-[#b42318]')}
                     onClick={() =>
                         confirm({
                             title: `${p.active ? 'Nonaktifkan' : 'Aktifkan'} ${p.name}?`,
@@ -85,16 +84,16 @@ export default function MasterMitra({ partners, freeOutlets }: { partners: Partn
                         })
                     }
                 >
-                    {p.active ? 'Nonaktifkan' : 'Aktifkan'}
+                    {p.active ? 'Nonaktifkan akun' : 'Aktifkan akun'}
                 </Btn>
-            </span>
+            </>
         );
     }
 
     const whatsapp = (p: PartnerRow) => (p.whatsapp ? <Phone value={p.whatsapp} /> : <span className="font-bold text-[#b42318]">Belum diisi</span>);
 
     return (
-        <AdminLayout active="md-mitra" title="Mitra & akun" subtitle="Langkah 2: akun PIN mitra dan akun warung">
+        <AdminLayout active="md-mitra" title="Mitra dan pembayaran" subtitle="Akun, PIN, nama toko, dan tautan Google Maps mitra voucher.">
             <div className="flex flex-wrap gap-2">
                 {(
                     [
@@ -117,53 +116,127 @@ export default function MasterMitra({ partners, freeOutlets }: { partners: Partn
                 ))}
             </div>
 
-            <Card
-                title={isOutlet ? 'Akun warung' : 'Mitra'}
-                right={<Btn onClick={() => setEditing('new')}>{isOutlet ? 'Tambah akun warung' : 'Tambah mitra'}</Btn>}
-                className="mt-4"
-            >
-                <SearchInput
-                    value={q}
-                    onChange={setQ}
-                    placeholder={isOutlet ? 'Cari warung, nama, atau nomor' : 'Cari nama mitra, jenis, atau nomor'}
-                    className="mb-3"
-                />
-                {rows.length ? (
-                    isOutlet ? (
-                        <Table head={['Warung', 'Pemilik/penjaga', 'WhatsApp', 'Status', 'Aksi']}>
-                            {rows.map((p) => (
-                                <tr key={p.id}>
-                                    <Td className="font-extrabold">
-                                        {p.outlet ?? <span className="text-[#b42318]">Belum terhubung ke warung</span>}
-                                    </Td>
-                                    <Td>{p.name}</Td>
-                                    <Td>{whatsapp(p)}</Td>
-                                    <Td>{p.active ? <Chip tone="green">Aktif</Chip> : <Chip>Nonaktif</Chip>}</Td>
-                                    <Td>{actions(p)}</Td>
-                                </tr>
-                            ))}
-                        </Table>
-                    ) : (
-                        <Table head={['Mitra', 'Jenis', 'WhatsApp', 'Jenis voucher', 'Status', 'Aksi']}>
-                            {rows.map((p) => (
-                                <tr key={p.id}>
-                                    <Td className="font-bold">{p.name}</Td>
-                                    <Td>{p.kind === 'kuota' ? <Chip tone="blue">Mitra kuota</Chip> : <Chip>Mitra voucher</Chip>}</Td>
-                                    <Td>{whatsapp(p)}</Td>
-                                    <Td>{p.types}</Td>
-                                    <Td>{p.active ? <Chip tone="green">Aktif</Chip> : <Chip>Nonaktif</Chip>}</Td>
-                                    <Td>{actions(p)}</Td>
-                                </tr>
-                            ))}
-                        </Table>
-                    )
-                ) : (
-                    <Empty>{q ? `Tidak ada yang cocok dengan "${q}".` : isOutlet ? 'Belum ada akun warung.' : 'Belum ada mitra.'}</Empty>
-                )}
-                <p className="text-ink/45 mt-3 text-[11px]">
-                    Akun hanya dibuat admin. Admin tidak bisa melihat PIN lama, hanya mereset. Rekap dan pembayaran ada di menu Pembayaran mitra.
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[13px] font-extrabold">
+                    {inTab.length} {isOutlet ? 'akun warung' : 'mitra'} · {inTab.filter((p) => p.active).length} aktif
                 </p>
-            </Card>
+                <div className="flex flex-wrap items-center gap-2">
+                    <SearchInput
+                        value={q}
+                        onChange={setQ}
+                        placeholder={isOutlet ? 'Cari warung atau nama' : 'Cari nama mitra atau nomor'}
+                        className="min-w-[140px] flex-1"
+                    />
+                    <Btn variant="yellow" className="rounded-full" onClick={() => setEditing('new')}>
+                        {isOutlet ? 'Tambah akun warung' : 'Tambah mitra'}
+                    </Btn>
+                </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <section className="rounded-2xl bg-white p-3">
+                    <div className="text-ink/50 hidden gap-3 px-3 py-2 text-[11px] font-semibold lg:grid lg:grid-cols-[minmax(0,1.5fr)_60px_110px_120px_80px_20px]">
+                        <span>{isOutlet ? 'Warung' : 'Mitra'}</span>
+                        <span>PIN</span>
+                        <span>Terakhir masuk</span>
+                        <span>{isOutlet ? 'WhatsApp' : 'Peta Google Maps'}</span>
+                        <span>Status</span>
+                        <span />
+                    </div>
+                    {rows.length === 0 && (
+                        <Empty>{q ? `Tidak ada yang cocok dengan "${q}".` : isOutlet ? 'Belum ada akun warung.' : 'Belum ada mitra.'}</Empty>
+                    )}
+                    {rows.map((p) => (
+                        <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => setSelectedId(p.id)}
+                            className={cn(
+                                'grid w-full grid-cols-2 gap-x-3 gap-y-1 rounded-xl px-3 py-3 text-left text-[12px] sm:grid-cols-[minmax(0,1.5fr)_60px_110px_120px_80px_20px] sm:items-center sm:gap-3',
+                                selected?.id === p.id ? 'bg-lime' : 'hover:bg-cream/60',
+                            )}
+                        >
+                            <span className="min-w-0">
+                                <span className="block truncate text-[13px] font-extrabold">{isOutlet ? (p.outlet ?? p.name) : p.name}</span>
+                                <span className="text-ink/50 block truncate text-[10px]">{isOutlet ? p.name : PARTNER_TYPE_LABEL[p.kind]}</span>
+                            </span>
+                            <span className="font-extrabold tracking-widest">{p.has_pin ? '••••' : '-'}</span>
+                            <span className="text-ink/70">{p.last_login ?? 'Belum pernah'}</span>
+                            <span>
+                                {isOutlet ? whatsapp(p) : p.maps_url ? <Chip tone="green">Terisi</Chip> : <Chip tone="yellow">Belum diisi</Chip>}
+                            </span>
+                            <span>{p.active ? <Chip tone="green">Aktif</Chip> : <Chip>Nonaktif</Chip>}</span>
+                            <ChevronRight className="hidden size-4 sm:block" />
+                        </button>
+                    ))}
+                </section>
+
+                {selected && (
+                    <section className="rounded-2xl bg-white p-5">
+                        <h2 className="text-[16px] font-extrabold">{isOutlet ? (selected.outlet ?? selected.name) : selected.name}</h2>
+                        <p className="text-ink/50 text-[11px]">
+                            {PARTNER_TYPE_LABEL[selected.kind]}
+                            {selected.type_names ? ` · voucher ${selected.type_names.toLowerCase()}` : ''}
+                        </p>
+                        <dl className="divide-ink/5 mt-3 divide-y text-[12px]">
+                            {(
+                                [
+                                    [isOutlet ? 'Pemilik/penjaga' : 'Nama toko', selected.name],
+                                    ...(isOutlet ? [] : [['Alamat', selected.address ?? '-'] as const]),
+                                    ['WhatsApp', selected.whatsapp ? <Phone key="wa" value={selected.whatsapp} /> : '-'],
+                                    ['Status', selected.active ? 'Aktif' : 'Nonaktif'],
+                                    ['PIN', selected.has_pin ? '••••' : 'Belum dibuat'],
+                                    ['Terakhir masuk', selected.last_login ?? 'Belum pernah'],
+                                ] as const
+                            ).map(([label, value]) => (
+                                <div key={label} className="flex justify-between gap-3 py-2">
+                                    <dt className="text-ink/55">{label}</dt>
+                                    <dd className="text-right font-extrabold">{value}</dd>
+                                </div>
+                            ))}
+                            {!isOutlet && (
+                                <div className="flex items-center justify-between gap-3 py-2">
+                                    <dt className="text-ink/55">Tautan Google Maps</dt>
+                                    <dd>{selected.maps_url ? <Chip tone="green">Terisi</Chip> : <Chip tone="yellow">Belum diisi</Chip>}</dd>
+                                </div>
+                            )}
+                        </dl>
+                        {!isOutlet && selected.maps_url && (
+                            <>
+                                <p className="bg-cream/70 border-ink/10 mt-2 truncate rounded-full border px-4 py-2 text-[11px]">
+                                    {selected.maps_url.replace(/^https:\/\//, '')}
+                                </p>
+                                <BtnLink
+                                    href={selected.maps_url}
+                                    external
+                                    variant="outline"
+                                    className="mt-2 w-full justify-center rounded-full border-2"
+                                >
+                                    Buka di Google Maps
+                                </BtnLink>
+                            </>
+                        )}
+                        <div className="mt-3 space-y-2">
+                            <Btn variant="yellow" className="w-full justify-center rounded-full" onClick={() => setEditing(selected)}>
+                                <Pencil className="size-3.5" />
+                                {isOutlet ? 'Edit data akun' : 'Edit data mitra dan tautan peta'}
+                            </Btn>
+                            {selected.wa ? (
+                                <BtnLink href={selected.wa} external variant="outline" className="w-full justify-center rounded-full border-2">
+                                    <MessageCircle className="size-3.5" />
+                                    WhatsApp mitra
+                                </BtnLink>
+                            ) : (
+                                <p className="text-ink/45 text-center text-[11px]">Isi nomor WhatsApp lewat Edit data untuk menghubungi mitra.</p>
+                            )}
+                            {actions(selected)}
+                        </div>
+                        <p className="text-ink/45 mt-3 text-[10px] leading-relaxed">
+                            PIN baru ditampilkan sekali ke admin. {isOutlet ? '' : 'Tautan peta dilihat peserta di detail voucher.'}
+                        </p>
+                    </section>
+                )}
+            </div>
 
             {editing && (
                 <PartnerDialog

@@ -4,12 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\ActivityLog;
 use App\Models\Area;
+use App\Models\Board;
 use App\Models\Claim;
 use App\Models\ClaimPhoto;
 use App\Models\Gift;
+use App\Models\MysteryPrize;
 use App\Models\Outlet;
 use App\Models\Participant;
 use App\Models\Partner;
+use App\Models\PartnerPayout;
 use App\Models\Setting;
 use App\Models\Slot;
 use App\Models\User;
@@ -23,7 +26,9 @@ use App\Support\RewardPresenter;
 use Database\Seeders\AdminSeeder;
 use Database\Seeders\CustomerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminPanelTest extends TestCase
@@ -90,7 +95,10 @@ class AdminPanelTest extends TestCase
             $this->get($url)->assertOk();
         }
         // Alamat lama diarahkan ke menu yang baru.
-        $this->get('/admin/master-data')->assertRedirect('/admin/master-data/area');
+        $this->get('/admin/master-data')->assertInertia(fn ($page) => $page->component('admin/master-data')->has('counts')->has('stock'));
+        foreach (['/admin/generator', '/admin/master-data/isi-papan', '/admin/pemenuhan?tab=bantuan'] as $url) {
+            $this->get($url)->assertOk();
+        }
         $this->get('/admin/mitra')->assertRedirect('/admin/pembayaran');
         $this->get('/admin/mitra?tab=akun')->assertRedirect('/admin/master-data/mitra');
     }
@@ -203,21 +211,22 @@ class AdminPanelTest extends TestCase
     {
         $this->actingAs($this->admin)->get('/admin/pengaturan')->assertOk();
         $values = collect(ProgramParameters::editable())->mapWithKeys(fn ($m, $k) => [str_replace('.', '__', $k) => (int) config($k)])->all();
-        $values['participant__slot_hold_minutes'] = 45;
+        $values['participant__flags__late_code_minutes'] = 45;
 
         $this->post('/admin/pengaturan', ['values' => $values])->assertRedirect();
-        $this->assertSame('45', Setting::get('param.participant.slot_hold_minutes'));
+        $this->assertSame('45', Setting::get('param.participant.flags.late_code_minutes'));
         $this->assertDatabaseHas('activity_logs', ['action' => 'settings.updated']);
 
         // Nilai tersimpan diterapkan saat aplikasi berjalan.
-        config(['participant.slot_hold_minutes' => 30]);
+        config(['participant.flags.late_code_minutes' => 30]);
         ProgramParameters::apply();
-        $this->assertSame(45, config('participant.slot_hold_minutes'));
+        $this->assertSame(45, config('participant.flags.late_code_minutes'));
     }
 
     public function test_partner_pin_reset_payout_and_correction(): void
     {
         $this->actingAs($this->admin);
+        Storage::fake('local');
         $this->post('/admin/mitra', ['name' => 'Kopi Baru', 'type' => 'umum', 'area_id' => Area::first()->id, 'whatsapp' => '081299990000'])
             ->assertSessionHas('partner_pin');
         $partner = Partner::where('name', 'Kopi Baru')->firstOrFail();
@@ -225,14 +234,23 @@ class AdminPanelTest extends TestCase
 
         $this->post("/admin/mitra/{$partner->id}/koreksi", ['count' => 3, 'reason' => ''])->assertSessionHasErrors('reason');
         $this->post("/admin/mitra/{$partner->id}/koreksi", ['count' => 3, 'reason' => 'Struk mitra lebih banyak'])->assertRedirect();
-        $this->post("/admin/mitra/{$partner->id}/dibayar", ['paid_at' => now()->toDateString(), 'proof' => 'TRF-123'])->assertRedirect();
+        // Bukti transfer wajib berupa file (foto atau PDF).
+        $this->post("/admin/mitra/{$partner->id}/dibayar", ['paid_at' => now()->toDateString()])->assertSessionHasErrors('proof_file');
+        $this->post("/admin/mitra/{$partner->id}/dibayar", [
+            'paid_at' => now()->toDateString(),
+            'proof_file' => UploadedFile::fake()->create('transfer.pdf', 120, 'application/pdf'),
+        ])->assertSessionHasNoErrors();
+        $payout = PartnerPayout::where('partner_id', $partner->id)->firstOrFail();
+        Storage::disk('local')->assertExists($payout->proof_path);
+        $this->get("/admin/mitra/bukti-bayar/{$payout->id}")->assertOk();
+        $this->get('/admin/pembayaran/ekspor')->assertOk();
         $this->post("/admin/mitra/{$partner->id}/koreksi", ['count' => 4, 'reason' => 'Coba ubah setelah dibayar'])->assertStatus(422);
     }
 
     public function test_vouchers_follow_master_data_voucher_types(): void
     {
-        // Seeder mengisi semua slot non-merch W07 dengan jenis voucher dari master data.
-        $this->assertSame(0, Slot::whereNull('voucher_type_id')->where('prize_type', '!=', 'merch')->count());
+        // Seeder mengisi semua slot voucher/token/bensin dengan jenis voucher dari master data (merch dan limited tanpa jenis).
+        $this->assertSame(0, Slot::whereNull('voucher_type_id')->whereIn('prize_type', ['voucher', 'token', 'bensin'])->count());
 
         $kopi = VoucherType::where('name', 'Kopi')->firstOrFail();
         $claim = $this->rewardedClaim('voucher', null, $kopi->id);
@@ -273,8 +291,13 @@ class AdminPanelTest extends TestCase
         // Satu warung mencakup banyak area kos; area pertama jadi area utama.
         $this->assertEqualsCanonicalizing([$first->id, $second->id], $outlet->areas()->pluck('areas.id')->all());
         $this->assertSame($first->id, $outlet->area_id);
+        // Papan baru kosong sampai diisi generator kode unik.
+        $this->assertSame(0, $outlet->board->slots()->count());
+        $this->post('/admin/generator/isi')->assertSessionHasNoErrors();
         $this->assertSame(25, $outlet->board->slots()->count());
-        $this->assertSame(0, $outlet->board->slots()->whereNull('voucher_type_id')->where('prize_type', '!=', 'merch')->count());
+        $this->assertSame(0, $outlet->board->slots()->whereNull('voucher_type_id')->whereIn('prize_type', ['voucher', 'token', 'bensin'])->count());
+        // Admin yang men-scan dianggap uji QR; peserta (tanpa login admin) diarahkan masuk.
+        auth()->logout();
         $this->get('/w21')->assertRedirect('/participant/masuk');
     }
 
@@ -309,6 +332,7 @@ class AdminPanelTest extends TestCase
 
         $prizes = app(SlotPrizeService::class);
         $outlet = $prizes->createOutlet('W90', 'Warung Uji', [Area::first()->id], [$kopi->id]);
+        $prizes->fillEmptyBoards();
         $slots = $outlet->board->slots()->get();
         // Voucher mitra hanya jenis yang dipilih; token tidak dipilih sama sekali, jadi tetap dari semua jenis token.
         $this->assertTrue($slots->where('prize_type', 'voucher')->every(fn (Slot $s) => $s->voucher_type_id === $kopi->id));
@@ -364,7 +388,7 @@ class AdminPanelTest extends TestCase
         $this->assertMatchesRegularExpression('/^KGR[A-Z0-9]{6}$/', $code);
         $this->assertSame($code, RewardCreationService::normalizeCode(' '.substr($code, 0, 3).'-'.strtolower(substr($code, 3)).' '));
 
-        $this->actingAs($this->admin)->get('/admin/papan?titik='.$claim->outlet->code)->assertInertia(fn ($page) => $page
+        $this->actingAs($this->admin)->get('/admin/papan/'.$claim->outlet->code)->assertInertia(fn ($page) => $page
             ->where('selected.slots', fn ($slots) => collect($slots)->contains(fn ($s) => $s['voucher_code'] === $code && $s['claimed'])
                 && collect($slots)->contains(fn ($s) => $s['voucher_code'] !== null && ! $s['claimed'])));
     }
@@ -456,36 +480,162 @@ kalimat dua
         $this->get('/participant')->assertInertia(fn ($page) => $page->where('voucherLines', ['kalimat satu', 'kalimat dua']));
     }
 
-    public function test_admin_rejects_claim_keeps_its_cap_number_and_cancels_reward(): void
+    public function test_admin_cannot_reject_claims(): void
     {
-        $mitra = VoucherType::where('fulfillment', 'mitra')->value('id');
-        $participant = $this->participant();
-        $first = $this->rewardedClaim('voucher', $participant, $mitra);
-        $this->travel(1)->minutes();
-        $second = $this->rewardedClaim('voucher', $participant, $mitra);
-        $this->assertSame(2, $participant->fresh()->caps);
+        $claim = $this->rewardedClaim('voucher', $this->participant(), VoucherType::where('fulfillment', 'mitra')->value('id'));
+        $this->actingAs($this->admin)->post("/admin/antrean-foto/{$claim->id}/tolak", ['reason' => 'Foto bukan bungkus program'])->assertNotFound();
+        $this->assertSame('approved', $claim->fresh()->status);
+    }
 
+    public function test_partner_maps_link_is_validated_and_shown_to_participant(): void
+    {
+        $partner = Partner::create(['name' => 'Kopi Peta', 'type' => 'umum', 'whatsapp' => '081211112222', 'status' => 'active']);
         $this->actingAs($this->admin);
-        $this->post("/admin/antrean-foto/{$first->id}/tolak", ['reason' => 'x'])->assertSessionHasErrors('reason');
-        $this->post("/admin/antrean-foto/{$first->id}/tolak", ['reason' => 'Foto bukan bungkus program'])->assertSessionHasNoErrors();
+        $base = ['name' => 'Kopi Peta', 'whatsapp' => '081211112222', 'type' => 'umum', 'address' => 'Jl. Sukabirus 12'];
 
-        $first->refresh();
-        $this->assertSame('rejected', $first->status);
-        $this->assertSame('cancelled', $first->voucher->status);
-        $this->assertSame(1, $participant->fresh()->caps);
-        // Nomor 1 tetap terpakai sebagai "ditolak", klaim berikutnya di nomor 2.
-        $this->assertSame(['rejected', 'cap'], $participant->fresh()->capTrail());
-        $this->assertSame('Klaim ditolak', RewardPresenter::voucher($first->voucher)['status_label']);
+        $this->put("/admin/mitra/{$partner->id}", [...$base, 'maps_url' => 'https://contoh.com/peta'])->assertSessionHasErrors('maps_url');
+        $this->put("/admin/mitra/{$partner->id}", [...$base, 'maps_url' => 'https://maps.app.goo.gl/abc123'])->assertSessionHasNoErrors();
+        $this->assertSame('Jl. Sukabirus 12', $partner->fresh()->address);
 
-        // Hadiah yang sudah ditukar mitra tidak bisa ditolak lagi.
-        $second->voucher->update(['status' => 'redeemed', 'redeemed_at' => now()]);
-        $this->post("/admin/antrean-foto/{$second->id}/tolak", ['reason' => 'Foto bukan bungkus program'])->assertSessionHasErrors('reason');
-        $this->assertSame('approved', $second->fresh()->status);
+        $claim = $this->rewardedClaim('voucher', voucherTypeId: VoucherType::where('fulfillment', 'mitra')->value('id'));
+        $claim->voucher->update(['partner_id' => $partner->id]);
+        $this->withSession(['participant_id' => $claim->participant_id])
+            ->get('/participant/voucher/'.$claim->voucher->code)
+            ->assertInertia(fn ($page) => $page->where('voucher.maps_url', 'https://maps.app.goo.gl/abc123'));
+    }
 
-        // Mitra: kode dari klaim yang ditolak tampil sebagai voucher dibatalkan.
-        $partner = Partner::create(['name' => 'Mitra Uji', 'type' => 'umum', 'pin_hash' => Hash::make('2580'), 'status' => 'active']);
-        $first->voucher->update(['partner_id' => $partner->id]);
-        $this->post('/mitra/masuk', ['pin' => '2580']);
-        $this->post('/mitra/cek', ['code' => $first->voucher->code])->assertSessionHas('mitra_check.state', 'cancelled');
+    public function test_print_export_and_install_guide(): void
+    {
+        $this->actingAs($this->admin);
+        $outlet = Outlet::first();
+        $this->get('/admin/cetak-voucher')->assertInertia(fn ($page) => $page->component('admin/cetak-voucher')->where('lastExport', null));
+        $csv = $this->get("/admin/cetak-voucher/ekspor?titik={$outlet->code}")->assertOk()->streamedContent();
+        $this->assertSame(26, substr_count($csv, chr(10))); // header + 25 slot
+        $this->assertNotNull(Setting::get('voucher_export_at'));
+
+        $outlet->board->slots()->update(['installed_at' => null]);
+        $this->get("/admin/papan/{$outlet->code}/pasang")->assertInertia(fn ($page) => $page->where('next', 'A1'));
+        $this->post("/admin/papan/{$outlet->code}/pasang", ['position' => 'A1', 'installed' => true])->assertRedirect();
+        $this->get("/admin/papan/{$outlet->code}/pasang")->assertInertia(fn ($page) => $page->where('next', 'A2'));
+        $this->post("/admin/papan/{$outlet->code}/pasang", ['position' => 'Z9', 'installed' => true])->assertSessionHasErrors('position');
+    }
+
+    public function test_mystery_gift_admin_toggle_chance_and_pack_done(): void
+    {
+        $this->actingAs($this->admin);
+        $this->get('/admin/mystery-gift')->assertInertia(fn ($page) => $page->component('admin/mystery-gift')->where('enabled', true));
+
+        $this->post('/admin/mystery-gift/peluang', ['chance' => 150])->assertSessionHasErrors('chance');
+        $this->post('/admin/mystery-gift/peluang', ['chance' => 30])->assertSessionHasNoErrors();
+        $this->assertSame('30', (string) Setting::get('param.participant.mystery_voucher_chance'));
+
+        $claim = $this->rewardedClaim('merch');
+        $gift = Gift::create(['claim_id' => $claim->id, 'type' => 'mystery_pack', 'status' => 'pending']);
+        $this->post("/admin/mystery-gift/produk/{$gift->id}/selesai")->assertRedirect();
+        $this->assertSame('done', $gift->fresh()->status);
+
+        // Dimatikan: peserta yang mencapai cap ke-5 tidak mendapat mystery gift.
+        $this->post('/admin/mystery-gift/aktif');
+        $this->assertFalse((bool) Setting::get('mystery_enabled', true));
+        $participant = $this->participant('081200009999');
+        foreach (range(1, 5) as $i) {
+            $this->rewardedClaim('voucher', $participant, VoucherType::where('fulfillment', 'mitra')->value('id'));
+        }
+        $this->assertSame(5, $participant->fresh()->caps);
+        $this->assertFalse(Voucher::whereIn('claim_id', $participant->claims()->pluck('id'))->where('source', 'mystery')->exists());
+        $this->assertFalse(Gift::whereIn('claim_id', $participant->claims()->pluck('id'))->where('type', 'mystery_pack')->exists());
+    }
+
+    public function test_mystery_prizes_and_access_list_are_managed_in_cms(): void
+    {
+        $this->actingAs($this->admin);
+        $this->post('/admin/mystery-gift/hadiah', ['name' => 'Voucher barbershop', 'fulfillment' => 'mitra', 'stock' => 3])->assertSessionHasErrors('partner_id');
+        $partner = Partner::create(['name' => 'Barber Rapi', 'type' => 'umum', 'status' => 'active']);
+        $this->post('/admin/mystery-gift/hadiah', ['name' => 'Voucher barbershop', 'fulfillment' => 'mitra', 'partner_id' => $partner->id, 'stock' => 3, 'value' => 50000])
+            ->assertSessionHasNoErrors();
+        $prize = MysteryPrize::firstOrFail();
+        $this->post("/admin/mystery-gift/hadiah/{$prize->id}/aktif");
+        $this->assertFalse($prize->fresh()->active);
+        $prize->update(['given' => 2]);
+        $this->put("/admin/mystery-gift/hadiah/{$prize->id}", ['name' => 'Voucher barbershop', 'fulfillment' => 'mitra', 'partner_id' => $partner->id, 'stock' => 1])
+            ->assertSessionHasErrors('stock');
+
+        $this->post('/admin/mystery-gift/daftar', ['whatsapp' => '0812-1111-2222', 'kind' => 'block'])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('mystery_access', ['whatsapp' => '081211112222', 'kind' => 'block']);
+        $this->post('/admin/mystery-gift/akun', ['audience' => 'list'])->assertSessionHasNoErrors();
+        $this->assertSame('list', Setting::get('mystery_audience'));
+        $this->get('/admin/mystery-gift')->assertInertia(fn ($page) => $page->has('prizes', 1)->has('access', 1)->where('audience', 'list'));
+    }
+
+    public function test_generator_runs_once_and_locks(): void
+    {
+        Slot::query()->delete();
+        Setting::put('generator_run_at', null);
+        $this->actingAs($this->admin);
+        $boards = Board::count();
+        $this->post('/admin/master-data/isi-papan', ['merch' => $boards * 2, 'limited' => $boards, 'quantities' => []])->assertSessionHasNoErrors();
+        $this->get('/admin/generator')->assertInertia(fn ($page) => $page->where('locked', false)->has('preview', 7)->where('stock.limited', $boards));
+
+        $this->post('/admin/generator/jalankan', [])->assertSessionHasErrors('confirm');
+        $this->post('/admin/generator/jalankan', ['confirm' => true])->assertSessionHasNoErrors();
+        $this->assertSame($boards * 25, Slot::count());
+        $this->assertSame($boards * 25, Slot::distinct()->count('code'));
+        $this->assertSame($boards * 2, Slot::where('prize_type', 'merch')->count());
+        $this->assertSame($boards, Slot::where('prize_type', 'limited')->count());
+        $this->assertSame(0, Slot::whereIn('prize_type', ['merch', 'limited'])->whereNotNull('voucher_code')->count());
+
+        // Terkunci: tidak bisa dijalankan ulang.
+        $this->post('/admin/generator/jalankan', ['confirm' => true])->assertSessionHasErrors('confirm');
+        $this->assertSame($boards * 25, Slot::count());
+        $this->get('/admin/generator')->assertInertia(fn ($page) => $page->where('locked', true)->where('result.duplicates', 0));
+        $this->get('/admin/generator/cetak')->assertInertia(fn ($page) => $page->has('boards', $boards));
+    }
+
+    public function test_admin_scanning_outlet_qr_marks_it_tested(): void
+    {
+        $outlet = Outlet::firstOrFail();
+        $this->actingAs($this->admin)->get('/'.strtolower($outlet->code))->assertRedirect('/admin/master-data/warung');
+        $this->assertNotNull($outlet->fresh()->qr_tested_at);
+        $this->get('/admin/master-data/warung')->assertInertia(fn ($page) => $page->where('outlets.0.qr_tested', fn ($v) => $v !== null));
+    }
+
+    public function test_mystery_gift_is_drawn_once_at_fifth_cap_and_not_everyone_wins(): void
+    {
+        config(['participant.mystery_voucher_chance' => 50]);
+        MysteryPrize::create(['name' => 'Voucher Spotify', 'fulfillment' => 'kode', 'stock' => 500]);
+        $rewards = app(RewardCreationService::class);
+        $outlet = Outlet::firstOrFail();
+        $mysteryOf = fn (Participant $p) => Voucher::where('source', 'mystery')->whereIn('claim_id', $p->claims()->pluck('id'))->count();
+
+        $winners = 0;
+        foreach (range(1, 60) as $n) {
+            $participant = $this->participant('0813'.str_pad((string) $n, 8, '0', STR_PAD_LEFT));
+            foreach (range(1, 6) as $cap) {
+                $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => $outlet->id, 'claim_code' => sprintf('KM%03d%d', $n, $cap), 'status' => 'approved']);
+                $rewards->grantCap($claim);
+                // Sebelum cap ke-5 tidak pernah ada mystery gift.
+                if ($cap < 5) {
+                    $this->assertSame(0, $mysteryOf($participant));
+                }
+            }
+            $got = $mysteryOf($participant);
+            // Diundi sekali di cap ke-5: dapat satu atau tidak sama sekali, cap ke-6 tidak mengundi ulang.
+            $this->assertContains($got, [0, 1]);
+            $winners += $got;
+        }
+
+        // Peluang 50%: tidak semua dapat, tapi ada yang dapat (gagal hanya bila 60 kali berturut-turut sama, ~1e-18).
+        $this->assertGreaterThan(0, $winners);
+        $this->assertLessThan(60, $winners);
+        $this->assertSame(60 - $winners, ActivityLog::where('action', 'mystery.missed')->count());
+
+        // Peluang 0%: tidak ada yang dapat.
+        config(['participant.mystery_voucher_chance' => 0]);
+        $participant = $this->participant('081399999999');
+        foreach (range(1, 5) as $cap) {
+            $rewards->grantCap(Claim::create(['participant_id' => $participant->id, 'outlet_id' => $outlet->id, 'claim_code' => "KZ00{$cap}", 'status' => 'approved']));
+        }
+        $this->assertSame(5, $participant->fresh()->caps);
+        $this->assertSame(0, $mysteryOf($participant));
     }
 }

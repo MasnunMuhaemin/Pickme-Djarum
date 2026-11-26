@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Claim;
 use App\Models\Outlet;
-use App\Services\ClaimRejectionService;
 use App\Support\ActivityLogger;
 use App\Support\ClaimFlags;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +15,7 @@ use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * A2 Foto klaim: klaim langsung berhasil tanpa persetujuan admin, jadi halaman ini hanya menampilkan foto bungkus
+ * A2 Antrean foto: klaim langsung berhasil tanpa persetujuan dan tanpa penolakan admin. Admin melihat foto bungkus
  * tiap klaim (terbaru dulu) beserta rinciannya.
  */
 class PhotoQueueController extends Controller
@@ -56,26 +55,6 @@ class PhotoQueueController extends Controller
         return Storage::disk('local')->response($path);
     }
 
-    /**
-     * Tolak klaim: hadiahnya dibatalkan dan capnya dicabut, nomor cap peserta tetap terpakai sebagai "ditolak".
-     * Alasan wajib dan tercatat di log. Tidak bisa bila hadiahnya sudah diproses.
-     */
-    public function reject(Request $request, Claim $claim, ClaimRejectionService $rejections): RedirectResponse
-    {
-        $data = $request->validate(
-            ['reason' => ['required', 'string', 'min:5', 'max:200']],
-            ['reason.required' => 'Alasan penolakan wajib diisi.', 'reason.min' => 'Alasan minimal 5 karakter.'],
-        );
-
-        try {
-            $rejections->reject($claim, $data['reason'], $request->user());
-        } catch (\DomainException $e) {
-            return back()->withErrors(['reason' => $e->getMessage()]);
-        }
-
-        return back()->with('status', "Klaim {$claim->claim_code} ditolak. Hadiahnya dibatalkan dan capnya dicabut.");
-    }
-
     /** Hapus foto bungkus (file dan catatannya). Klaim dan hadiahnya tetap; penghapusan tercatat di log. */
     public function destroyPhoto(Request $request, Claim $claim): RedirectResponse
     {
@@ -110,10 +89,12 @@ class PhotoQueueController extends Controller
             // Hadiah yang didapat dari slot ini, beserta kode vouchernya (merchandise tidak punya kode).
             'reward' => $claim->voucher
                 ? ($claim->voucher->voucherType?->name ?? ucfirst($claim->voucher->type)).' · Rp'.number_format($claim->voucher->amount(), 0, ',', '.')
-                : ($claim->gifts->firstWhere('type', '!=', 'mystery_pack') ? 'Merchandise' : null),
+                : match ($claim->gifts->firstWhere('type', '!=', 'mystery_pack')?->type) {
+                    'merchandise' => 'Merchandise',
+                    'limited_edition' => 'Limited edition',
+                    default => null,
+                },
             'voucher_code' => $claim->voucher?->code,
-            // Tolak klaim: hanya selama hadiahnya belum diproses.
-            'reject_blocker' => app(ClaimRejectionService::class)->blocker($claim),
             'reject_reason' => $claim->reject_reason,
             'rejected_at' => $claim->rejected_at?->format('d M Y H:i'),
         ];

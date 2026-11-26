@@ -20,8 +20,9 @@ import {
     useConfirm,
 } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
+import { cn } from '@/lib/utils';
 import { router, useForm, usePage } from '@inertiajs/react';
-import { Search } from 'lucide-react';
+import { KeyRound, Search } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 
 type Admin = { id: number; name: string; email: string; active: boolean; created: string | null };
@@ -38,8 +39,200 @@ type Peserta = {
     blocked: string | null;
     blocked_reason: string | null;
     pin_requested: boolean;
+    history: { code: string; outlet: string | null; slot: string | null; at: string | null; status: string; reward: string }[];
 };
 type Area = { id: number; name: string };
+
+type ConfirmFn = ReturnType<typeof useConfirm>[0];
+
+/** Peserta (desain): cari nama atau nomor, daftar di kiri, detail dengan riwayat klaim dan PIN sementara di kanan. */
+function PesertaPanel({
+    participants,
+    total,
+    search,
+    q,
+    setQ,
+    find,
+    onEdit,
+    onBlock,
+    confirm,
+}: {
+    participants: Peserta[];
+    total: number;
+    search: string;
+    q: string;
+    setQ: (v: string) => void;
+    find: (e: FormEvent) => void;
+    onEdit: (p: Peserta) => void;
+    onBlock: (p: Peserta) => void;
+    confirm: ConfirmFn;
+}) {
+    const [pickedId, setPickedId] = useState<number | null>(null);
+    const p = participants.find((x) => x.id === pickedId) ?? participants[0] ?? null;
+
+    return (
+        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <section className="rounded-2xl bg-white p-4">
+                <form onSubmit={find} className="mb-3 flex max-w-md gap-2">
+                    <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama atau nomor WhatsApp" />
+                    <Btn type="submit" variant="outline">
+                        <Search className="size-3.5" />
+                        Cari
+                    </Btn>
+                </form>
+                <p className="text-ink/50 mb-1 text-[11px] font-bold">{total} peserta</p>
+                <ul className="divide-ink/5 divide-y">
+                    {participants.map((x) => (
+                        <li key={x.id}>
+                            <button
+                                type="button"
+                                onClick={() => setPickedId(x.id)}
+                                className={cn(
+                                    'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition',
+                                    p?.id === x.id ? 'bg-lime-soft' : 'hover:bg-cream/60',
+                                )}
+                            >
+                                <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[13px] font-extrabold">{x.name}</span>
+                                    <span className="text-ink/45 block font-mono text-[10px]">
+                                        {x.whatsapp.slice(0, 4)}••••{x.whatsapp.slice(-4)}
+                                    </span>
+                                </span>
+                                <span className="text-ink/60 hidden text-[11px] sm:block">
+                                    {x.claims} klaim · {x.caps} cap
+                                </span>
+                                <span className="flex shrink-0 flex-col items-end gap-1">
+                                    {x.blocked ? <Chip tone="red">Diblokir</Chip> : <Chip tone="green">Aktif</Chip>}
+                                    {x.pin_requested && <Chip tone="yellow">Minta PIN</Chip>}
+                                </span>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+                {participants.length === 0 && <Empty>{search ? `Tidak ada peserta dengan "${search}".` : 'Belum ada peserta.'}</Empty>}
+                <p className="text-ink/45 mt-3 text-[11px]">
+                    Peserta mendaftar sendiri lewat webapp (persetujuan data dan cek usia), jadi tidak bisa ditambahkan dari admin.
+                </p>
+            </section>
+
+            <aside className="h-fit rounded-2xl bg-white p-5 xl:sticky xl:top-4">
+                {p ? (
+                    <>
+                        <div className="flex items-start justify-between gap-2">
+                            <div>
+                                <h2 className="text-[18px] leading-tight font-extrabold">{p.name}</h2>
+                                <Phone value={p.whatsapp} />
+                            </div>
+                            {p.blocked ? <Chip tone="red">Diblokir</Chip> : <Chip tone="green">Aktif</Chip>}
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                            {(
+                                [
+                                    [p.claims, 'klaim'],
+                                    [p.caps, 'cap'],
+                                    [p.area ?? '-', 'area kos'],
+                                ] as const
+                            ).map(([v, l]) => (
+                                <div key={l} className="bg-cream rounded-xl px-2 py-2.5">
+                                    <p className="truncate text-[15px] font-extrabold">{v}</p>
+                                    <p className="text-ink/50 text-[10px]">{l}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-ink/50 mt-2 text-[11px]">Terdaftar {p.registered ?? '-'}</p>
+                        {p.blocked && (
+                            <p className="mt-2 rounded-xl bg-[#fde0dc] px-3 py-2 text-[11px] text-[#b42318]">
+                                Diblokir {p.blocked}
+                                {p.blocked_reason ? ` · ${p.blocked_reason}` : ''}
+                            </p>
+                        )}
+
+                        <h3 className="mt-4 text-[13px] font-extrabold">Riwayat klaim</h3>
+                        <ul className="divide-ink/5 mt-1 divide-y text-[12px]">
+                            {p.history.map((h) => (
+                                <li key={h.code} className="flex items-center justify-between gap-2 py-2">
+                                    <span className="min-w-0">
+                                        <span className="block truncate font-bold">{h.reward}</span>
+                                        <span className="text-ink/50 font-mono text-[10px]">
+                                            {h.code} · {h.outlet ?? '-'}
+                                            {h.slot ? ` · ${h.slot}` : ''}
+                                        </span>
+                                    </span>
+                                    <span className="flex shrink-0 flex-col items-end gap-0.5">
+                                        <Chip tone={h.status === 'approved' ? 'green' : h.status === 'rejected' ? 'red' : 'yellow'}>
+                                            {h.status === 'approved' ? 'Berhasil' : h.status === 'rejected' ? 'Ditolak' : 'Diproses'}
+                                        </Chip>
+                                        <span className="text-ink/40 text-[10px]">{h.at}</span>
+                                    </span>
+                                </li>
+                            ))}
+                            {p.history.length === 0 && <li className="text-ink/45 py-3">Belum ada klaim.</li>}
+                        </ul>
+
+                        <div className="mt-4 space-y-2">
+                            {p.pin_requested && (
+                                <p className="rounded-xl bg-[#fff1d6] px-3 py-2 text-[11px] text-[#7a5410]">Peserta meminta bantuan Lupa PIN.</p>
+                            )}
+                            <Btn
+                                variant="yellow"
+                                className="h-10 w-full justify-center rounded-full"
+                                onClick={() =>
+                                    confirm({
+                                        title: `Buat PIN sementara untuk ${p.name}?`,
+                                        message:
+                                            'PIN lama langsung tidak berlaku. PIN sementara ditampilkan sekali; kirim ke peserta lewat WhatsApp dan minta ganti PIN di Profil.',
+                                        confirmLabel: 'Buat PIN sementara',
+                                        onConfirm: () => router.post(`/admin/pengguna/peserta/${p.id}/pin`, {}, { preserveScroll: true }),
+                                    })
+                                }
+                            >
+                                <KeyRound className="size-4" /> Buat PIN sementara
+                            </Btn>
+                            <div className="grid grid-cols-3 gap-2">
+                                {p.wa ? (
+                                    <BtnLink href={p.wa} external variant="outline" className="h-9 justify-center rounded-full border-2">
+                                        WhatsApp
+                                    </BtnLink>
+                                ) : (
+                                    <span />
+                                )}
+                                <Btn variant="outline" className="h-9 justify-center rounded-full border-2" onClick={() => onEdit(p)}>
+                                    Ubah
+                                </Btn>
+                                {p.blocked ? (
+                                    <Btn
+                                        variant="outline"
+                                        className="h-9 justify-center rounded-full border-2"
+                                        onClick={() =>
+                                            confirm({
+                                                title: `Buka blokir ${p.name}?`,
+                                                message: p.blocked_reason ? `Alasan blokir: ${p.blocked_reason}` : undefined,
+                                                confirmLabel: 'Buka blokir',
+                                                onConfirm: () => router.post(`/admin/pengguna/peserta/${p.id}/blokir`, {}, { preserveScroll: true }),
+                                            })
+                                        }
+                                    >
+                                        Buka blokir
+                                    </Btn>
+                                ) : (
+                                    <Btn
+                                        variant="outline"
+                                        className="h-9 justify-center rounded-full border-2 border-[#d0271d] text-[#b42318]"
+                                        onClick={() => onBlock(p)}
+                                    >
+                                        Blokir
+                                    </Btn>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <p className="text-ink/45 py-12 text-center text-[12px]">Pilih peserta di kiri.</p>
+                )}
+            </aside>
+        </div>
+    );
+}
 
 /** Tambah atau ubah akun admin. Kata sandi wajib saat menambah, opsional saat mengubah. */
 function AdminDialog({ admin, onClose }: { admin: Admin | null; onClose: () => void }) {
@@ -208,7 +401,7 @@ export default function Pengguna({
     const goto = (p: number) => router.get('/admin/pengguna', { tab: 'peserta', q: search || undefined, page: p }, { preserveScroll: true });
 
     return (
-        <AdminLayout active="pengguna" title="Pengguna" subtitle="Akun admin panel dan data peserta program">
+        <AdminLayout active="pengguna" title="Peserta" subtitle="Akun admin panel dan data peserta program">
             <PillTabs
                 active={tab}
                 tabs={[
@@ -260,118 +453,38 @@ export default function Pengguna({
                         ))}
                     </Table>
                     <p className="text-ink/45 mt-3 text-[11px]">
-                        Semua admin punya akses penuh ke panel. Akun mitra dan akun warung diatur di Master data, Mitra & akun.
+                        Semua admin punya akses penuh ke panel. Akun mitra dan akun warung diatur di Mitra dan pembayaran, tab Akun mitra.
                     </p>
                 </Card>
             ) : (
-                <Card title={`${pagination.total} peserta`} className="mt-4">
-                    <form onSubmit={find} className="mb-3 flex max-w-md gap-2">
-                        <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama atau nomor WhatsApp" />
-                        <Btn type="submit" variant="outline">
-                            <Search className="size-3.5" />
-                            Cari
+                <PesertaPanel
+                    participants={participants}
+                    total={pagination.total}
+                    search={search}
+                    q={q}
+                    setQ={setQ}
+                    find={find}
+                    onEdit={setEditingPeserta}
+                    onBlock={setBlocking}
+                    confirm={confirm}
+                />
+            )}
+            {tab === 'peserta' && pagination.last > 1 && (
+                <div className="mt-3 flex items-center justify-end gap-2 text-[12px]">
+                    {pagination.current > 1 && (
+                        <Btn variant="outline" onClick={() => goto(pagination.current - 1)}>
+                            Sebelumnya
                         </Btn>
-                    </form>
-                    {participants.length ? (
-                        <Table head={['Peserta', 'Area kos', 'Klaim', 'Terdaftar', 'Status', 'Aksi']}>
-                            {participants.map((p) => (
-                                <tr key={p.id}>
-                                    <Td>
-                                        <p className="font-extrabold">{p.name}</p>
-                                        <Phone value={p.whatsapp} className="text-ink/45 text-[10px]" />
-                                    </Td>
-                                    <Td>{p.area ?? '-'}</Td>
-                                    <Td>
-                                        {p.claims} klaim · {p.caps} cap
-                                    </Td>
-                                    <Td className="text-ink/55">{p.registered ?? '-'}</Td>
-                                    <Td>
-                                        <span className="flex flex-col items-start gap-1">
-                                            {p.blocked ? (
-                                                <Chip tone="red" className="whitespace-normal">
-                                                    Diblokir · {p.blocked}
-                                                </Chip>
-                                            ) : (
-                                                <Chip tone="green">Aktif</Chip>
-                                            )}
-                                            {p.pin_requested && <Chip tone="yellow">Minta reset PIN</Chip>}
-                                        </span>
-                                    </Td>
-                                    <Td>
-                                        <span className="flex gap-1.5">
-                                            {p.wa && (
-                                                <BtnLink href={p.wa} external variant="yellow">
-                                                    WhatsApp
-                                                </BtnLink>
-                                            )}
-                                            <Btn variant="outline" onClick={() => setEditingPeserta(p)}>
-                                                Ubah
-                                            </Btn>
-                                            <Btn
-                                                variant={p.pin_requested ? 'yellow' : 'outline'}
-                                                onClick={() =>
-                                                    confirm({
-                                                        title: `Reset PIN ${p.name}?`,
-                                                        message:
-                                                            'PIN lama langsung tidak berlaku. PIN baru ditampilkan sekali; berikan ke peserta lewat WhatsApp pribadi.',
-                                                        confirmLabel: 'Reset PIN',
-                                                        danger: true,
-                                                        onConfirm: () =>
-                                                            router.post(`/admin/pengguna/peserta/${p.id}/pin`, {}, { preserveScroll: true }),
-                                                    })
-                                                }
-                                            >
-                                                Reset PIN
-                                            </Btn>
-                                            {p.blocked ? (
-                                                <Btn
-                                                    variant="ghost"
-                                                    onClick={() =>
-                                                        confirm({
-                                                            title: `Buka blokir ${p.name}?`,
-                                                            message: p.blocked_reason ? `Alasan blokir: ${p.blocked_reason}` : undefined,
-                                                            confirmLabel: 'Buka blokir',
-                                                            onConfirm: () =>
-                                                                router.post(`/admin/pengguna/peserta/${p.id}/blokir`, {}, { preserveScroll: true }),
-                                                        })
-                                                    }
-                                                >
-                                                    Buka blokir
-                                                </Btn>
-                                            ) : (
-                                                <Btn variant="ghost" className="text-[#b42318]" onClick={() => setBlocking(p)}>
-                                                    Blokir
-                                                </Btn>
-                                            )}
-                                        </span>
-                                    </Td>
-                                </tr>
-                            ))}
-                        </Table>
-                    ) : (
-                        <Empty>{search ? `Tidak ada peserta dengan "${search}".` : 'Belum ada peserta.'}</Empty>
                     )}
-                    {pagination.last > 1 && (
-                        <div className="mt-3 flex items-center justify-end gap-2 text-[12px]">
-                            {pagination.current > 1 && (
-                                <Btn variant="outline" onClick={() => goto(pagination.current - 1)}>
-                                    Sebelumnya
-                                </Btn>
-                            )}
-                            <span className="text-ink/50">
-                                Halaman {pagination.current} dari {pagination.last}
-                            </span>
-                            {pagination.current < pagination.last && (
-                                <Btn variant="outline" onClick={() => goto(pagination.current + 1)}>
-                                    Berikutnya
-                                </Btn>
-                            )}
-                        </div>
+                    <span className="text-ink/50">
+                        Halaman {pagination.current} dari {pagination.last}
+                    </span>
+                    {pagination.current < pagination.last && (
+                        <Btn variant="outline" onClick={() => goto(pagination.current + 1)}>
+                            Berikutnya
+                        </Btn>
                     )}
-                    <p className="text-ink/45 mt-3 text-[11px]">
-                        Peserta mendaftar sendiri lewat webapp (persetujuan data dan cek usia), jadi tidak bisa ditambahkan dari admin.
-                    </p>
-                </Card>
+                </div>
             )}
 
             {editingAdmin && <AdminDialog admin={editingAdmin === 'new' ? null : editingAdmin} onClose={() => setEditingAdmin(null)} />}

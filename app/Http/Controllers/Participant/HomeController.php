@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Participant;
 
 use App\Http\Controllers\Controller;
+use App\Models\Outlet;
 use App\Models\Participant;
 use App\Models\Slot;
 use App\Services\RankingService;
@@ -13,7 +14,7 @@ use Inertia\Response;
 
 class HomeController extends Controller
 {
-    private const ORDER = ['voucher', 'token', 'merch', 'bensin'];
+    private const ORDER = ['voucher', 'token', 'merch', 'limited', 'bensin'];
 
     public function __construct(private RankingService $rankings) {}
 
@@ -32,6 +33,8 @@ class HomeController extends Controller
                     'last_outlet' => $lastOutlet,
                     'mystery' => RewardController::mysteryReward($participant),
                 ],
+                'lastBoard' => $this->board($lastOutlet),
+                'leaders' => $this->leaders(),
             ]);
         }
 
@@ -62,6 +65,37 @@ class HomeController extends Controller
                 'area' => $participant->area?->name,
             ],
         ]);
+    }
+
+    /** Papan terakhir di beranda: 25 slot urut A1 sampai E5 (terisi atau belum), nama warung, dan area. */
+    private function board(?string $code): ?array
+    {
+        $outlet = $code ? Outlet::with(['area', 'board.slots'])->where('code', $code)->first() : null;
+        if (! $outlet?->board) {
+            return null;
+        }
+        $slots = $outlet->board->slots->sortBy('position')->values();
+
+        return [
+            'code' => $outlet->code,
+            'name' => $outlet->name,
+            'area' => $outlet->area?->name,
+            'total' => $slots->count(),
+            'used' => $slots->where('status', 'used')->count(),
+            'filled' => $slots->map(fn (Slot $s) => $s->status === 'used')->all(),
+        ];
+    }
+
+    /** Tiga teratas peringkat untuk kartu "Sedang memimpin". */
+    private function leaders(): array
+    {
+        $top = $this->rankings->ranking()->take(3);
+        $names = Participant::whereIn('id', $top->pluck('participant_id'))->pluck('name', 'id');
+
+        return $top->map(fn ($row) => [
+            'name' => str((string) ($names[$row->participant_id] ?? '-'))->trim()->before(' ')->value(),
+            'caps' => $row->caps,
+        ])->values()->all();
     }
 
     private function participant(Request $request): ?Participant

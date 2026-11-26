@@ -5,10 +5,10 @@
     "start_url": "/participant",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#f7f3e3",
-    "theme_color": "#a9d65b",
+    "background_color": "#fdf8d5",
+    "theme_color": "#8fc31f",
     "icons": [
-        { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
-        { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+        { "src": "/apple-touch-icon.png?v=2", "sizes": "180x180", "type": "image/png" },
+        { "src": "/favicon.png?v=2", "sizes": "512x512", "type": "image/png" }
     ]
 }

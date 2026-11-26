@@ -33,8 +33,16 @@ class RewardPresenter
                 : [$kind ? self::voucherTitle($kind->name) : 'Voucher Kopi Grosir', "{$value}{$where}"],
             'token' => ['Token listrik', "{$value} · kode dikirim lewat WhatsApp"],
             'bensin' => ['Bensin motor', "Tunai {$value} · admin hubungi lewat WhatsApp"],
+            'digital' => ['Voucher digital', 'Kode dikirim lewat WhatsApp. Tunggu maks. 1×24 jam.'],
             default => ['Hadiah', $value],
         };
+        // Isi mystery gift dari CMS: nama hadiah dari admin.
+        if ($voucher->mysteryPrize) {
+            $title = $voucher->mysteryPrize->name;
+            if ($voucher->type === 'voucher' && ! $kuota) {
+                $description = "{$value}{$where}";
+            }
+        }
         if ($voucher->status === 'cancelled') {
             $description = 'Klaim ditolak admin'.($voucher->claim?->reject_reason ? ": {$voucher->claim->reject_reason}" : '');
         }
@@ -48,9 +56,14 @@ class RewardPresenter
             $needsDestination && $voucher->status === 'pending_data' => ['Isi nomor tujuan', 'progress'],
             $needsDestination => ['Nomor ditolak, isi ulang', 'progress'],
             $voucher->status === 'needs_admin' => ['Perlu bantuan admin', 'waiting'],
-            $voucher->status === 'pending_process' => [$kuota ? 'Diproses mitra' : 'Diproses 1×24 jam', 'progress'],
+            $voucher->status === 'pending_process' => [$voucher->type === 'digital' || $voucher->source === 'mystery' ? 'Diproses admin' : ($kuota ? 'Diproses admin' : 'Diproses 1×24 jam'), 'progress'],
             $voucher->status === 'contacted' => ['Dihubungi admin', 'progress'],
-            in_array($voucher->status, ['sent', 'handed_over', 'done'], true) => [$voucher->type === 'bensin' ? 'Diserahkan' : 'Terkirim', 'done'],
+            in_array($voucher->status, ['sent', 'handed_over', 'done'], true) => [match (true) {
+                $voucher->type === 'bensin' => 'Diserahkan',
+                $voucher->type === 'digital' => 'Kode terkirim',
+                $kuota => 'Top up selesai',
+                default => 'Terkirim',
+            }, 'done'],
             default => ['Menunggu admin', 'waiting'],
         };
 
@@ -69,8 +82,8 @@ class RewardPresenter
         return [
             'id' => $voucher->id,
             'kind' => $kuota ? 'kuota' : $voucher->type,
-            // Kode tampil di kotak putih gambar voucher (Klaim berhasil dan halaman Voucher).
-            'code' => $voucher->code,
+            // Kode tampil di kotak putih gambar voucher. Voucher digital: kode dari admin setelah dikirim.
+            'code' => $voucher->type === 'digital' ? $voucher->reference : $voucher->code,
             'title' => $title,
             'description' => $description,
             'value' => $value,
@@ -85,7 +98,7 @@ class RewardPresenter
                 $voucher->status === 'cancelled' => null,
                 $kuota && $voucher->status === 'rejected' => [
                     'title' => 'Nomor HP ditolak',
-                    'message' => 'Nomor HP sebelumnya tidak bisa diisi mitra. Isi ulang nomor yang benar.',
+                    'message' => 'Nomor HP sebelumnya tidak bisa diisi admin. Isi ulang nomor yang benar.',
                 ],
                 $kuota && $needsDestination => [
                     'title' => 'Lengkapi nomor HP',
@@ -111,6 +124,7 @@ class RewardPresenter
     public static function gift(Gift $gift): array
     {
         $isFreePack = $gift->type === 'mystery_pack';
+        $isLimited = $gift->type === 'limited_edition';
         $needsAddress = ! $isFreePack && $gift->status === 'pending_address';
 
         [$label, $tone] = match (true) {
@@ -129,10 +143,17 @@ class RewardPresenter
         return [
             'id' => $gift->id,
             'kind' => $isFreePack ? 'mystery' : 'merch',
-            'title' => $isFreePack ? 'Mystery gift: 1 bungkus gratis' : 'Merchandise',
+            'title' => match (true) {
+                $isFreePack && $gift->mysteryPrize => "Mystery gift: {$gift->mysteryPrize->name}",
+                $isFreePack => 'Mystery gift: 1 bungkus gratis',
+                $isLimited => 'Limited edition',
+                default => 'Merchandise',
+            },
             'description' => match (true) {
                 $gift->status === 'cancelled' => 'Klaim ditolak admin'.($gift->claim?->reject_reason ? ": {$gift->claim->reject_reason}" : ''),
-                $isFreePack => 'Admin hubungi lewat WhatsApp untuk penyerahan',
+                $isFreePack => 'Ambil di titik · admin hubungi lewat WhatsApp untuk penyerahan',
+                // Limited edition dari slot papan diambil langsung; dari peringkat dikirim ke alamat.
+                $isLimited && $gift->claim_id && $gift->status === 'done' => 'Diambil langsung di papan',
                 default => 'Diantar ke alamatmu',
             },
             'mystery' => $isFreePack,
@@ -171,6 +192,7 @@ class RewardPresenter
             'voucher' => ['Voucher Kopi Grosir', 'Voucher belanja', $value],
             'token' => ['Token listrik', 'Dikirim lewat WhatsApp', $value],
             'merch' => ['Merchandise', 'Diantar ke alamatmu', 'Barang'],
+            'limited' => ['Limited edition', 'Diambil langsung di papan', 'Barang'],
             'bensin' => ['Bensin motor', 'Tunai, admin hubungi', $value],
             default => ['Hadiah', 'Hadiah program', $value],
         };

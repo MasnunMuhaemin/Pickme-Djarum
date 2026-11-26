@@ -1,215 +1,183 @@
-import { Btn, BtnLink, Card, Chip, Empty, SelectInput, Table, Td } from '@/features/admin/ui';
-import AdminLayout, { type AdminShared, EmergencyDialog } from '@/layouts/admin-layout';
+import { Btn, BtnLink } from '@/features/admin/ui';
+import AdminLayout, { PauseOutletDialog } from '@/layouts/admin-layout';
 import { cn } from '@/lib/utils';
-import { router, usePage } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { router } from '@inertiajs/react';
 import { useState } from 'react';
 
-type OutletRow = { id: number; code: string; name: string; area: string | null; used: number; total: number; active: boolean };
-type SlotCell = {
-    position: string;
-    status: string;
-    prize: string;
-    by: string | null;
-    at: string | null;
-    voucher_code: string | null;
-    voucher_status: string | null;
-    claimed: boolean;
+type OutletRow = { code: string; name: string; area: string | null; used: number; total: number; active: boolean };
+type Stock = { key: string; label: string; total: number; used: number; left: number; detail: string };
+type Selected = {
+    id: number;
+    code: string;
+    name: string;
+    active: boolean;
+    used: number;
+    total: number;
+    used_voucher: number;
+    used_merch: number;
+    used_limited: number;
+    claims_today: number;
 };
-type Selected = { id: number; code: string; name: string; area: string | null; active: boolean; slots: SlotCell[] };
 
-/** A4 Papan dan slot: hanya baca. Jeda per titik dipicu dari sini. */
+/** Warna bar per jenis (desain): voucher lime, merchandise hitam. */
+const STOCK_BAR: Record<string, string> = { voucher: 'bg-lime', merch: 'bg-[#0b0b0b]' };
+
+function StatusChip({ active }: { active: boolean }) {
+    return (
+        <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-extrabold', active ? 'bg-lime text-ink' : 'bg-[#fde0dc] text-[#b42318]')}>
+            {active ? 'Aktif' : 'Dijeda'}
+        </span>
+    );
+}
+
+/**
+ * A4 Papan dan slot (desain): tabel semua warung dengan slot terpakai, stok per jenis hadiah di semua papan, dan
+ * ringkasan warung terpilih. Grid 25 slot per warung ada di "Lihat papan dan QR".
+ */
 export default function Papan({
     outlets,
-    selected,
     stock,
+    totals,
+    selected,
 }: {
     outlets: OutletRow[];
+    stock: Stock[];
+    totals: { slots: number; used: number };
     selected: Selected | null;
-    stock: { label: string; partner: string | null; total: number; used: number; left: number }[];
 }) {
-    const admin = usePage().props.admin as AdminShared;
     const [pauseOpen, setPauseOpen] = useState(false);
-    const index = outlets.findIndex((o) => o.id === selected?.id);
-    const go = (o?: OutletRow) => o && router.visit(`/admin/papan?titik=${o.code}`, { preserveScroll: true });
-    const counts = selected
-        ? {
-              used: selected.slots.filter((s) => s.status === 'used').length,
-              held: selected.slots.filter((s) => s.status === 'held').length,
-              empty: selected.slots.filter((s) => s.status === 'empty').length,
-          }
-        : null;
-    const totals = stock.reduce((acc, s) => ({ total: acc.total + s.total, used: acc.used + s.used, left: acc.left + s.left }), {
-        total: 0,
-        used: 0,
-        left: 0,
-    });
+    const pick = (code: string) => router.get('/admin/papan', { titik: code }, { preserveScroll: true, preserveState: true, replace: true });
 
     return (
-        <AdminLayout active="papan" title="Papan dan slot" subtitle={`${outlets.length} titik · 25 slot per papan · hanya baca`}>
-            {/* Pemilih warung: tetap ringkas walau warungnya puluhan. */}
-            <Card className="mb-4">
-                <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] font-bold">Warung</span>
-                    <Btn variant="outline" disabled={index <= 0} onClick={() => go(outlets[index - 1])} aria-label="Warung sebelumnya">
-                        <ChevronLeft className="size-3.5" />
-                    </Btn>
-                    <SelectInput
-                        value={selected?.code ?? ''}
-                        onChange={(code) => go(outlets.find((o) => o.code === code))}
-                        options={outlets.map((o) => ({
-                            value: o.code,
-                            label: `${o.code} · ${o.name} · ${o.area ?? '-'} · ${o.used}/${o.total} terpakai${o.active ? '' : ' · DIJEDA'}`,
-                        }))}
-                        className="w-full max-w-md"
-                    />
-                    <Btn
-                        variant="outline"
-                        disabled={index < 0 || index >= outlets.length - 1}
-                        onClick={() => go(outlets[index + 1])}
-                        aria-label="Warung berikutnya"
-                    >
-                        <ChevronRight className="size-3.5" />
-                    </Btn>
-                    {selected && (
-                        <span className="text-ink/55 ml-auto text-[11px]">
-                            {index + 1} dari {outlets.length} warung ·{' '}
-                            {outlets[index]?.active ? <Chip tone="green">Aktif</Chip> : <Chip tone="red">Dijeda</Chip>}
-                        </span>
-                    )}
-                </div>
-            </Card>
-
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-                <div>
-                    <Card title={selected ? `Isi hadiah papan ${selected.code} · ${selected.name}` : 'Isi hadiah papan'}>
-                        <Table head={['Hadiah', 'Total', 'Terpakai', 'Sisa']}>
-                            {stock.map((s) => (
-                                <tr key={s.label}>
-                                    <Td>
-                                        <p className="font-bold">{s.label}</p>
-                                        {s.partner && <p className="text-ink/45 text-[10px]">Tukar di {s.partner}</p>}
-                                    </Td>
-                                    <Td>{s.total}</Td>
-                                    <Td>{s.used}</Td>
-                                    <Td className="font-bold">{s.left}</Td>
+        <AdminLayout active="papan" title="Papan dan slot" subtitle={`${outlets.length} papan × 25 slot = ${totals.slots} slot`}>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <section className="rounded-2xl bg-white p-4">
+                    <div className="overflow-x-auto">
+                        <table className="w-full min-w-[620px] text-[12px]">
+                            <thead>
+                                <tr className="text-ink/50 text-left text-[11px]">
+                                    <th className="py-2 pl-3 font-semibold">Titik</th>
+                                    <th className="py-2 font-semibold">Nama warung</th>
+                                    <th className="py-2 font-semibold">Area</th>
+                                    <th className="py-2 font-semibold">Slot terpakai</th>
+                                    <th className="py-2 pr-3 font-semibold">Status</th>
                                 </tr>
-                            ))}
-                            <tr className="font-extrabold">
-                                <Td>Jumlah</Td>
-                                <Td>{totals.total}</Td>
-                                <Td>{totals.used}</Td>
-                                <Td>{totals.left}</Td>
-                            </tr>
-                        </Table>
-                    </Card>
-                </div>
+                            </thead>
+                            <tbody>
+                                {outlets.map((o) => {
+                                    const isSelected = o.code === selected?.code;
+                                    const pct = o.total ? Math.round((o.used / o.total) * 100) : 0;
+                                    return (
+                                        <tr
+                                            key={o.code}
+                                            onClick={() => pick(o.code)}
+                                            className={cn('cursor-pointer', isSelected ? 'bg-lime-soft' : 'hover:bg-cream/60')}
+                                        >
+                                            <td className="rounded-l-xl py-2 pl-3 font-extrabold">{o.code}</td>
+                                            <td className="py-2 font-bold">{o.name}</td>
+                                            <td className="text-ink/60 py-2">{o.area ?? '-'}</td>
+                                            <td className="py-2">
+                                                <span className="flex items-center gap-3">
+                                                    <span className="bg-cream-deep h-2 w-28 overflow-hidden rounded-full">
+                                                        <span className="bg-lime block h-full rounded-full" style={{ width: `${pct}%` }} />
+                                                    </span>
+                                                    <span className="font-bold tabular-nums">
+                                                        {o.used}/{o.total}
+                                                    </span>
+                                                </span>
+                                            </td>
+                                            <td className="rounded-r-xl py-2 pr-3">
+                                                <StatusChip active={o.active} />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
 
                 <div className="space-y-4">
-                    {selected && counts && (
-                        <Card
-                            title={`Papan ${selected.code} · ${selected.area ?? selected.name}`}
-                            right={
-                                selected.active ? (
-                                    <span className="flex gap-2">
-                                        <BtnLink href={`/admin/papan/${selected.code}/cetak`} variant="outline">
-                                            Cetak papan dan QR
-                                        </BtnLink>
-                                        <Btn variant="red" onClick={() => setPauseOpen(true)}>
-                                            Jeda titik ini
-                                        </Btn>
-                                    </span>
-                                ) : (
-                                    <Btn
-                                        variant="black"
-                                        onClick={() =>
-                                            router.post(
-                                                '/admin/darurat/lanjutkan',
-                                                { scope: 'outlet', outlet_id: selected.id },
-                                                { preserveScroll: true },
-                                            )
-                                        }
-                                    >
-                                        Lanjutkan titik
-                                    </Btn>
-                                )
-                            }
-                        >
-                            <div className="grid grid-cols-5 gap-2">
-                                {selected.slots.map((slot) => (
-                                    <div
-                                        key={slot.position}
-                                        title={`${slot.prize}${slot.voucher_code ? ` · ${slot.voucher_code}` : ''}${slot.by ? ` · ${slot.by}` : ''}${slot.at ? ` · ${slot.at}` : ''}`}
-                                        className={cn(
-                                            'grid h-11 place-items-center rounded-lg text-[12px] font-extrabold',
-                                            slot.status === 'used' && 'bg-ink text-white',
-                                            slot.status === 'held' && 'border-ink bg-lime border-2',
-                                            slot.status === 'empty' && 'border-ink/15 border bg-white',
-                                        )}
-                                    >
-                                        {slot.position}
+                    <section className="rounded-2xl bg-white p-4">
+                        <h2 className="text-[15px] font-extrabold">Stok per jenis</h2>
+                        <p className="text-ink/50 text-[11px]">
+                            {totals.used} terpakai · {totals.slots - totals.used} sisa dari {totals.slots}
+                        </p>
+                        <div className="mt-3 space-y-4">
+                            {stock.map((s) => (
+                                <div key={s.key}>
+                                    <div className="flex justify-between text-[13px] font-extrabold">
+                                        <span>{s.label}</span>
+                                        <span className="tabular-nums">
+                                            {s.used} / {s.total}
+                                        </span>
                                     </div>
-                                ))}
-                            </div>
-                            <p className="text-ink/55 mt-3 flex flex-wrap gap-4 text-[11px]">
-                                <span>■ Terpakai {counts.used}</span>
-                                <span className="text-ink">
-                                    <span className="text-lime-dark">■</span> Ditahan {counts.held}
-                                </span>
-                                <span>□ Kosong {counts.empty}</span>
-                                <span className="text-ink/40">Arahkan kursor ke slot untuk melihat isi, pengambil, dan waktu.</span>
-                            </p>
-                        </Card>
-                    )}
+                                    <div className="bg-cream-deep mt-1.5 h-2 overflow-hidden rounded-full">
+                                        <div
+                                            className={cn('h-full rounded-full', STOCK_BAR[s.key] ?? 'bg-lime')}
+                                            style={{ width: `${s.total ? (s.used / s.total) * 100 : 0}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-ink/60 mt-1.5 text-[11px]">Sisa {s.left}</p>
+                                    <p className="text-ink/45 text-[10px]">{s.detail}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="text-ink/45 border-ink/5 mt-4 border-t pt-3 text-[11px]">
+                            {stock.map((s) => s.total).join(' + ')} = {totals.slots}
+                        </p>
+                    </section>
 
                     {selected && (
-                        <Card
-                            title={`Kode voucher papan ${selected.code}`}
-                            right={
-                                <span className="text-ink/55 text-[11px] font-bold">
-                                    {selected.slots.filter((slot) => slot.claimed).length} sudah diklaim ·{' '}
-                                    {selected.slots.filter((slot) => slot.voucher_code && !slot.claimed).length} belum
-                                </span>
-                            }
-                        >
-                            {selected.slots.some((slot) => slot.voucher_code) ? (
-                                <Table head={['Slot', 'Peserta', 'Hadiah', 'Kode voucher', 'Status']}>
-                                    {selected.slots
-                                        .filter((slot) => slot.voucher_code)
-                                        // Belum diklaim di atas supaya admin langsung melihat kode yang masih tersedia.
-                                        .sort((a, b) => Number(a.claimed) - Number(b.claimed) || a.position.localeCompare(b.position))
-                                        .map((slot) => (
-                                            <tr key={slot.position}>
-                                                <Td className="font-extrabold">{slot.position}</Td>
-                                                <Td>{slot.claimed ? (slot.by ?? '-') : <span className="text-ink/40">-</span>}</Td>
-                                                <Td>{slot.prize}</Td>
-                                                <Td className="font-mono font-bold tracking-wider">{slot.voucher_code}</Td>
-                                                <Td>
-                                                    {slot.claimed ? <Chip>{slot.voucher_status}</Chip> : <Chip tone="yellow">Belum diklaim</Chip>}
-                                                </Td>
-                                            </tr>
-                                        ))}
-                                </Table>
-                            ) : (
-                                <Empty>Belum ada voucher yang keluar dari papan ini.</Empty>
-                            )}
-                            <p className="text-ink/45 mt-3 text-[11px]">
-                                Setiap slot hadiah sudah punya kode sejak papan dibuat; saat peserta mengambil slot, kode itu menjadi kode vouchernya.
-                                Merchandise tidak punya kode.
+                        <section className="rounded-2xl bg-white p-4">
+                            <div className="flex items-start justify-between gap-2">
+                                <h2 className="text-[15px] font-extrabold">
+                                    {selected.code} · {selected.name}
+                                </h2>
+                                <StatusChip active={selected.active} />
+                            </div>
+                            <dl className="divide-ink/5 mt-2 divide-y text-[12px]">
+                                <div className="flex justify-between py-2">
+                                    <dt className="text-ink/55">Slot terpakai</dt>
+                                    <dd className="font-extrabold">
+                                        {selected.used} dari {selected.total}
+                                    </dd>
+                                </div>
+                                <div className="flex justify-between py-2">
+                                    <dt className="text-ink/55">Voucher / merch / LE</dt>
+                                    <dd className="font-extrabold">
+                                        {selected.used_voucher} / {selected.used_merch} / {selected.used_limited}
+                                    </dd>
+                                </div>
+                                <div className="flex justify-between py-2">
+                                    <dt className="text-ink/55">Klaim hari ini</dt>
+                                    <dd className="font-extrabold">{selected.claims_today}</dd>
+                                </div>
+                            </dl>
+                            <div className="mt-3 space-y-2">
+                                <BtnLink href={`/admin/papan/${selected.code}`} variant="yellow" className="w-full justify-center rounded-full">
+                                    Lihat papan dan QR
+                                </BtnLink>
+                                {selected.active && (
+                                    <Btn
+                                        variant="outline"
+                                        onClick={() => setPauseOpen(true)}
+                                        className="w-full justify-center rounded-full border-2 border-[#d0271d] text-[#b42318]"
+                                    >
+                                        Jeda titik ini
+                                    </Btn>
+                                )}
+                            </div>
+                            <p className="text-ink/45 mt-2 text-[10px] leading-relaxed">
+                                Peserta di titik ini melihat halaman istirahat sampai dilanjutkan.
                             </p>
-                        </Card>
+                        </section>
                     )}
                 </div>
             </div>
 
-            {selected && admin && (
-                <EmergencyDialog
-                    open={pauseOpen}
-                    onClose={() => setPauseOpen(false)}
-                    admin={admin}
-                    initialScope="outlet"
-                    initialOutlet={selected.id}
-                />
+            {selected && pauseOpen && (
+                <PauseOutletDialog outlet={selected} used={selected.used} total={selected.total} onClose={() => setPauseOpen(false)} />
             )}
         </AdminLayout>
     );

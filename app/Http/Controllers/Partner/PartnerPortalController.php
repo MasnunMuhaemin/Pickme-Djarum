@@ -22,7 +22,7 @@ use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Halaman mitra (PRD bagian 12): M2 cek dan tukar kode (lalu foto bukti), M3 antrean top up untuk mitra kuota,
+ * Halaman mitra (PRD bagian 12): M2 cek dan tukar kode (lalu foto bukti),
  * M4 rekap mingguan. Mitra hanya melihat voucher miliknya dan nama depan penukar.
  */
 class PartnerPortalController extends Controller
@@ -195,45 +195,6 @@ class PartnerPortalController extends Controller
         return Storage::disk('local')->response($voucher->proof_path, headers: ['Cache-Control' => 'private, max-age=300']);
     }
 
-    /** M3: hanya mitra kuota. Permintaan top up diurutkan dari yang terlama. */
-    public function queue(Request $request): Response
-    {
-        $partner = $this->kuotaPartner($request);
-        $items = Voucher::where('partner_id', $partner->id)->where('status', 'pending_process')->oldest('updated_at')->get()
-            ->map(fn (Voucher $v) => ['id' => $v->id, 'destination' => $v->destination, 'value' => RewardPresenter::rupiah($v->amount())]);
-
-        return Inertia::render('partner/antrean', ['items' => $items, 'maxFailures' => config('participant.destination_max_failures')]);
-    }
-
-    public function queueDone(Request $request, Voucher $voucher): RedirectResponse
-    {
-        $partner = $this->kuotaPartner($request);
-        abort_unless($voucher->partner_id === $partner->id && $voucher->status === 'pending_process', 404);
-
-        // Top up selesai masuk rekap mingguan seperti voucher yang ditukar (redeemed_at).
-        $voucher->update(['status' => 'done', 'processed_at' => now(), 'redeemed_at' => now()]);
-        ActivityLogger::log('voucher.topup_done', 'voucher', $voucher->id, [], $partner);
-
-        return back()->with('status', 'Top up ditandai selesai');
-    }
-
-    /** Nomor salah: kembali ke peserta untuk diisi ulang; setelah batas salah perlu bantuan admin (PRD M3). */
-    public function queueWrong(Request $request, Voucher $voucher): RedirectResponse
-    {
-        $partner = $this->kuotaPartner($request);
-        abort_unless($voucher->partner_id === $partner->id && $voucher->status === 'pending_process', 404);
-
-        $failed = $voucher->failed_attempts + 1;
-        $voucher->update([
-            'failed_attempts' => $failed,
-            'status' => $failed >= config('participant.destination_max_failures') ? 'needs_admin' : 'rejected',
-            'fail_reason' => 'Nomor salah (mitra kuota)',
-        ]);
-        ActivityLogger::log('voucher.topup_wrong_number', 'voucher', $voucher->id, ['attempt' => $failed], $partner);
-
-        return back()->with('status', 'Dikembalikan ke peserta');
-    }
-
     /**
      * @return array{0: string, 1: ?Voucher}
      */
@@ -336,13 +297,5 @@ class PartnerPortalController extends Controller
     private function partner(Request $request): Partner
     {
         return Partner::findOrFail($request->session()->get('partner_id'));
-    }
-
-    private function kuotaPartner(Request $request): Partner
-    {
-        $partner = $this->partner($request);
-        abort_unless($partner->type === 'kuota', 403);
-
-        return $partner;
     }
 }

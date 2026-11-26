@@ -82,7 +82,7 @@ export function Btn({ variant = 'black', className, ...props }: ButtonHTMLAttrib
             type="button"
             {...props}
             className={cn(
-                'inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3.5 text-[11px] font-bold whitespace-nowrap transition disabled:cursor-not-allowed disabled:opacity-40',
+                'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full px-3.5 py-1 text-[11px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40',
                 btnVariant[variant],
                 className,
             )}
@@ -104,7 +104,7 @@ export function BtnLink({
     external?: boolean;
 }) {
     const cls = cn(
-        'inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-3.5 text-[11px] font-bold whitespace-nowrap transition',
+        'inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full px-3.5 py-1 text-[11px] font-bold transition',
         btnVariant[variant],
         className,
     );
@@ -166,28 +166,14 @@ export function SelectInput({
 }) {
     const current = options.find((o) => String(o.value) === String(value));
     const [query, setQuery] = useState('');
-    // Kotak cari hanya muncul bila pilihannya banyak (mis. puluhan warung).
-    const searchable = options.length > 8;
     const all = placeholder !== undefined ? [{ value: '', label: placeholder }, ...options] : options;
-    const choices = searchable ? all.filter((o) => o.value === '' || matches(query, o.label)) : all;
+    const choices = all.filter((o) => o.value === '' || matches(query, o.label));
     return (
         <DropdownMenu modal={false} onOpenChange={(open) => !open && setQuery('')}>
             <Trigger label={current?.label ?? placeholder ?? 'Pilih'} empty={!current} className={className} disabled={disabled} />
-            <DropdownMenuContent align="start" className={cn(panelClass, 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-48')}>
-                {searchable && (
-                    <div className="border-ink/10 mb-1 border-b p-1 pb-2">
-                        <input
-                            autoFocus
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            // Tombol huruf jangan diambil menu sebagai lompatan pilihan.
-                            onKeyDown={(e) => e.key !== 'Escape' && e.stopPropagation()}
-                            placeholder="Ketik untuk mencari"
-                            className={fieldClass}
-                        />
-                    </div>
-                )}
-                {searchable && choices.length === 0 && <p className="text-ink/45 px-2.5 py-2 text-[12px]">Tidak ada yang cocok.</p>}
+            <DropdownMenuContent align="start" className={cn(panelClass, 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 max-w-[calc(100vw-2rem)]')}>
+                <MenuSearch value={query} onChange={setQuery} />
+                {choices.length === 0 && <p className="text-ink/45 px-2.5 py-2 text-[12px]">Tidak ada yang cocok.</p>}
                 {choices.map((o) => {
                     const selected = String(o.value) === String(value);
                     return (
@@ -199,6 +185,27 @@ export function SelectInput({
                 })}
             </DropdownMenuContent>
         </DropdownMenu>
+    );
+}
+
+/** Kotak cari di dalam dropdown CMS. */
+function MenuSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+    return (
+        <div className="border-ink/10 mb-1 border-b p-1 pb-2">
+            <label className="border-ink/15 flex h-9 items-center gap-2 rounded-lg border bg-white px-2.5">
+                <Search className="text-ink/40 size-3.5 shrink-0" />
+                <input
+                    autoFocus
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    // Tombol huruf jangan diambil menu sebagai lompatan pilihan.
+                    onKeyDown={(e) => e.key !== 'Escape' && e.stopPropagation()}
+                    placeholder="Cari..."
+                    aria-label="Cari pilihan"
+                    className="placeholder:text-ink/40 min-w-0 flex-1 bg-transparent text-[12px] outline-none"
+                />
+            </label>
+        </div>
     );
 }
 
@@ -242,13 +249,17 @@ export function MultiSelect({
     placeholder: string;
     className?: string;
 }) {
+    const [query, setQuery] = useState('');
     const chosen = options.filter((o) => value.includes(o.value));
+    const shown = options.filter((o) => matches(query, o.label));
     const summary = chosen.length === 0 ? placeholder : chosen.length <= 2 ? chosen.map((o) => o.label).join(', ') : `${chosen.length} dipilih`;
     return (
-        <DropdownMenu modal={false}>
+        <DropdownMenu modal={false} onOpenChange={(open) => !open && setQuery('')}>
             <Trigger label={summary} empty={!chosen.length} className={className} />
-            <DropdownMenuContent align="start" className={cn(panelClass, 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-48')}>
+            <DropdownMenuContent align="start" className={cn(panelClass, 'w-[var(--radix-dropdown-menu-trigger-width)] min-w-0 max-w-[calc(100vw-2rem)]')}>
+                {options.length > 0 && <MenuSearch value={query} onChange={setQuery} />}
                 {options.length === 0 && <p className="text-ink/45 px-2.5 py-2 text-[12px]">Belum ada pilihan.</p>}
+                {options.length > 0 && shown.length === 0 && <p className="text-ink/45 px-2.5 py-2 text-[12px]">Tidak ada yang cocok.</p>}
                 {options.length > 0 && (
                     <div className="border-ink/10 mb-1 flex items-center justify-between border-b px-2.5 pt-1 pb-2 text-[11px]">
                         <span className="text-ink/55 font-bold">
@@ -261,7 +272,7 @@ export function MultiSelect({
                         )}
                     </div>
                 )}
-                {options.map((o) => {
+                {shown.map((o) => {
                     const selected = value.includes(o.value);
                     return (
                         <DropdownMenuCheckboxItem
@@ -313,7 +324,10 @@ export function DateInput({ value, onChange, className }: { value: string; onCha
     return (
         <DropdownMenu modal={false}>
             <Trigger label={label} empty={!value} className={className} />
-            <DropdownMenuContent align="start" className={cn(panelClass, 'max-h-none w-64 overflow-visible p-3')}>
+            <DropdownMenuContent
+                align="start"
+                className={cn(panelClass, 'max-h-none w-[min(16rem,calc(100vw-2rem))] overflow-visible p-3')}
+            >
                 <div className="flex items-center justify-between">
                     <button
                         type="button"

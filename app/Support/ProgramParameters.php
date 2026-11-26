@@ -18,13 +18,11 @@ class ProgramParameters
     public static function editable(): array
     {
         return [
-            'participant.slot_hold_minutes' => ['label' => 'Penahanan slot yang ditunjuk', 'unit' => 'menit', 'min' => 5, 'max' => 240],
-            'participant.flags.random_sample_percent' => ['label' => 'Sampel acak', 'unit' => '% semua klaim', 'min' => 0, 'max' => 100],
             'participant.flags.similar_photo_max_distance' => ['label' => 'Foto mirip (jarak hash maksimal)', 'unit' => 'bit', 'min' => 0, 'max' => 20],
             'participant.flags.dark_photo_brightness' => ['label' => 'Foto gelap (kecerahan di bawah)', 'unit' => 'dari 255', 'min' => 0, 'max' => 255],
             'participant.flags.late_code_minutes' => ['label' => 'Jeda foto ke input kode', 'unit' => 'menit', 'min' => 1, 'max' => 240],
             'participant.mystery_voucher_chance' => [
-                'label' => 'Peluang mystery gift berupa voucher', 'unit' => '%', 'min' => 0, 'max' => 100,
+                'label' => 'Peluang peserta mendapat mystery gift di cap ke-5', 'unit' => '%', 'min' => 0, 'max' => 100,
             ],
             'participant.destination_max_failures' => ['label' => 'Batas salah nomor tujuan', 'unit' => 'kali', 'min' => 1, 'max' => 10],
             'participant.min_age' => ['label' => 'Batas usia pendaftar', 'unit' => 'tahun', 'min' => 17, 'max' => 30],

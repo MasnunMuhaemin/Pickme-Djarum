@@ -10,7 +10,7 @@ const lastRect = new Map<string, Rect>();
  * Indikator menu aktif yang meluncur seperti tab bar iOS. Tandai item aktif dengan data-active="true" di dalam
  * `containerRef` (yang harus position: relative), lalu render elemen indikator dengan `style`.
  */
-export function useSlidingIndicator(navKey: string, activeKey: string) {
+export function useSlidingIndicator(navKey: string, activeKey: string, snap = false) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [rect, setRect] = useState<Rect | null>(() => lastRect.get(navKey) ?? null);
     const [animate, setAnimate] = useState(false);
@@ -24,6 +24,13 @@ export function useSlidingIndicator(navKey: string, activeKey: string) {
         const next = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
         const prev = lastRect.get(navKey);
         lastRect.set(navKey, next);
+
+        // Saat geser, pil harus tepat di bawah jari: tanpa transisi supaya tidak ketinggalan.
+        if (snap) {
+            setAnimate(false);
+            setRect(next);
+            return;
+        }
 
         if (!prev || (prev.x === next.x && prev.y === next.y && prev.w === next.w && prev.h === next.h)) {
             setAnimate(false);
@@ -44,7 +51,7 @@ export function useSlidingIndicator(navKey: string, activeKey: string) {
             cancelAnimationFrame(outer);
             cancelAnimationFrame(inner);
         };
-    }, [navKey, activeKey]);
+    }, [navKey, activeKey, snap]);
 
     const style: CSSProperties = rect
         ? {

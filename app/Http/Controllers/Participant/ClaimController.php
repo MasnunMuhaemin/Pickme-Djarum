@@ -122,7 +122,6 @@ class ClaimController extends Controller
                 'id' => $claim->id,
                 'status' => $claim->status,
                 'claim_code' => $claim->claim_code,
-                'held_until' => $claim->slot?->held_until?->toIso8601String(),
                 'slot' => $claim->slot ? [
                     'position' => $claim->slot->position,
                     // Kode slot yang ditunjuk selalu ditampilkan, sama di lokal dan production.
@@ -170,6 +169,7 @@ class ClaimController extends Controller
                 'rejected_at' => $claim->rejected_at?->format('d M Y H:i'),
             ],
             'capTrail' => $participant->capTrail(),
+            'hasMystery' => RewardController::mysteryReward($participant) !== null,
             'dailyLimit' => (int) config('participant.daily_claim_limit'),
             'adminWhatsapp' => config('participant.admin_whatsapp'),
         ]);
@@ -201,8 +201,7 @@ class ClaimController extends Controller
             ],
             'caps' => $participant->fresh()->caps,
             'capTrail' => $participant->capTrail(),
-            // Token, bensin, dan merchandise: cap baru bertambah setelah admin menyelesaikan hadiahnya.
-            'capPending' => ! $claim->cap_at,
+            'hasMystery' => RewardController::mysteryReward($participant) !== null,
         ]);
     }
 

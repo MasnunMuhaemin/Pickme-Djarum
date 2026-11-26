@@ -1,14 +1,16 @@
 import { RejectedCap } from '@/features/participant/components/ui';
 import { type CapMark, capSlots, STAR } from '@/features/participant/rewards';
 import { cn } from '@/lib/utils';
+import { usePage } from '@inertiajs/react';
 import { Check, Gift } from 'lucide-react';
 
 /**
  * Kartu cap hitam ringkas (desain "CAP KAMU"): jumlah cap, cap bergerigi lime untuk yang dihitung, nomor klaim yang
  * ditolak dengan cincin lime, dan nomor kosong bergaris putus-putus. Dipakai di Klaim berhasil dan Klaim ditolak.
  */
-export function CapStrip({ trail, total = 10 }: { trail: CapMark[]; total?: number }) {
-    const slots = capSlots(trail, 5, total);
+export function CapStrip({ trail, total = 10, won = false }: { trail: CapMark[]; total?: number; won?: boolean }) {
+    const mysteryEnabled = usePage().props.mysteryEnabled as boolean | null;
+    const slots = capSlots(trail, 5, total, { won, enabled: mysteryEnabled !== false });
     return (
         <div className="rounded-2xl bg-[#0b0b0b] px-3.5 py-3">
             <div className="flex items-center justify-between gap-2">

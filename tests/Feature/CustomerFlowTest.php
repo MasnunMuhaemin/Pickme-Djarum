@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Area;
 use App\Models\Claim;
 use App\Models\Gift;
+use App\Models\MysteryAccess;
+use App\Models\MysteryPrize;
 use App\Models\Outlet;
 use App\Models\Participant;
 use App\Models\Setting;
@@ -108,7 +110,8 @@ class CustomerFlowTest extends TestCase
         $participant = Participant::firstOrFail();
         $this->assertSame('Sakinah', $participant->name);
 
-        $this->post('/participant/persetujuan', ['accepted' => true])->assertRedirect('/participant/foto');
+        // Tanpa QR yang dipindai, setelah setuju peserta scan papan dulu sebelum foto bungkus.
+        $this->post('/participant/persetujuan', ['accepted' => true])->assertRedirect('/participant/scan');
         // Belum menjawab pertanyaan mahasiswa: klaim ditahan, lalu lanjut ke foto setelah menjawab "ya".
         $this->get('/participant/foto?outlet=W07')->assertRedirect('/participant/mahasiswa');
         $this->post('/participant/mahasiswa', ['is_student' => true])->assertRedirect('/participant/foto?outlet=W07');
@@ -219,39 +222,52 @@ class CustomerFlowTest extends TestCase
         $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->has('leaderboard.total', 0));
     }
 
-    public function test_token_cap_counts_only_after_admin_marks_it_sent(): void
+    public function test_token_cap_counts_immediately_after_claim(): void
     {
         $participant = $this->readyParticipant();
         $this->prizesAre('token');
         $claim = $this->uploadPhoto(seed: 41);
 
-        // Token butuh proses admin: cap dan peringkat belum bertambah.
-        $this->assertSame(0, $participant->fresh()->caps);
-        $this->assertNull($claim->fresh()->cap_at);
-        $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page->where('capPending', true));
-        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->has('leaderboard.total', 0));
+        // Token listrik butuh proses admin, tetapi cap dihitung saat klaim berhasil.
+        $this->assertSame(1, $participant->fresh()->caps);
+        $this->assertNotNull($claim->fresh()->cap_at);
+        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->where('leaderboard.total.0.caps', 1));
 
+        // Admin menyelesaikan token tidak menambah cap kedua.
         $voucher = Voucher::where('claim_id', $claim->id)->firstOrFail();
         $voucher->update(['status' => 'pending_process']);
         $this->actingAs(User::factory()->create(['is_admin' => true]))
             ->post("/admin/pemenuhan/token/{$voucher->id}/berhasil", ['reference' => 'REF123']);
 
         $this->assertSame(1, $participant->fresh()->caps);
-        $this->assertNotNull($claim->fresh()->cap_at);
-        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->where('leaderboard.total.0.caps', 1));
     }
 
-    public function test_first_photo_and_similar_photo_are_flagged(): void
+    public function test_merch_cap_counts_immediately_after_claim(): void
     {
-        config(['participant.flags.first_photo' => true]);
+        $participant = $this->readyParticipant();
+        $this->prizesAre('merch');
+        $claim = $this->uploadPhoto(seed: 42);
+
+        // Merchandise meminta alamat, tetapi cap tetap dihitung saat klaim berhasil.
+        $this->assertSame(1, $participant->fresh()->caps);
+        $this->assertNotNull($claim->fresh()->cap_at);
+    }
+
+    public function test_similar_photo_is_noted_and_claims_are_never_held(): void
+    {
+        config(['participant.flags.first_photo' => true, 'participant.flags.random_sample_percent' => 100]);
         $this->readyParticipant();
 
+        // Tanpa persetujuan admin: tanda pemeriksaan (foto pertama, sampel acak) tidak dibuat dan klaim langsung berhasil.
         $first = $this->uploadPhoto(seed: 7);
-        $this->assertContains('first_photo', $first->flags());
+        $this->assertSame('approved', $first->status);
+        $this->assertSame([], array_values(array_intersect(['first_photo', 'random_sample'], $first->flags())));
 
         $second = $this->uploadPhoto(seed: 7);
-        $this->assertNotContains('first_photo', $second->flags());
         $this->assertContains('similar_photo', $second->flags());
+        $this->assertSame('approved', $second->status);
+        // Tidak ada slot yang ditahan.
+        $this->assertSame(0, Slot::where('status', 'held')->count());
     }
 
     public function test_old_board_page_redirects_home_and_home_shows_participant_summary(): void
@@ -328,17 +344,17 @@ class CustomerFlowTest extends TestCase
         $this->get('/participant/foto')->assertRedirect('/participant')->assertSessionHasErrors('claim');
     }
 
-    public function test_logged_in_participant_with_scanned_outlet_goes_straight_to_photo(): void
+    public function test_logged_in_participant_must_scan_again_before_photo(): void
     {
         $this->readyParticipant();
 
-        // Belum pernah scan QR: halaman Scan tetap tampil.
+        // Halaman Scan selalu tampil, juga setelah QR terbaca sebelumnya.
+        $this->get('/participant/scan')->assertOk();
+        $this->get('/w07');
         $this->get('/participant/scan')->assertOk();
 
-        // Setelah QR terbaca: menu Scan langsung ke foto, kecuali minta ganti warung.
-        $this->get('/w07');
-        $this->get('/participant/scan')->assertRedirect('/participant/foto?outlet=W07');
-        $this->get('/participant/scan?ganti=1')->assertOk();
+        // Baru setelah QR benar-benar terbaca di sesi ini peserta masuk ke foto.
+        $this->post('/participant/scan', ['code' => 'W07'])->assertRedirect('/participant/foto?outlet=W07');
 
         // Setelah keluar: kembali ke beranda tamu dan warung yang terbaca dilupakan.
         $this->post('/participant/keluar')->assertRedirect('/participant');
@@ -346,16 +362,28 @@ class CustomerFlowTest extends TestCase
         $this->get('/participant/scan')->assertOk();
     }
 
-    public function test_returning_participant_goes_to_photo_at_last_claimed_outlet(): void
+    public function test_returning_participant_still_scans_qr_before_photo(): void
     {
         $this->readyParticipant();
-        $claim = $this->uploadPhoto(seed: 41);
+        $this->uploadPhoto(seed: 41);
 
-        // Keluar lalu masuk lagi dari Beranda tanpa scan QR: warung klaim terakhir dipakai.
+        // Keluar lalu masuk lagi: scan tetap ditampilkan, warung klaim terakhir tidak dipakai otomatis.
         $this->post('/participant/keluar');
-        $this->post('/participant/masuk', ['whatsapp' => '081234567890', 'pin' => '4826']);
-        $this->get('/participant/scan')->assertRedirect('/participant/foto?outlet=W07');
-        $this->get('/participant/scan?ganti=1')->assertOk();
+        $this->post('/participant/masuk', ['whatsapp' => '081234567890', 'pin' => '4826'])->assertRedirect('/participant/scan');
+        $this->get('/participant/scan')->assertOk();
+    }
+
+    public function test_student_question_and_blocked_notice_are_popups_on_scan(): void
+    {
+        $this->readyParticipant();
+
+        // Pertanyaan mahasiswa dirender sebagai popup di halaman scan, bukan halaman sendiri.
+        $this->get('/participant/mahasiswa')->assertInertia(fn ($page) => $page
+            ->component('participant/scan')
+            ->where('student', true));
+        $this->get('/participant/mahasiswa/khusus')->assertInertia(fn ($page) => $page
+            ->component('participant/scan')
+            ->where('studentBlocked', true));
     }
 
     public function test_login_without_scan_never_lands_on_the_board(): void
@@ -383,7 +411,8 @@ class CustomerFlowTest extends TestCase
         $this->get('/participant/masuk')->assertRedirect('/participant/scan');
         $this->get('/participant/daftar')->assertRedirect('/participant/scan');
 
-        $this->get('/x99')->assertRedirect('/participant/qr-tidak-dikenal');
+        // QR tidak dikenal: kembali ke Scan dengan popup error, bukan halaman sendiri.
+        $this->get('/x99')->assertRedirect('/participant/scan')->assertSessionHasErrors('qr');
         $this->assertDatabaseHas('rejects', ['reason' => 'unknown_qr']);
     }
 
@@ -392,14 +421,24 @@ class CustomerFlowTest extends TestCase
         $this->post('/participant/scan', ['code' => 'w07'])
             ->assertRedirect('/participant/masuk');
 
-        $this->post('/participant/scan', ['code' => 'XX99'])
-            ->assertRedirect('/participant/qr-tidak-dikenal');
+        // QR tidak dikenal: kembali ke halaman scan dengan error untuk popup.
+        $this->from('/participant/scan')->post('/participant/scan', ['code' => 'XX99'])
+            ->assertRedirect('/participant/scan')->assertSessionHasErrors('qr');
 
         // QR asli berisi alamat titik (PRD FR-06).
         $this->post('/participant/scan', ['code' => 'https://pickme.example/w07'])
             ->assertRedirect('/participant/masuk');
-        $this->post('/participant/scan', ['code' => 'https://toko-lain.example/promo'])
-            ->assertRedirect('/participant/qr-tidak-dikenal');
+        $this->from('/participant/scan')->post('/participant/scan', ['code' => 'https://toko-lain.example/promo'])
+            ->assertRedirect('/participant/scan')->assertSessionHasErrors('qr');
+    }
+
+    public function test_guest_who_scanned_qr_goes_to_photo_after_register_and_consent(): void
+    {
+        $this->post('/participant/scan', ['code' => 'W07'])->assertRedirect('/participant/masuk');
+        $this->post('/participant/daftar', $this->register())->assertRedirect('/participant/persetujuan');
+
+        // QR sudah dipindai sebelum daftar: setelah setuju langsung ke foto, tidak scan ulang.
+        $this->post('/participant/persetujuan', ['accepted' => true])->assertRedirect('/participant/foto?outlet=W07');
     }
 
     public function test_non_student_cannot_start_a_claim(): void
@@ -510,9 +549,10 @@ class CustomerFlowTest extends TestCase
             ->where('defaults.note', 'titip satpam'));
     }
 
-    public function test_mystery_gift_at_fifth_cap_can_be_a_voucher(): void
+    public function test_mystery_gift_at_fifth_cap_gives_a_cms_prize(): void
     {
         config(['participant.mystery_voucher_chance' => 100, 'participant.daily_claim_limit' => 10]);
+        $prize = MysteryPrize::create(['name' => 'Voucher Spotify', 'fulfillment' => 'kode', 'value' => 60000, 'stock' => 3]);
         $participant = $this->readyParticipant();
         $this->prizesAre('voucher');
 
@@ -521,20 +561,31 @@ class CustomerFlowTest extends TestCase
         }
 
         $this->assertSame(5, $participant->fresh()->caps);
-        $this->assertSame(1, Voucher::where('source', 'mystery')->count());
-        $this->assertSame(0, Gift::where('type', 'mystery_pack')->count());
-        // Mystery gift tampil paling atas di Hadiahku.
+        $voucher = Voucher::where('source', 'mystery')->firstOrFail();
+        $this->assertSame('digital', $voucher->type);
+        $this->assertSame('pending_process', $voucher->status);
+        $this->assertSame(1, $prize->fresh()->given);
+        // Mystery gift tampil paling atas di Hadiahku dengan nama dari CMS.
         $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
             ->where('rewards.0.mystery', true)
+            ->where('rewards.0.title', 'Mystery gift: Voucher Spotify')
+            ->where('rewards.0.status_label', 'Diproses admin')
             ->has('rewards', 6)
         );
         $this->get('/participant/mystery-gift')->assertInertia(fn ($page) => $page->where('reward.mystery', true));
         $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->where('mystery.mystery', true));
+
+        // Admin mengisi kode: peserta melihat kodenya.
+        $this->actingAs(User::factory()->create(['is_admin' => true]))
+            ->post("/admin/mystery-gift/voucher/{$voucher->id}/kode", ['code' => 'SPTF-1234'])->assertSessionHas('mystery_wa');
+        $this->get('/participant/mystery-gift')->assertInertia(fn ($page) => $page
+            ->where('reward.code', 'SPTF-1234')->where('reward.status_label', 'Kode terkirim'));
     }
 
     public function test_free_pack_mystery_gift_waits_for_admin(): void
     {
-        config(['participant.mystery_voucher_chance' => 0, 'participant.daily_claim_limit' => 10]);
+        config(['participant.mystery_voucher_chance' => 100, 'participant.daily_claim_limit' => 10]);
+        MysteryPrize::create(['name' => 'Produk gratis', 'fulfillment' => 'ambil', 'stock' => 5]);
         $participant = $this->readyParticipant();
         $this->prizesAre('voucher');
 
@@ -545,12 +596,65 @@ class CustomerFlowTest extends TestCase
         $this->assertSame(5, $participant->fresh()->caps);
         // Pemberitahuan di layar hasil klaim cap ke-5.
         $this->get('/participant/klaim/berhasil')->assertInertia(fn ($page) => $page
-            ->where('mystery.title', 'Mystery gift: 1 bungkus gratis')
+            ->where('mystery.title', 'Mystery gift: Produk gratis')->where('hasMystery', true)
         );
         $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
-            ->where('rewards.0.title', 'Mystery gift: 1 bungkus gratis')
+            ->where('rewards.0.title', 'Mystery gift: Produk gratis')
             ->where('rewards.0.status_label', 'Menunggu admin')
         );
+    }
+
+    public function test_mystery_gift_respects_chance_stock_and_block_list(): void
+    {
+        config(['participant.daily_claim_limit' => 20]);
+        $this->prizesAre('voucher');
+
+        // Peluang 0%: tidak dapat, walau stok ada.
+        config(['participant.mystery_voucher_chance' => 0]);
+        MysteryPrize::create(['name' => 'Voucher Netflix', 'fulfillment' => 'kode', 'stock' => 5]);
+        $first = $this->readyParticipant('081211110001');
+        foreach (range(1, 5) as $i) {
+            $this->uploadPhoto(seed: 50 + $i);
+        }
+        $this->assertSame(5, $first->fresh()->caps);
+        $this->assertSame(0, Voucher::where('source', 'mystery')->count());
+        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->where('mystery', null));
+
+        // Diblokir: tidak dapat walau peluang 100%.
+        config(['participant.mystery_voucher_chance' => 100]);
+        MysteryAccess::create(['whatsapp' => '081211110002', 'kind' => 'block']);
+        $this->post('/participant/keluar');
+        $this->readyParticipant('081211110002');
+        foreach (range(1, 5) as $i) {
+            $this->uploadPhoto(seed: 60 + $i);
+        }
+        $this->assertSame(0, Voucher::where('source', 'mystery')->count());
+
+        // Stok habis: tidak dapat.
+        MysteryPrize::query()->update(['given' => 5]);
+        $this->post('/participant/keluar');
+        $this->readyParticipant('081211110003');
+        foreach (range(1, 5) as $i) {
+            $this->uploadPhoto(seed: 70 + $i);
+        }
+        $this->assertSame(0, Voucher::where('source', 'mystery')->count());
+    }
+
+    public function test_limited_edition_slot_is_taken_at_board_and_counts_as_cap(): void
+    {
+        $participant = $this->readyParticipant();
+        $this->prizesAre('limited');
+        Slot::query()->update(['voucher_type_id' => null, 'voucher_code' => null]);
+
+        $this->uploadPhoto(seed: 90);
+
+        $this->assertSame(1, $participant->fresh()->caps);
+        $gift = Gift::where('type', 'limited_edition')->firstOrFail();
+        $this->assertSame('done', $gift->status);
+        $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page
+            ->where('rewards.0.title', 'Limited edition')
+            ->where('rewards.0.description', 'Diambil langsung di papan')
+            ->where('rewards.0.status_label', 'Selesai'));
     }
 
     public function test_voucher_never_expires(): void

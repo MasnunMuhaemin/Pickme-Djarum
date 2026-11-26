@@ -2,10 +2,18 @@ import { BackLink, PrimaryButton } from '@/features/participant/components/ui';
 import { RewardImage, VoucherArt } from '@/features/participant/components/voucher-art';
 import { type Reward } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, ExternalLink, MapPin } from 'lucide-react';
 import { useState } from 'react';
 
-type VoucherData = { id: number; code: string; type: string; status: string; destination?: string | null; partner?: string | null };
+type VoucherData = {
+    id: number;
+    code: string;
+    type: string;
+    status: string;
+    destination?: string | null;
+    partner?: string | null;
+    maps_url?: string | null;
+};
 
 function Row({ label, value }: { label: string; value: string }) {
     return (
@@ -103,6 +111,16 @@ export default function VoucherPage({ voucher, reward }: { voucher: VoucherData;
                             {!isVoucher && <Row label="Dikirim lewat" value={reward.kind === 'kuota' ? 'Mitra kuota' : 'WhatsApp'} />}
                             <Row label="Status" value={reward.status_label} />
                         </div>
+                        {isVoucher && voucher.maps_url && (
+                            <a
+                                href={voucher.maps_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="border-ink bg-lime-soft text-ink mx-5 mt-2 mb-3 flex h-12 items-center justify-center gap-2 rounded-full border-2 text-[14px] font-extrabold"
+                            >
+                                <MapPin className="size-5" /> Lihat lokasi toko di Google Maps <ExternalLink className="size-4" />
+                            </a>
+                        )}
                     </div>
 
                     <p className="text-ink-soft mt-3 text-[12px] leading-relaxed">

@@ -64,6 +64,8 @@ class AdminSeeder extends Seeder
         if (! Outlet::where('code', 'W08')->exists()) {
             $area = Area::firstOrCreate(['name' => 'Sukapura'], ['is_delivery_area' => true]);
             $prizes->createOutlet('W08', 'Warung Sukapura', [$area->id]);
+            // Papan demo langsung diisi (setara generator sudah dijalankan untuk data contoh).
+            $prizes->fillEmptyBoards();
         }
     }
 }

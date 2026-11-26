@@ -24,9 +24,5 @@ Route::prefix('mitra')->name('mitra.')->group(function () {
         Route::get('rekap/{week}', [PartnerPortalController::class, 'weekDetail'])->where('week', '\d{4}-\d{2}-\d{2}')->name('rekap.minggu');
         Route::get('tukar/{code}', [PartnerPortalController::class, 'detail'])->name('rincian');
         Route::get('bukti/{code}', [PartnerPortalController::class, 'proofImage'])->name('bukti');
-
-        Route::get('antrean', [PartnerPortalController::class, 'queue'])->name('antrean');
-        Route::post('antrean/{voucher}/selesai', [PartnerPortalController::class, 'queueDone'])->name('antrean.selesai');
-        Route::post('antrean/{voucher}/nomor-salah', [PartnerPortalController::class, 'queueWrong'])->name('antrean.salah');
     });
 });

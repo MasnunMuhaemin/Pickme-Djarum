@@ -33,7 +33,7 @@ class ActivityLogController extends Controller
         'claim.approved' => 'Klaim disetujui otomatis',
         'claim.queued' => 'Klaim masuk antrean foto',
         'claim.code_rejected' => 'Kode slot ditolak',
-        'slot.assigned' => 'Slot ditahan untuk peserta',
+        'slot.assigned' => 'Slot disarankan ke peserta',
         'reward.created' => 'Hadiah dibuat',
         'mystery.voucher' => 'Mystery gift: voucher',
         'mystery.free_pack' => 'Mystery gift: bungkus gratis',

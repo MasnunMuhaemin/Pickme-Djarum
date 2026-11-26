@@ -33,7 +33,7 @@ export default function ParticipantLayout({
                         className,
                     )}
                 >
-                    <DesktopNav dark={dark} />
+                    <DesktopNav />
                     {/* Isi halaman muncul memudar; halaman lama langsung diganti sehingga tidak bertumpuk. */}
                     <main className="animate-in fade-in flex flex-1 flex-col duration-300 motion-reduce:animate-none md:mx-auto md:w-full md:max-w-[960px]">
                         {children}

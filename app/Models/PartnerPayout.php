@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PartnerPayout extends Model
 {
-    protected $fillable = ['partner_id', 'week_start', 'redeemed_count', 'total_value', 'status', 'paid_at', 'proof', 'correction_reason'];
+    protected $fillable = ['partner_id', 'week_start', 'redeemed_count', 'total_value', 'status', 'paid_at', 'proof', 'proof_path', 'correction_reason'];
 
     protected $casts = ['week_start' => 'date', 'paid_at' => 'date', 'redeemed_count' => 'integer', 'total_value' => 'integer'];
 

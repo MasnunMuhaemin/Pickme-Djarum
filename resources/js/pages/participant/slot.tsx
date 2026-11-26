@@ -4,12 +4,11 @@ import { Check, Copy, Eye, EyeOff } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Slot = { code: string | null; position: string };
-type Claim = { id: number; status: string; claim_code?: string; held_until?: string | null; slot?: Slot | null } | null;
+type Claim = { id: number; status: string; claim_code?: string; slot?: Slot | null } | null;
 type BoardSlot = { position: string; status: string };
 
 export default function Slot({ claim, board = [] }: { claim?: Claim; board?: BoardSlot[] }) {
     const position = claim?.slot?.position ?? '';
-    const heldUntil = claim?.held_until ? new Date(claim.held_until).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : null;
     const slotCode = claim?.slot?.code ?? '';
     const [revealed, setRevealed] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -61,7 +60,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
 
     const error = form.errors.code;
     const boxes = [0, 1, 2, 3, 4, 5];
-    // Kode ditolak: popup. "Coba lagi" mengosongkan kotak kode; slot tetap ditahan untuk peserta.
+    // Kode ditolak: popup. "Coba lagi" mengosongkan kotak kode.
     const [errorOpen, setErrorOpen] = useState(false);
     useEffect(() => setErrorOpen(Boolean(error)), [error]);
     const unknownCode = error?.startsWith('Kode tidak dikenal');
@@ -114,12 +113,18 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                                         return (
                                             <div
                                                 key={slotPosition}
-                                                className={`grid h-11 place-items-center rounded-xl text-[11px] font-extrabold ${selected ? 'bg-lime text-ink ring-ink ring-2 ring-offset-2' : taken ? 'bg-ink text-cream' : 'bg-cream-deep text-ink-soft'}`}
+                                                className={`grid h-11 place-items-center rounded-xl text-[11px] font-extrabold ${
+                                                    selected
+                                                        ? 'slot-pop bg-lime text-ink z-10 rounded-2xl shadow-[0_12px_28px_-10px_rgba(27,58,26,0.55)]'
+                                                        : taken
+                                                          ? 'bg-[#0b0b0b] text-lime'
+                                                          : 'bg-cream-deep text-ink-soft'
+                                                }`}
                                             >
                                                 {selected ? (
                                                     <span className="text-center leading-none">
-                                                        {slotPosition}
-                                                        <span className="mt-0.5 block text-[7px] tracking-wide">SLOT KAMU</span>
+                                                        <span className="block text-[13px]">{slotPosition}</span>
+                                                        <span className="mt-0.5 block text-[7px] tracking-[0.12em]">SLOT KAMU</span>
                                                     </span>
                                                 ) : (
                                                     slotPosition
@@ -131,8 +136,8 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                             ))}
                         </div>
                         <p className="text-ink mt-4 text-[12px] leading-relaxed">
-                            Slot {position} ditahan untuk kamu{heldUntil ? ` sampai ${heldUntil}` : ''}. Ambil slot ini di papan warung, lalu masukkan
-                            kode 6 karakter yang tercetak di baliknya.
+                            Ambil slot {position} di papan warung (atau slot lain yang masih kosong), lalu masukkan kode 6 karakter yang tercetak di
+                            baliknya.
                         </p>
                     </div>
 

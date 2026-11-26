@@ -18,7 +18,6 @@ Route::prefix('participant')->name('participant.')->group(function () {
 
     Route::get('scan', [ScanController::class, 'show'])->name('scan');
     Route::post('scan', [ScanController::class, 'resolve'])->name('scan.resolve');
-    Route::get('qr-tidak-dikenal', fn () => Inertia::render('participant/qr-tidak-dikenal'))->name('qr-tidak-dikenal');
     Route::get('lupa-pin', [SupportController::class, 'showForgotPin'])->name('lupa-pin');
     Route::post('lupa-pin', [SupportController::class, 'storeForgotPin'])->name('lupa-pin.store');
 
@@ -69,5 +68,5 @@ Route::prefix('participant')->name('participant.')->group(function () {
 
     Route::get('mahasiswa', [SupportController::class, 'showStudent'])->name('mahasiswa');
     Route::post('mahasiswa', [SupportController::class, 'storeStudent'])->name('mahasiswa.store');
-    Route::get('mahasiswa/khusus', fn () => Inertia::render('participant/khusus-mahasiswa'))->name('mahasiswa.khusus');
+    Route::get('mahasiswa/khusus', [SupportController::class, 'showStudentBlocked'])->name('mahasiswa.khusus');
 });

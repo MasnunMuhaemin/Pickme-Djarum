@@ -5,21 +5,20 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
 import {
     AlertTriangle,
+    Camera,
     Check,
+    Database,
     FileText,
     Gift,
     Home,
-    Image,
     LayoutGrid,
     LogOut,
-    MapPin,
     Menu,
-    Send,
-    Settings,
+    Search,
+    SlidersHorizontal,
+    Star,
     Store,
-    Ticket,
     Trophy,
-    UserCog,
     Users,
     Wallet,
     X,
@@ -34,23 +33,60 @@ type AdminShared = {
     outlets: { id: number; code: string; name: string; status: string }[];
 };
 
-const menu: { key: string; label: string; href: string; icon: LucideIcon; badge?: keyof Badges; group?: string }[] = [
+/**
+ * Menu samping (desain admin): operasional di atas, DATA di bawahnya, lalu Pengaturan. `match` = kunci halaman lama
+ * yang kini menjadi tab di dalam menu itu (mis. Kirim voucher di Pemenuhan).
+ */
+const menu: { key: string; label: string; href: string; icon: LucideIcon; badge?: (b: Badges) => number; group?: string; match?: string[] }[] = [
     { key: 'beranda', label: 'Beranda', href: '/admin', icon: Home },
-    { key: 'antrean-foto', label: 'Foto klaim', href: '/admin/antrean-foto', icon: Image },
-    { key: 'pemenuhan', label: 'Pemenuhan', href: '/admin/pemenuhan', icon: Gift, badge: 'fulfillment' },
-    { key: 'kirim-voucher', label: 'Kirim voucher', href: '/admin/kirim-voucher', icon: Send, badge: 'dispatch' },
-    { key: 'peringkat', label: 'Peringkat', href: '/admin/peringkat', icon: Trophy },
+    { key: 'antrean-foto', label: 'Antrean foto', href: '/admin/antrean-foto', icon: Camera },
+    {
+        key: 'pemenuhan',
+        label: 'Pemenuhan',
+        href: '/admin/pemenuhan',
+        icon: Gift,
+        badge: (b) => b.fulfillment + b.dispatch,
+        match: ['kirim-voucher'],
+    },
     { key: 'papan', label: 'Papan dan slot', href: '/admin/papan', icon: LayoutGrid },
-    { key: 'pembayaran', label: 'Pembayaran mitra', href: '/admin/pembayaran', icon: Wallet },
-    // Master data berurutan: area dan jenis voucher dibuat dulu, lalu warung tinggal memilih keduanya.
-    { key: 'md-area', label: '1. Area', href: '/admin/master-data/area', icon: MapPin, group: 'Master data' },
-    { key: 'md-mitra', label: '2. Mitra & akun', href: '/admin/master-data/mitra', icon: Users, group: 'Master data' },
-    { key: 'md-voucher', label: '3. Jenis voucher', href: '/admin/master-data/jenis-voucher', icon: Ticket, group: 'Master data' },
-    { key: 'md-warung', label: '4. Warung', href: '/admin/master-data/warung', icon: Store, group: 'Master data' },
-    { key: 'pengguna', label: 'Pengguna', href: '/admin/pengguna', icon: UserCog },
-    { key: 'pengaturan', label: 'Pengaturan', href: '/admin/pengaturan', icon: Settings },
-    { key: 'log', label: 'Log aktivitas', href: '/admin/log', icon: FileText },
+    { key: 'pembayaran', label: 'Mitra dan pembayaran', href: '/admin/pembayaran', icon: Wallet, match: ['md-mitra'] },
+    { key: 'pengguna', label: 'Peserta', href: '/admin/pengguna?tab=peserta', icon: Users, group: 'Data' },
+    { key: 'peringkat', label: 'Peringkat', href: '/admin/peringkat', icon: Trophy, group: 'Data' },
+    { key: 'mystery-gift', label: 'Mystery gift', href: '/admin/mystery-gift', icon: Star, group: 'Data' },
+    { key: 'md-warung', label: 'Warung', href: '/admin/master-data/warung', icon: Store, group: 'Data' },
+    {
+        key: 'md-area',
+        label: 'Master data',
+        href: '/admin/master-data',
+        icon: Database,
+        group: 'Data',
+        match: ['md-hub', 'md-voucher', 'md-isi', 'md-generator'],
+    },
+    { key: 'log', label: 'Log aktivitas', href: '/admin/log', icon: FileText, group: 'Data' },
+    { key: 'pengaturan', label: 'Pengaturan', href: '/admin/pengaturan', icon: SlidersHorizontal },
 ];
+
+/** Halaman yang dulu menu sendiri kini tab di dalam menunya; tab tampil di bawah judul halaman. */
+const SECTION_TABS: Record<string, { key: string; label: string; href: string }[]> = {
+    pemenuhan: [
+        { key: 'pemenuhan', label: 'Pemenuhan hadiah', href: '/admin/pemenuhan' },
+        { key: 'kirim-voucher', label: 'Kirim voucher', href: '/admin/kirim-voucher' },
+    ],
+    pembayaran: [
+        { key: 'pembayaran', label: 'Rekap mingguan', href: '/admin/pembayaran' },
+        { key: 'md-mitra', label: 'Akun mitra', href: '/admin/master-data/mitra' },
+    ],
+    'md-area': [
+        { key: 'md-hub', label: 'Ringkasan', href: '/admin/master-data' },
+        { key: 'md-area', label: 'Area', href: '/admin/master-data/area' },
+        { key: 'md-voucher', label: 'Jenis voucher', href: '/admin/master-data/jenis-voucher' },
+        { key: 'md-isi', label: 'Isi papan', href: '/admin/master-data/isi-papan' },
+        { key: 'md-generator', label: 'Generator kode', href: '/admin/generator' },
+    ],
+};
+
+/** Menu samping yang menyala untuk halaman ini. */
+const menuKeyOf = (active: string) => menu.find((m) => m.key === active || m.match?.includes(active))?.key ?? active;
 
 function initials(name: string): string {
     return name
@@ -82,7 +118,10 @@ export default function AdminLayout({
     const flash = (props.flash as { status?: string } | undefined)?.status;
     const flashPin = (props.flash as { pin?: { name: string; pin: string; wa?: string | null } | null } | undefined)?.pin ?? null;
     const [emergencyOpen, setEmergencyOpen] = useState(false);
-    const { containerRef, indicatorStyle } = useSlidingIndicator('admin-sidebar', active);
+    const activeMenu = menuKeyOf(active);
+    const sectionTabs = SECTION_TABS[activeMenu];
+    const { containerRef, indicatorStyle } = useSlidingIndicator('admin-sidebar', activeMenu);
+    const [query, setQuery] = useState('');
     const [toast, setToast] = useState<string | null>(null);
     // Di bawah lg sidebar menjadi laci yang dibuka lewat tombol menu.
     const [navOpen, setNavOpen] = useState(false);
@@ -108,142 +147,193 @@ export default function AdminLayout({
     }, [props]);
 
     return (
-        <div className="bg-cream text-ink flex min-h-dvh">
+        <div className="bg-cream text-ink flex min-h-dvh flex-col">
             <Head title={`${title} · Admin`} />
-            {loading && (
-                // Kartu memuat di tengah layar; latar tipis mencegah klik ganda selama menunggu server.
-                <div role="status" aria-live="polite" className="bg-night/25 fixed inset-0 z-[60] grid place-items-center backdrop-blur-[1px]">
-                    <div className="bg-cream flex items-center gap-3 rounded-2xl px-5 py-4 shadow-2xl">
-                        <span className="border-lime/30 border-t-lime-dark size-6 animate-spin rounded-full border-[3px]" />
-                        <span className="text-ink text-[13px] font-extrabold">Memuat...</span>
-                    </div>
-                </div>
-            )}
-            {navOpen && <div aria-hidden className="bg-ink/40 fixed inset-0 z-40 lg:hidden" onClick={() => setNavOpen(false)} />}
-            <aside
-                className={cn(
-                    'bg-night fixed inset-y-0 left-0 z-50 flex h-dvh w-[240px] shrink-0 flex-col px-3 py-5 text-white transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:w-[220px] lg:translate-x-0',
-                    navOpen ? 'translate-x-0' : '-translate-x-full',
-                )}
-            >
-                <div className="flex items-start justify-between px-2">
-                    <div>
-                        <p className="text-[18px] leading-none font-black tracking-tight">PICK(ME)</p>
-                        <p className="mt-1 text-[11px] text-white/50">Panel admin</p>
-                    </div>
+            {/* Header atas selebar layar (desain): logo, cari, Darurat, akun. */}
+            <header className="bg-cream border-ink/10 sticky top-0 z-40 flex h-16 shrink-0 items-center gap-3 border-b px-4 sm:px-6 lg:pl-0">
+                <button
+                    type="button"
+                    onClick={() => setNavOpen(true)}
+                    aria-label="Buka menu"
+                    className="border-ink/10 grid size-9 shrink-0 place-items-center rounded-full border bg-white lg:hidden"
+                >
+                    <Menu className="size-4" />
+                </button>
+                {/* Di laptop, blok logo selebar dan sewarna sidebar sehingga menyatu dengan menu di bawahnya. */}
+                <Link href="/admin" className="lg:bg-night flex shrink-0 items-center gap-2 lg:-my-px lg:w-[220px] lg:self-stretch lg:px-5">
+                    <img src="/images/logo.webp" alt="Papan Pick(me)" className="h-9 w-auto sm:h-10" />
+                    <span className="text-ink/50 hidden text-[10px] font-extrabold tracking-[0.18em] sm:inline lg:text-white/50">ADMIN</span>
+                </Link>
+                <form
+                    role="search"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        // Cari klaim (kode klaim), nomor atau nama peserta, dan kode voucher di Antrean foto.
+                        if (query.trim()) router.get('/admin/antrean-foto', { q: query.trim() });
+                    }}
+                    className="hidden min-w-0 flex-1 md:block"
+                >
+                    <label className="border-ink/30 flex h-10 max-w-[420px] items-center gap-2 rounded-full border-2 bg-white px-4">
+                        <Search className="text-ink/50 size-4 shrink-0" />
+                        <input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Cari klaim, nomor, atau kode"
+                            aria-label="Cari klaim, nomor, atau kode"
+                            className="placeholder:text-ink/40 min-w-0 flex-1 bg-transparent text-[13px] outline-none"
+                        />
+                    </label>
+                </form>
+                <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+                    {admin?.paused && (
+                        <span className="hidden rounded-full bg-[#fde0dc] px-3 py-1 text-[11px] font-bold text-[#b42318] sm:inline">
+                            Program dijeda
+                        </span>
+                    )}
                     <button
                         type="button"
-                        onClick={() => setNavOpen(false)}
-                        aria-label="Tutup menu"
-                        className="grid size-8 place-items-center rounded-full text-white/70 hover:bg-white/10 lg:hidden"
+                        onClick={() => setEmergencyOpen(true)}
+                        aria-label="Tombol Darurat"
+                        className="flex h-9 items-center gap-2 rounded-full bg-[#d0271d] px-3 text-[12px] font-bold text-white shadow-sm hover:bg-[#b5211a] sm:px-4"
                     >
-                        <X className="size-4" />
+                        <AlertTriangle className="size-4" />
+                        <span className="hidden sm:inline">Darurat</span>
                     </button>
+                    <span className="flex items-center gap-2">
+                        <span className="bg-lime text-ink grid size-9 place-items-center rounded-full text-[12px] font-extrabold" title={user?.name}>
+                            {initials(user?.name ?? 'Admin')}
+                        </span>
+                        <span className="hidden leading-tight sm:block">
+                            <span className="block text-[12px] font-extrabold">{user?.name ?? 'Admin'}</span>
+                            <span className="text-ink/50 block text-[10px]">Admin</span>
+                        </span>
+                    </span>
                 </div>
-                <nav
-                    ref={containerRef}
-                    className="relative mt-6 flex-1 space-y-0.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            </header>
+            <div className="flex min-h-0 flex-1">
+                {loading && (
+                    // Kartu memuat di tengah layar; latar tipis mencegah klik ganda selama menunggu server.
+                    <div role="status" aria-live="polite" className="bg-night/25 fixed inset-0 z-[60] grid place-items-center backdrop-blur-[1px]">
+                        <div className="bg-cream flex items-center gap-3 rounded-2xl px-5 py-4 shadow-2xl">
+                            <span className="border-lime/30 border-t-lime-dark size-6 animate-spin rounded-full border-[3px]" />
+                            <span className="text-ink text-[13px] font-extrabold">Memuat...</span>
+                        </div>
+                    </div>
+                )}
+                {navOpen && <div aria-hidden className="bg-ink/40 fixed inset-0 z-40 lg:hidden" onClick={() => setNavOpen(false)} />}
+                <aside
+                    className={cn(
+                        'bg-night fixed inset-y-0 left-0 z-50 flex h-dvh w-[240px] shrink-0 flex-col px-3 py-5 text-white transition-transform duration-200 lg:sticky lg:top-16 lg:z-auto lg:h-[calc(100dvh-4rem)] lg:w-[220px] lg:translate-x-0',
+                        // Seluruh sidebar bisa digulir di layar pendek, supaya menu tidak terpotong oleh kartu program.
+                        'overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                        navOpen ? 'translate-x-0' : '-translate-x-full',
+                    )}
                 >
-                    {/* Pil lime meluncur ke menu aktif. */}
-                    <span aria-hidden className="bg-lime pointer-events-none absolute top-0 left-0 rounded-full" style={indicatorStyle} />
-                    {menu.map((item, i) => {
-                        const Icon = item.icon;
-                        // Judul grup tampil sebelum menu pertama grup itu, dan grup ditutup sebelum menu berikutnya.
-                        const groupStart = item.group && menu[i - 1]?.group !== item.group;
-                        const groupEnd = !item.group && menu[i - 1]?.group;
-                        const count = item.badge ? (admin?.badges[item.badge] ?? 0) : 0;
-                        const isActive = item.key === active;
-                        return (
-                            <Fragment key={item.key}>
-                                {groupStart && (
-                                    <p className="px-3 pt-3 pb-1 text-[10px] font-bold tracking-widest text-white/40 uppercase">{item.group}</p>
-                                )}
-                                {groupEnd && <div aria-hidden className="mx-3 my-2 border-t border-white/10" />}
-                                <Link
-                                    href={item.href}
-                                    // Hover, bukan mount: memuat 10 menu sekaligus membuat klik lain mengantre di server.
-                                    prefetch="hover"
-                                    cacheFor="30s"
-                                    onClick={(e) => {
-                                        setNavOpen(false);
-                                        // Klik biasa saja; Ctrl/Cmd+klik membuka tab baru tanpa pindah halaman di sini.
-                                        if (!isActive && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey) showLoading();
-                                    }}
-                                    data-active={isActive}
-                                    className={cn(
-                                        'relative flex h-9 items-center gap-2.5 rounded-full px-3 text-[12px] font-semibold transition-colors',
-                                        isActive ? 'text-ink' : 'text-white/75 hover:bg-white/10 hover:text-white',
+                    <div className="flex justify-end px-2 lg:hidden">
+                        <button
+                            type="button"
+                            onClick={() => setNavOpen(false)}
+                            aria-label="Tutup menu"
+                            className="grid size-8 place-items-center rounded-full text-white/70 hover:bg-white/10"
+                        >
+                            <X className="size-4" />
+                        </button>
+                    </div>
+                    <nav ref={containerRef} className="relative flex-1 space-y-0.5">
+                        {/* Pil lime meluncur ke menu aktif. */}
+                        <span aria-hidden className="bg-lime pointer-events-none absolute top-0 left-0 rounded-full" style={indicatorStyle} />
+                        {menu.map((item, i) => {
+                            const Icon = item.icon;
+                            // Judul grup tampil sebelum menu pertama grup itu, dan grup ditutup sebelum menu berikutnya.
+                            const groupStart = item.group && menu[i - 1]?.group !== item.group;
+                            const groupEnd = !item.group && menu[i - 1]?.group;
+                            const count = item.badge && admin ? item.badge(admin.badges) : 0;
+                            const isActive = item.key === activeMenu;
+                            return (
+                                <Fragment key={item.key}>
+                                    {groupStart && (
+                                        <p className="px-3 pt-3 pb-1 text-[10px] font-bold tracking-widest text-white/40 uppercase">{item.group}</p>
                                     )}
-                                >
-                                    <Icon className="size-4 shrink-0" />
-                                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                                    {count > 0 && (
-                                        <span
-                                            className={cn(
-                                                'grid min-w-5 place-items-center rounded-full px-1 text-[10px] font-extrabold',
-                                                isActive ? 'bg-ink text-lime' : 'bg-lime text-ink',
-                                            )}
-                                        >
-                                            {count}
-                                        </span>
-                                    )}
-                                </Link>
-                            </Fragment>
-                        );
-                    })}
-                </nav>
-                <div className="border-t border-white/10 px-2 pt-4">
-                    <p className="text-[11px] leading-snug text-white/60">
-                        Masuk sebagai {user?.name ?? 'Admin'}
-                        <br />
-                        Semua aksi tercatat atas nama akun.
-                    </p>
+                                    {groupEnd && <div aria-hidden className="mx-3 my-2 border-t border-white/10" />}
+                                    <Link
+                                        href={item.href}
+                                        // Hover, bukan mount: memuat 10 menu sekaligus membuat klik lain mengantre di server.
+                                        prefetch="hover"
+                                        cacheFor="30s"
+                                        onClick={(e) => {
+                                            setNavOpen(false);
+                                            // Klik biasa saja; Ctrl/Cmd+klik membuka tab baru tanpa pindah halaman di sini.
+                                            if (!isActive && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey) showLoading();
+                                        }}
+                                        data-active={isActive}
+                                        className={cn(
+                                            'relative flex h-10 items-center gap-2.5 rounded-full px-3 text-[13px] font-semibold transition-colors',
+                                            isActive ? 'text-ink' : 'text-white/75 hover:bg-white/10 hover:text-white',
+                                        )}
+                                    >
+                                        <Icon className="size-4 shrink-0" />
+                                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                        {count > 0 && (
+                                            <span
+                                                className={cn(
+                                                    'grid min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-extrabold',
+                                                    isActive ? 'bg-ink text-lime' : 'bg-lime text-ink',
+                                                )}
+                                            >
+                                                {count}
+                                            </span>
+                                        )}
+                                    </Link>
+                                </Fragment>
+                            );
+                        })}
+                    </nav>
                     <button
                         type="button"
                         onClick={() => router.post('/logout')}
-                        className="mt-3 flex items-center gap-2 text-[11px] font-semibold text-white/60 hover:text-white"
+                        className="mt-1 flex h-10 items-center gap-2.5 rounded-full px-3 text-[13px] font-semibold text-white/75 hover:bg-white/10 hover:text-white"
                     >
-                        <LogOut className="size-3.5" />
+                        <LogOut className="size-4" />
                         Keluar
                     </button>
-                </div>
-            </aside>
+                    {/* Kartu program (desain): jumlah warung dan slot. */}
+                    <div className="mt-4 rounded-2xl bg-white/[0.06] p-4">
+                        <p className="text-lime text-[10px] font-extrabold tracking-[0.16em]">PROGRAM</p>
+                        <p className="mt-1 text-[14px] font-extrabold">Lotre Warung</p>
+                        <p className="text-[11px] text-white/50">
+                            {admin?.outlets.length ?? 0} warung · {(admin?.outlets.length ?? 0) * 25} slot
+                        </p>
+                        <img src="/images/logo.webp" alt="" aria-hidden className="mt-2 h-7 w-auto opacity-90" />
+                        <p className="mt-2 text-[10px] leading-snug text-white/40">Masuk sebagai {user?.name ?? 'Admin'}. Semua aksi tercatat.</p>
+                    </div>
+                </aside>
 
-            <div className="flex min-w-0 flex-1 flex-col">
-                <header className="flex flex-wrap items-start justify-between gap-3 px-4 pt-4 pb-4 sm:px-6 lg:px-8 lg:pt-6">
-                    <button
-                        type="button"
-                        onClick={() => setNavOpen(true)}
-                        aria-label="Buka menu"
-                        className="border-ink/10 grid size-9 shrink-0 place-items-center rounded-full border bg-white lg:hidden"
-                    >
-                        <Menu className="size-4" />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                        <h1 className="text-[22px] leading-tight font-extrabold tracking-tight">{title}</h1>
+                <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="px-4 pt-5 pb-4 sm:px-6 lg:px-8 lg:pt-7">
+                        <h1 className="text-[26px] leading-tight font-extrabold tracking-tight">{title}</h1>
                         {subtitle && <p className="text-ink/50 mt-0.5 text-[12px]">{subtitle}</p>}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-                        {admin?.paused && (
-                            <span className="rounded-full bg-[#fde0dc] px-3 py-1 text-[11px] font-bold text-[#b42318]">Program dijeda</span>
+                        {sectionTabs && (
+                            <nav aria-label="Bagian" className="border-ink/10 mt-4 flex gap-5 overflow-x-auto border-b [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                                {sectionTabs.map((tab) => (
+                                    <Link
+                                        key={tab.key}
+                                        href={tab.href}
+                                        aria-current={tab.key === active ? 'page' : undefined}
+                                        className={cn(
+                                            '-mb-px shrink-0 border-b-2 pb-2 text-[13px] font-bold whitespace-nowrap',
+                                            tab.key === active ? 'border-ink text-ink' : 'text-ink/50 hover:text-ink border-transparent',
+                                        )}
+                                    >
+                                        {tab.label}
+                                    </Link>
+                                ))}
+                            </nav>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => setEmergencyOpen(true)}
-                            aria-label="Tombol Darurat"
-                            className="flex h-9 items-center gap-2 rounded-full bg-[#d0271d] px-3 text-[12px] font-bold text-white shadow-sm hover:bg-[#b5211a] sm:px-4"
-                        >
-                            <AlertTriangle className="size-4" />
-                            <span className="hidden sm:inline">Tombol Darurat</span>
-                        </button>
-                        <span className="bg-lime grid size-9 place-items-center rounded-full text-[12px] font-extrabold" title={user?.name}>
-                            {initials(user?.name ?? 'Admin')}
-                        </span>
                     </div>
-                </header>
 
-                {/* Isi halaman muncul memudar; halaman lama langsung diganti sehingga tidak bertumpuk. */}
-                <main className="animate-in fade-in flex-1 px-4 pb-10 duration-300 motion-reduce:animate-none sm:px-6 lg:px-8">{children}</main>
+                    {/* Isi halaman muncul memudar; halaman lama langsung diganti sehingga tidak bertumpuk. */}
+                    <main className="animate-in fade-in flex-1 px-4 pb-10 duration-300 motion-reduce:animate-none sm:px-6 lg:px-8">{children}</main>
+                </div>
             </div>
 
             {admin && <EmergencyDialog open={emergencyOpen} onClose={() => setEmergencyOpen(false)} admin={admin} />}
@@ -257,7 +347,7 @@ export default function AdminLayout({
                             PIN ini <b>hanya ditampilkan sekali</b> dan tidak bisa dilihat lagi. Kirim lewat WhatsApp (pesan berisi PIN sudah terisi)
                             atau salin, lalu tutup.
                         </p>
-                        <div className="mt-4 flex w-full gap-2">
+                        <div className="mt-4 flex w-full flex-wrap gap-2">
                             <Btn
                                 variant="outline"
                                 className="flex-1"
@@ -386,7 +476,7 @@ export function EmergencyDialog({
                     : 'Peserta tidak bisa klaim di titik ini sampai dilanjutkan. Titik lain tetap berjalan.'}
             </p>
 
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
                 <Btn variant={isProgram ? 'black' : 'outline'} onClick={() => form.setData('scope', 'program')}>
                     Seluruh program
                 </Btn>
@@ -470,6 +560,76 @@ export function EmergencyDialog({
                     </div>
                 </div>
             )}
+        </Modal>
+    );
+}
+
+/**
+ * Jeda satu warung dari halaman warung (desain "Jeda warung W07?"): warungnya sudah pasti, jadi tanpa pilihan
+ * program atau dropdown warung lain. Alasan tetap wajib karena tercatat di log.
+ */
+export function PauseOutletDialog({
+    outlet,
+    used,
+    total,
+    onClose,
+}: {
+    outlet: { id: number; code: string; name: string };
+    used: number;
+    total: number;
+    onClose: () => void;
+}) {
+    const form = useForm({ scope: 'outlet', outlet_id: String(outlet.id), reason: '', confirm: true });
+    return (
+        <Modal open onClose={onClose}>
+            <div className="flex items-center gap-3 pr-8">
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#fde0dc] text-[#b42318]">
+                    <AlertTriangle className="size-5" />
+                </span>
+                <h2 className="text-[17px] font-extrabold">Jeda warung {outlet.code}?</h2>
+            </div>
+            <p className="text-ink/60 mt-2 text-[12px] leading-relaxed">
+                Peserta yang scan QR {outlet.name} melihat halaman istirahat dan diarahkan ke warung lain. Warung lain tetap berjalan.
+            </p>
+            <dl className="bg-cream mt-3 divide-y divide-[#ece6cc] rounded-xl px-4 py-1 text-[12px]">
+                <div className="flex justify-between py-2">
+                    <dt className="text-ink/60">Slot terpakai</dt>
+                    <dd className="font-extrabold">
+                        {used} dari {total}
+                    </dd>
+                </div>
+                <div className="flex justify-between py-2">
+                    <dt className="text-ink/60">Sisa slot tetap tersimpan</dt>
+                    <dd className="font-extrabold">{total - used}</dd>
+                </div>
+            </dl>
+            <label className="mt-3 block">
+                <span className="text-[11px] font-bold">
+                    Alasan
+                    <Req />
+                </span>
+                <TextArea
+                    value={form.data.reason}
+                    onChange={(e) => form.setData('reason', e.target.value)}
+                    placeholder="Mis. papan rusak terkena hujan"
+                    className="mt-1"
+                />
+                {form.errors.reason && <p className="mt-1 text-[11px] font-semibold text-[#b42318]">{form.errors.reason}</p>}
+            </label>
+            <p className="text-ink/45 mt-2 text-[11px]">Tercatat di log aktivitas.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+                <Btn variant="outline" className="h-10 justify-center rounded-full border-2" onClick={onClose}>
+                    Batal
+                </Btn>
+                <Btn
+                    variant="red"
+                    className="h-10 justify-center rounded-full"
+                    disabled={form.data.reason.trim().length < 5 || form.processing}
+                    onClick={() => form.post('/admin/darurat/jeda', { preserveScroll: true, onSuccess: onClose })}
+                >
+                    Jeda warung
+                </Btn>
+            </div>
         </Modal>
     );
 }

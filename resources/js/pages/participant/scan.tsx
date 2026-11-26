@@ -1,7 +1,7 @@
 import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
-import { BackLink, LogoutButton } from '@/features/participant/components/ui';
-import { Head, router } from '@inertiajs/react';
-import { Camera, QrCode } from 'lucide-react';
+import { BackLink, LogoutButton, NoticeSheet, OutlineButton, PrimaryButton, Sheet } from '@/features/participant/components/ui';
+import { Head, router, usePage } from '@inertiajs/react';
+import { Camera, GraduationCap, QrCode } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 type Area = { id: number; name: string };
@@ -10,7 +10,19 @@ type Detector = new (options: { formats: string[] }) => {
     detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]>;
 };
 
-export default function Scan({ modal, areas = [] }: { modal?: string; areas?: Area[] }) {
+export default function Scan({
+    modal,
+    areas = [],
+    student,
+    studentBlocked,
+}: {
+    modal?: string;
+    areas?: Area[];
+    /** Pertanyaan "Kamu mahasiswa?" tampil sebagai popup di atas kamera. */
+    student?: boolean;
+    /** Jawaban "Bukan mahasiswa" tampil sebagai popup, bukan halaman sendiri. */
+    studentBlocked?: boolean;
+}) {
     const [authMode, setAuthMode] = useState<AuthMode>(modal === 'login' || modal === 'register' ? modal : null);
     const authOpen = authMode !== null;
 
@@ -18,13 +30,30 @@ export default function Scan({ modal, areas = [] }: { modal?: string; areas?: Ar
         setAuthMode(null);
         if (modal) window.history.replaceState({}, '', '/participant/scan');
     }
+
+    const qrError = (usePage().props.errors as Record<string, string> | undefined)?.qr;
+    const [qrOpen, setQrOpen] = useState(Boolean(qrError));
+    const [studentOpen, setStudentOpen] = useState(Boolean(student));
+    const [blockedOpen, setBlockedOpen] = useState(Boolean(studentBlocked));
+    const [answering, setAnswering] = useState(false);
+    const popupOpen = authOpen || qrOpen || studentOpen || blockedOpen;
+
+    // Redirect antar-popup tetap memakai komponen yang sama; state lokal disamakan dengan prop baru.
+    useEffect(() => setStudentOpen(Boolean(student)), [student]);
+    useEffect(() => setBlockedOpen(Boolean(studentBlocked)), [studentBlocked]);
+    useEffect(() => setQrOpen(Boolean(qrError)), [qrError]);
+
+    function answer(isStudent: boolean) {
+        setAnswering(true);
+        router.post('/participant/mahasiswa', { is_student: isStudent }, { onFinish: () => setAnswering(false) });
+    }
     const video = useRef<HTMLVideoElement>(null);
     const [cameraOn, setCameraOn] = useState(false);
     const [cameraError, setCameraError] = useState('');
 
     useEffect(() => {
-        // Kamera dijeda selama popup masuk/daftar terbuka.
-        if (authOpen) {
+        // Kamera dijeda selama popup terbuka.
+        if (popupOpen) {
             setCameraOn(false);
             return;
         }
@@ -107,7 +136,7 @@ export default function Scan({ modal, areas = [] }: { modal?: string; areas?: Ar
             if (timer) window.clearInterval(timer);
             stream?.getTracks().forEach((track) => track.stop());
         };
-    }, [authOpen]);
+    }, [popupOpen]);
 
     return (
         <div className="text-cream animate-in fade-in min-h-dvh bg-black duration-300 motion-reduce:animate-none">
@@ -178,6 +207,48 @@ export default function Scan({ modal, areas = [] }: { modal?: string; areas?: Ar
             </div>
 
             <AuthSheet mode={authMode} onClose={closeAuth} onModeChange={setAuthMode} areas={areas} />
+
+            <Sheet open={studentOpen} onClose={() => setStudentOpen(false)}>
+                <div className="py-1 text-center">
+                    <span className="bg-cream-deep mx-auto grid size-16 place-items-center rounded-full">
+                        <GraduationCap className="text-ink size-8" />
+                    </span>
+                    <h2 className="mt-4 text-[24px] leading-tight font-extrabold tracking-tight">Kamu mahasiswa?</h2>
+                    <p className="text-ink-soft mt-1.5 text-[13px] leading-relaxed">
+                        Program ini khusus mahasiswa. Kartu cap dan hadiahnya tetap sama.
+                    </p>
+                </div>
+                <div className="mt-5 space-y-2">
+                    <PrimaryButton onClick={() => answer(true)} disabled={answering}>
+                        Ya, saya mahasiswa
+                    </PrimaryButton>
+                    <OutlineButton onClick={() => answer(false)} disabled={answering}>
+                        Bukan mahasiswa
+                    </OutlineButton>
+                </div>
+            </Sheet>
+
+            <NoticeSheet
+                open={blockedOpen}
+                onClose={() => setBlockedOpen(false)}
+                tone="warn"
+                icon="!"
+                stacked
+                title="Program ini hanya untuk mahasiswa"
+                text="Akunmu tercatat bukan mahasiswa, jadi belum bisa ikut klaim. Hubungi admin bila statusnya keliru."
+                primary={{ label: 'Ke beranda', href: '/participant' }}
+            />
+
+            <NoticeSheet
+                open={qrOpen}
+                onClose={() => setQrOpen(false)}
+                tone="warn"
+                icon="!"
+                stacked
+                title="QR tidak dikenal"
+                text={qrError ?? 'QR ini belum terdaftar. Coba papan lain atau minta bantuan admin warung.'}
+                primary={{ label: 'Scan ulang' }}
+            />
         </div>
     );
 }

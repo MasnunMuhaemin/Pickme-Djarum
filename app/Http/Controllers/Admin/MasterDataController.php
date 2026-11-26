@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Models\Claim;
 use App\Models\Outlet;
 use App\Models\Partner;
+use App\Models\Setting;
 use App\Models\Slot;
 use App\Models\VoucherType;
 use App\Services\SlotPrizeService;
@@ -17,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * A6 Master data: jenis voucher (skema B, nilai penukaran, jumlah), titik, dan area. Perubahan tercatat.
@@ -27,18 +30,53 @@ class MasterDataController extends Controller
     public const FULFILLMENTS = ['mitra' => 'Mitra', 'agregator' => 'Token listrik', 'kuota' => 'Pulsa via mitra', 'tunai' => 'Bensin tunai'];
 
     /** Menu lama Master data dibuka ke langkah pertama, Area. */
-    public function index(): RedirectResponse
+    /** Master data (desain): urutan isi data program, dari area sampai generator kode dan QR warung. */
+    public function index(SlotPrizeService $prizes): Response
     {
-        return to_route('admin.master-data.area');
+        $outlets = Outlet::count();
+
+        return Inertia::render('admin/master-data', [
+            'stock' => $prizes->stock(),
+            'counts' => [
+                'areas' => Area::count(),
+                'types' => VoucherType::count(),
+                'partners' => Partner::where('type', '!=', 'outlet')->count(),
+                'outlets' => $outlets,
+                'qrTested' => Outlet::whereNotNull('qr_tested_at')->count(),
+                'slots' => Slot::count(),
+            ],
+            'generatorRunAt' => Setting::get('generator_run_at'),
+            'locked' => (bool) Setting::get('generator_run_at') || Slot::exists(),
+        ]);
     }
 
+    /** Warung (desain): ringkasan, tabel warung dengan slot terpakai, status, dan QR. */
     public function warung(): Response
     {
+        $counts = Slot::query()->selectRaw("board_id, count(*) as total, sum(case when status = 'used' then 1 else 0 end) as used")
+            ->groupBy('board_id')->get()->keyBy('board_id');
+        $usedQr = Claim::distinct()->pluck('outlet_id')->flip();
+        $outlets = Outlet::with(['areas', 'voucherTypes', 'board', 'area'])->orderBy('code')->get();
+
         return Inertia::render('admin/master-warung', [
-            'outlets' => Outlet::with(['areas', 'voucherTypes'])->orderBy('code')->get()->map(fn (Outlet $o) => [
+            'stats' => [
+                'active' => $outlets->where('status', 'active')->count(),
+                'paused' => $outlets->where('status', '!=', 'active')->count(),
+                'emptySlots' => Slot::where('status', '!=', 'used')->count(),
+                'qrUsed' => $outlets->filter(fn (Outlet $o) => $usedQr->has($o->id))->count(),
+                'total' => $outlets->count(),
+            ],
+            'outlets' => $outlets->map(fn (Outlet $o) => [
                 'id' => $o->id,
                 'code' => $o->code,
                 'name' => $o->name,
+                'area' => $o->area?->name,
+                'used' => (int) ($counts[$o->board?->id]->used ?? 0),
+                'total' => (int) ($counts[$o->board?->id]->total ?? 0),
+                'active' => $o->status === 'active',
+                // QR dianggap teruji setelah ada klaim pertama dari warung ini.
+                'qr_used' => $usedQr->has($o->id),
+                'qr_tested' => $o->qr_tested_at?->format('d/m H:i'),
                 'whatsapp' => $o->whatsapp,
                 'wa' => Mask::waLink($o->whatsapp, "Halo {$o->name}, ini admin PICKME."),
                 'qr' => url($o->code),
@@ -55,6 +93,79 @@ class MasterDataController extends Controller
         ]);
     }
 
+    /** Ubah isi papan (desain): jumlah tiap jenis voucher, merchandise, dan limited edition yang dibagi generator. */
+    public function isiPapan(SlotPrizeService $prizes): Response
+    {
+        $used = Slot::whereNotNull('voucher_type_id')->selectRaw('voucher_type_id, count(*) as n')->groupBy('voucher_type_id')->pluck('n', 'voucher_type_id');
+
+        return Inertia::render('admin/isi-papan', [
+            'stock' => $prizes->stock(),
+            'locked' => (bool) Setting::get('generator_run_at') || Slot::exists(),
+            'placed' => ['merch' => Slot::where('prize_type', 'merch')->count(), 'limited' => Slot::where('prize_type', 'limited')->count()],
+            'types' => VoucherType::with('partner')->orderBy('name')->get()->map(fn (VoucherType $t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'partner' => $t->partner?->name ?? $t->partner_label,
+                'fulfillment' => $t->fulfillment,
+                'value' => $t->value,
+                'quantity' => $t->quantity,
+                'placed' => (int) ($used[$t->id] ?? 0),
+            ]),
+        ]);
+    }
+
+    public function saveIsiPapan(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'merch' => ['required', 'integer', 'min:0'],
+            'limited' => ['required', 'integer', 'min:0'],
+            'quantities' => ['array'],
+            'quantities.*' => ['integer', 'min:0'],
+        ]);
+        DB::transaction(function () use ($data, $request) {
+            Setting::put('stock_merch', (int) $data['merch']);
+            Setting::put('stock_limited', (int) $data['limited']);
+            foreach ($data['quantities'] ?? [] as $id => $qty) {
+                VoucherType::whereKey($id)->update(['quantity' => (int) $qty]);
+            }
+            ActivityLogger::log('board.stock_updated', 'settings', null, ['merch' => $data['merch'], 'limited' => $data['limited']], $request->user());
+        });
+
+        return back()->with('status', 'Isi papan disimpan.');
+    }
+
+    /** Semua QR warung dalam satu halaman untuk diunduh atau dicetak. */
+    public function qr(Request $request): Response
+    {
+        $usedQr = Claim::distinct()->pluck('outlet_id')->flip();
+
+        return Inertia::render($request->routeIs('admin.master-data.warung.qr.cetak') ? 'admin/qr-cetak' : 'admin/qr-warung', [
+            'outlets' => Outlet::with('area')->orderBy('code')->get()->map(fn (Outlet $o) => [
+                'code' => $o->code,
+                'name' => $o->name,
+                'area' => $o->area?->name,
+                'qr' => url($o->code),
+                'qr_used' => $usedQr->has($o->id),
+                'qr_tested' => $o->qr_tested_at?->format('d/m H:i'),
+            ]),
+        ]);
+    }
+
+    /** Ekspor CSV daftar warung. */
+    public function exportOutlets(): StreamedResponse
+    {
+        return response()->streamDownload(function () {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Titik', 'Nama warung', 'Area', 'Status', 'Slot terpakai', 'Total slot', 'Alamat QR']);
+            foreach (Outlet::with(['area', 'board.slots'])->orderBy('code')->get() as $o) {
+                $slots = $o->board?->slots ?? collect();
+                fputcsv($out, [$o->code, $o->name, $o->area?->name, $o->status === 'active' ? 'Aktif' : 'Dijeda',
+                    $slots->where('status', 'used')->count(), $slots->count(), url($o->code)]);
+            }
+            fclose($out);
+        }, 'warung.csv', ['Content-Type' => 'text/csv']);
+    }
+
     public function area(): Response
     {
         return Inertia::render('admin/master-area', [
@@ -67,7 +178,7 @@ class MasterDataController extends Controller
     public function mitra(): Response
     {
         return Inertia::render('admin/master-mitra', [
-            'partners' => Partner::with('outlet')->withCount('voucherTypes')->orderBy('name')->get()->map(fn (Partner $p) => [
+            'partners' => Partner::with(['outlet', 'voucherTypes'])->withCount('voucherTypes')->orderBy('name')->get()->map(fn (Partner $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
                 'kind' => $p->type,
@@ -77,6 +188,12 @@ class MasterDataController extends Controller
                 'active' => $p->status === 'active',
                 'has_pin' => (bool) $p->pin_hash,
                 'types' => $p->voucher_types_count,
+                'type_names' => $p->voucherTypes->pluck('name')->implode(', '),
+                'address' => $p->address,
+                'maps_url' => $p->maps_url,
+                'last_login' => $p->last_login_at
+                    ? ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][$p->last_login_at->dayOfWeek].', '.$p->last_login_at->format('d/m H:i')
+                    : null,
             ]),
             // Warung yang belum punya akun, untuk form tambah akun warung.
             'freeOutlets' => Outlet::whereNotIn('id', Partner::whereNotNull('outlet_id')->pluck('outlet_id'))->orderBy('code')->get()

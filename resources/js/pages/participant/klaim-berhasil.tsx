@@ -19,7 +19,7 @@ export default function KlaimBerhasil({
     claim,
     caps = 0,
     capTrail = [],
-    capPending = false,
+    hasMystery = false,
 }: {
     reward: Reward | null;
     /** Mystery gift yang terbuka karena klaim ini (cap ke-5). */
@@ -27,7 +27,7 @@ export default function KlaimBerhasil({
     claim: ClaimInfo;
     caps?: number;
     capTrail?: CapMark[];
-    capPending?: boolean;
+    hasMystery?: boolean;
 }) {
     // Animasi buka hadiah hanya sekali per klaim; muat ulang halaman langsung ke hasil.
     const revealKey = `pickme:revealed:${claim.claim_code}`;
@@ -113,12 +113,7 @@ export default function KlaimBerhasil({
 
                     <div>
                         <div className="mt-5 md:mt-0">
-                            <CapStrip trail={capTrail} />
-                            {capPending && (
-                                <p className="text-ink-soft mt-2 text-[11px] leading-snug">
-                                    Cap untuk hadiah ini bertambah setelah hadiahnya selesai diproses admin.
-                                </p>
-                            )}
+                            <CapStrip trail={capTrail} won={hasMystery} />
                         </div>
 
                         <div className="mt-6 space-y-2">

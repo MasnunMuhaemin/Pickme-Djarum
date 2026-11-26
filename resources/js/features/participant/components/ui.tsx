@@ -474,7 +474,7 @@ export function Checkbox({ checked, onChange, children }: { checked: boolean; on
     );
 }
 
-type SheetProps = { open: boolean; onClose: () => void; title?: string; children: ReactNode };
+type SheetProps = { open: boolean; onClose: () => void; title?: string; className?: string; children: ReactNode };
 
 /**
  * Sheet pemberitahuan: lingkaran ikon (merah untuk masalah, hitam untuk angka/status), judul, keterangan, dan
@@ -569,7 +569,7 @@ function insideScrolled(target: EventTarget | null, panel: HTMLElement): boolean
     return panel.scrollTop > 0;
 }
 
-function SheetPanel({ onClose, title, children }: SheetProps) {
+function SheetPanel({ onClose, title, className, children }: SheetProps) {
     const panel = useRef<HTMLDivElement>(null);
     const drag = useRef<{ y: number; t: number; active: boolean } | null>(null);
     const [offset, setOffset] = useState(0);
@@ -630,6 +630,7 @@ function SheetPanel({ onClose, title, children }: SheetProps) {
                 style={{ transform: offset ? `translateY(${offset}px)` : undefined }}
                 className={cn(
                     'animate-in slide-in-from-bottom bg-cream text-ink relative mx-auto max-h-[88dvh] w-full max-w-[430px] overscroll-contain rounded-t-3xl px-5 pt-5 pb-[calc(2rem+env(safe-area-inset-bottom))] shadow-2xl md:max-w-md md:rounded-3xl md:pb-6',
+                    className,
                     dragging ? 'overflow-hidden' : 'overflow-y-auto transition-transform duration-200 ease-out',
                 )}
             >

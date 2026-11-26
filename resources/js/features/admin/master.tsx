@@ -1,5 +1,7 @@
 import { Btn, FieldError, Hint, Modal, MultiSelect, Opt, Req, RequiredNote, SelectInput, TextInput } from '@/features/admin/ui';
+import { cn } from '@/lib/utils';
 import { useForm } from '@inertiajs/react';
+import { AlertTriangle, Check, ExternalLink, Store } from 'lucide-react';
 import { useState } from 'react';
 
 /** Data dan form bersama halaman Master data: Warung, Area, Mitra, Jenis voucher. */
@@ -197,7 +199,14 @@ export function AddArea({ onClose }: { onClose: () => void }) {
 export type PartnerKind = 'umum' | 'kuota' | 'outlet';
 export const PARTNER_TYPE_LABEL: Record<PartnerKind, string> = { umum: 'Mitra voucher', kuota: 'Mitra kuota', outlet: 'Akun warung' };
 
-export type PartnerFormRow = { id: number; name: string; kind: PartnerKind; whatsapp: string | null };
+export type PartnerFormRow = {
+    id: number;
+    name: string;
+    kind: PartnerKind;
+    whatsapp: string | null;
+    address?: string | null;
+    maps_url?: string | null;
+};
 
 /**
  * Tambah atau ubah akun mitra (PRD bagian 8). Tab Mitra: pilih jenis mitra voucher atau mitra kuota. Tab Akun warung:
@@ -220,8 +229,13 @@ export function PartnerDialog({
         type: partner?.kind ?? (outletAccount ? 'outlet' : 'umum'),
         outlet_id: '',
         whatsapp: partner?.whatsapp ?? '',
+        address: partner?.address ?? '',
+        maps_url: partner?.maps_url ?? '',
     });
-    const title = partner ? `Ubah ${partner.name}` : isOutlet ? 'Tambah akun warung' : 'Tambah mitra';
+    const title = partner ? (isOutlet ? `Ubah ${partner.name}` : 'Edit data mitra') : isOutlet ? 'Tambah akun warung' : 'Tambah mitra';
+    // Sama dengan validasi server: hanya tautan Google Maps.
+    const mapsOk = /^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps)/.test(form.data.maps_url);
+    const editMitra = Boolean(partner) && !isOutlet;
 
     function save() {
         const opts = { preserveScroll: true, onSuccess: onClose };
@@ -231,8 +245,16 @@ export function PartnerDialog({
 
     return (
         <Modal open onClose={onClose}>
-            <h3 className="pr-8 text-[15px] font-extrabold">{title}</h3>
-            <p className="text-ink/55 mt-1 text-[12px]">
+            <div className="flex items-center gap-3 pr-8">
+                <span className="bg-lime grid size-10 shrink-0 place-items-center rounded-full">
+                    <Store className="size-5" />
+                </span>
+                <div>
+                    <h3 className="text-[16px] font-extrabold">{title}</h3>
+                    {partner && <p className="text-ink/50 text-[11px]">{PARTNER_TYPE_LABEL[partner.kind]}</p>}
+                </div>
+            </div>
+            <p className={cn('text-ink/55 mt-2 text-[12px]', editMitra && 'hidden')}>
                 {isOutlet
                     ? 'Akun PIN untuk warung titik menukar voucher warung dan galon. Satu akun per warung.'
                     : 'Usaha penerima voucher. Jenis vouchernya diatur di menu Jenis voucher, lalu dipilih per warung di menu Warung.'}
@@ -271,10 +293,14 @@ export function PartnerDialog({
                     </label>
                 )}
                 <label className="block text-[11px] font-bold">
-                    {isOutlet ? 'Nama pemilik/penjaga warung' : 'Nama mitra'}
+                    {isOutlet ? 'Nama pemilik/penjaga warung' : 'Nama toko'}
                     <Req />
                     <TextInput value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} className="mt-1" />
-                    <Hint>{isOutlet ? 'Nama orang yang memegang PIN akun warung ini.' : 'Nama usaha mitra, mis. Kopi Groei.'}</Hint>
+                    <Hint>
+                        {isOutlet
+                            ? 'Nama orang yang memegang PIN akun warung ini.'
+                            : 'Tampil di daftar mitra, rekap pembayaran, dan layar voucher peserta.'}
+                    </Hint>
                     <FieldError message={form.errors.name} />
                 </label>
                 <label className="block text-[11px] font-bold">
@@ -289,15 +315,87 @@ export function PartnerDialog({
                     <Hint>Diawali 08, 10 sampai 13 angka, tanpa spasi. Mis. 081234567890.</Hint>
                     <FieldError message={form.errors.whatsapp} />
                 </label>
+                {partner && !isOutlet && (
+                    <>
+                        <label className="block text-[11px] font-bold">
+                            Alamat toko
+                            <TextInput
+                                value={form.data.address}
+                                onChange={(e) => form.setData('address', e.target.value)}
+                                placeholder="Mis. Jl. Sukabirus No. 12"
+                                className="mt-1"
+                            />
+                            <FieldError message={form.errors.address} />
+                        </label>
+                        <label className="block text-[11px] font-bold">
+                            Tautan Google Maps
+                            <TextInput
+                                value={form.data.maps_url}
+                                onChange={(e) => form.setData('maps_url', e.target.value.trim())}
+                                placeholder="https://maps.app.goo.gl/..."
+                                className={cn('mt-1', mapsOk && 'border-lime-dark border-2')}
+                            />
+                            <Hint>Di Google Maps: buka toko, pilih Bagikan, salin link, lalu tempel di sini.</Hint>
+                            <FieldError message={form.errors.maps_url} />
+                        </label>
+                        {form.data.maps_url && mapsOk && (
+                            <p className="bg-lime-soft flex items-center gap-2 rounded-xl px-3 py-2.5 text-[12px] font-bold">
+                                <Check className="size-4" strokeWidth={3} /> Tautan dikenali sebagai Google Maps.
+                            </p>
+                        )}
+                        {form.data.maps_url && !mapsOk && (
+                            <p className="rounded-xl bg-[#fde0dc] px-3 py-2.5 text-[12px] font-bold text-[#b42318]">
+                                Tautan belum dikenali. Gunakan link dari tombol Bagikan di Google Maps.
+                            </p>
+                        )}
+                        <a
+                            href={mapsOk ? form.data.maps_url : undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-disabled={!mapsOk}
+                            className={cn(
+                                'border-ink inline-flex h-8 items-center gap-1.5 rounded-full border-2 px-3 text-[11px] font-extrabold',
+                                !mapsOk && 'pointer-events-none opacity-40',
+                            )}
+                        >
+                            <ExternalLink className="size-3.5" /> Uji tautan
+                        </a>
+                        {!form.data.maps_url && (
+                            <p className="flex items-start gap-2 rounded-xl bg-[#fff1d6] px-3 py-2.5 text-[12px] text-[#7a5410]">
+                                <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Bila tautan dikosongkan, tombol peta tidak muncul di layar
+                                voucher peserta.
+                            </p>
+                        )}
+                        <p className="text-ink/45 text-[11px]">Perubahan tercatat di log aktivitas.</p>
+                    </>
+                )}
                 {!partner && <p className="text-ink/55 text-[11px]">PIN 4 angka dibuat otomatis dan ditampilkan sekali setelah disimpan.</p>}
             </div>
-            <Actions
-                onClose={onClose}
-                disabled={
-                    (isOutlet && !partner && !form.data.outlet_id) || !form.data.name.trim() || form.data.whatsapp.length < 10 || form.processing
-                }
-                onSave={save}
-            />
+            {editMitra ? (
+                <div className="mt-4 grid grid-cols-[1fr_2fr] gap-2">
+                    <Btn variant="outline" className="h-10 justify-center rounded-full border-2" onClick={onClose}>
+                        Batal
+                    </Btn>
+                    <Btn
+                        variant="yellow"
+                        className="h-10 justify-center rounded-full"
+                        disabled={
+                            !form.data.name.trim() || form.data.whatsapp.length < 10 || (Boolean(form.data.maps_url) && !mapsOk) || form.processing
+                        }
+                        onClick={save}
+                    >
+                        <Check className="size-4" strokeWidth={3} /> Simpan
+                    </Btn>
+                </div>
+            ) : (
+                <Actions
+                    onClose={onClose}
+                    disabled={
+                        (isOutlet && !partner && !form.data.outlet_id) || !form.data.name.trim() || form.data.whatsapp.length < 10 || form.processing
+                    }
+                    onSave={save}
+                />
+            )}
         </Modal>
     );
 }

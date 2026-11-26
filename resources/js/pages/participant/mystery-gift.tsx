@@ -23,7 +23,7 @@ export default function MysteryGift({ reward }: { reward: Reward }) {
     const title = reward.title.replace(/^Mystery gift:\s*/, '');
     // Bungkus gratis tidak punya nilai Rupiah: kartu tetap bersusun nama, teks besar lime, lalu keterangan (desain).
     const isFreePack = reward.kind === 'mystery';
-    const cardTitle = isFreePack ? 'Bungkus gratis' : title;
+    const cardTitle = title;
     const bigText = reward.value ?? (isFreePack ? '1 bungkus' : null);
 
     const gurita = (
@@ -83,7 +83,9 @@ export default function MysteryGift({ reward }: { reward: Reward }) {
                 <Row label="Status" value={opened ? reward.status_label : 'Siap diklaim'} />
                 <Row label="Jumlah" value="1 mystery gift per peserta" />
                 {/* Voucher mitra: kodenya ditunjukkan ke kasir. */}
-                {opened && reward.kind === 'voucher' && reward.code && <Row label="Kode voucher" value={reward.code} />}
+                {opened && (reward.kind === 'voucher' || reward.kind === 'digital') && reward.code && (
+                    <Row label="Kode voucher" value={reward.code} />
+                )}
             </div>
 
             {opened && (

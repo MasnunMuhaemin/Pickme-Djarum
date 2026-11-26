@@ -59,7 +59,7 @@ export function RewardImage({
     className,
     iconClassName = 'size-10',
 }: {
-    reward: Pick<Reward, 'kind' | 'id' | 'code' | 'value'>;
+    reward: Pick<Reward, 'kind' | 'id' | 'code' | 'value' | 'follow_up'>;
     showValue?: boolean;
     /** Ikon jenis hadiah di tengah (hadiah selain voucher mitra); daftar Hadiahku tanpa ikon. */
     showIcon?: boolean;
@@ -77,7 +77,8 @@ export function RewardImage({
                 loading="lazy"
             />
             <span aria-hidden className="absolute inset-0 bg-black/45" />
-            {showIcon && reward.kind !== 'voucher' && (
+            {/* Hadiah yang menunggu konfirmasi peserta (alamat merch, nomor token) tanpa ikon jenis hadiah. */}
+            {showIcon && !reward.follow_up && reward.kind !== 'voucher' && (
                 <span className="absolute inset-0 grid place-items-center">
                     <Icon className={cn('text-lime drop-shadow', iconClassName)} strokeWidth={2} />
                 </span>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Area;
+use App\Models\Claim;
 use App\Models\Participant;
 use App\Models\User;
 use App\Support\ActivityLogger;
@@ -44,6 +45,22 @@ class UserController extends Controller
             ->selectRaw('subject_id, max(created_at) as at')->groupBy('subject_id')->pluck('at', 'subject_id');
         $resetDone = ActivityLog::where('action', 'participant.pin_reset')->whereIn('subject_id', $ids)
             ->selectRaw('subject_id, max(created_at) as at')->groupBy('subject_id')->pluck('at', 'subject_id');
+        // Riwayat klaim di panel detail: 10 klaim terakhir per peserta di halaman ini.
+        $history = Claim::with(['outlet', 'slot', 'voucher.voucherType', 'gifts'])->whereIn('participant_id', $ids)->latest('submitted_at')->get()
+            ->groupBy('participant_id')->map(fn ($claims) => $claims->take(10)->map(fn (Claim $c) => [
+                'code' => $c->claim_code,
+                'outlet' => $c->outlet?->code,
+                'slot' => $c->slot?->position,
+                'at' => ($c->submitted_at ?? $c->created_at)?->format('d/m H:i'),
+                'status' => $c->status,
+                'reward' => $c->voucher
+                    ? ($c->voucher->voucherType?->name ?? ucfirst($c->voucher->type))
+                    : match ($c->gifts->firstWhere('type', '!=', 'mystery_pack')?->type) {
+                        'merchandise' => 'Merchandise',
+                        'limited_edition' => 'Limited edition',
+                        default => '-',
+                    },
+            ])->values());
 
         return Inertia::render('admin/pengguna', [
             'tab' => $tab,
@@ -69,6 +86,7 @@ class UserController extends Controller
                 'blocked' => $p->blocked_at?->translatedFormat('d M Y H:i'),
                 'blocked_reason' => $p->blocked_reason,
                 'pin_requested' => isset($requested[$p->id]) && (! isset($resetDone[$p->id]) || $requested[$p->id] > $resetDone[$p->id]),
+                'history' => $history[$p->id] ?? [],
             ]),
             'pagination' => ['current' => $participants->currentPage(), 'last' => $participants->lastPage(), 'total' => $participants->total()],
             'areas' => Area::orderBy('name')->get(['id', 'name']),
@@ -141,10 +159,10 @@ class UserController extends Controller
         $participant->update(['pin_hash' => Hash::make($pin)]);
         ActivityLogger::log('participant.pin_reset', 'participant', $participant->id, [], $request->user());
 
-        return back()->with('status', "PIN {$participant->name} direset.")->with('partner_pin', [
+        return back()->with('status', "PIN sementara {$participant->name} dibuat.")->with('partner_pin', [
             'name' => $participant->name,
             'pin' => $pin,
-            'wa' => Mask::waLink($participant->whatsapp, "Halo {$participant->name}, PIN baru PICKME kamu: {$pin}. Masuk pakai nomor WhatsApp ini dan PIN tersebut. Jangan bagikan PIN ke siapa pun."),
+            'wa' => Mask::waLink($participant->whatsapp, "Halo {$participant->name}, PIN sementara PICKME kamu: {$pin}. Masuk pakai nomor WhatsApp ini dan PIN tersebut, lalu ganti PIN di Profil. Jangan bagikan PIN ke siapa pun."),
         ]);
     }
 

@@ -5,13 +5,16 @@ use App\Http\Controllers\Admin\BoardController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EmergencyController;
 use App\Http\Controllers\Admin\FulfillmentController;
+use App\Http\Controllers\Admin\GeneratorController;
 use App\Http\Controllers\Admin\MasterDataController;
+use App\Http\Controllers\Admin\MysteryGiftController;
 use App\Http\Controllers\Admin\PartnerController;
 use App\Http\Controllers\Admin\PhotoQueueController;
 use App\Http\Controllers\Admin\RankingController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\VoucherDispatchController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -24,10 +27,12 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('antrean-foto', [PhotoQueueController::class, 'index'])->name('antrean-foto');
     Route::get('antrean-foto/{claim}/foto', [PhotoQueueController::class, 'photo'])->name('antrean-foto.foto');
     Route::delete('antrean-foto/{claim}/foto', [PhotoQueueController::class, 'destroyPhoto'])->name('antrean-foto.foto.hapus');
-    Route::post('antrean-foto/{claim}/tolak', [PhotoQueueController::class, 'reject'])->name('antrean-foto.tolak');
 
     // A3 Antrean pemenuhan
     Route::get('pemenuhan', [FulfillmentController::class, 'index'])->name('pemenuhan');
+    Route::post('pemenuhan/topup/{voucher}/selesai', [FulfillmentController::class, 'topupDone'])->name('pemenuhan.topup.selesai');
+    Route::post('pemenuhan/topup/{voucher}/nomor-salah', [FulfillmentController::class, 'topupWrong'])->name('pemenuhan.topup.salah');
+    Route::post('pemenuhan/bantuan/{voucher}', [FulfillmentController::class, 'helpResolve'])->name('pemenuhan.bantuan');
     Route::post('pemenuhan/token/{voucher}/berhasil', [FulfillmentController::class, 'tokenSuccess'])->name('pemenuhan.token.berhasil');
     Route::post('pemenuhan/token/{voucher}/gagal', [FulfillmentController::class, 'tokenFail'])->name('pemenuhan.token.gagal');
     Route::post('pemenuhan/bensin/{voucher}/hubungi', [FulfillmentController::class, 'fuelContact'])->name('pemenuhan.bensin.hubungi');
@@ -46,21 +51,50 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('papan', [BoardController::class, 'index'])->name('papan');
     // Lembar cetak papan fisik: QR titik dan 25 kode slot beserta isinya.
     Route::get('papan/{outlet:code}/cetak', [BoardController::class, 'print'])->name('papan.cetak');
+    Route::get('cetak-voucher', [BoardController::class, 'printIndex'])->name('cetak-voucher');
+    Route::get('master-data/isi-papan', [MasterDataController::class, 'isiPapan'])->name('master-data.isi-papan');
+    Route::post('master-data/isi-papan', [MasterDataController::class, 'saveIsiPapan'])->name('master-data.isi-papan.simpan');
+    Route::get('generator', [GeneratorController::class, 'index'])->name('generator');
+    Route::post('generator/jalankan', [GeneratorController::class, 'run'])->name('generator.jalankan');
+    Route::post('generator/isi', [GeneratorController::class, 'fill'])->name('generator.isi');
+    Route::get('generator/cetak', [BoardController::class, 'printAll'])->name('generator.cetak');
+    Route::get('mystery-gift', [MysteryGiftController::class, 'index'])->name('mystery-gift');
+    Route::post('mystery-gift/aktif', [MysteryGiftController::class, 'toggle'])->name('mystery-gift.aktif');
+    Route::post('mystery-gift/peluang', [MysteryGiftController::class, 'chance'])->name('mystery-gift.peluang');
+    Route::post('mystery-gift/produk/{gift}/selesai', [MysteryGiftController::class, 'packDone'])->name('mystery-gift.selesai');
+    Route::post('mystery-gift/hadiah', [MysteryGiftController::class, 'storePrize'])->name('mystery-gift.hadiah.store');
+    Route::put('mystery-gift/hadiah/{prize}', [MysteryGiftController::class, 'updatePrize'])->name('mystery-gift.hadiah.update');
+    Route::post('mystery-gift/hadiah/{prize}/aktif', [MysteryGiftController::class, 'togglePrize'])->name('mystery-gift.hadiah.aktif');
+    Route::post('mystery-gift/voucher/{voucher}/kode', [MysteryGiftController::class, 'sendCode'])->name('mystery-gift.kode');
+    Route::post('mystery-gift/voucher/{voucher}/topup', [MysteryGiftController::class, 'topupDone'])->name('mystery-gift.topup');
+    Route::post('mystery-gift/akun', [MysteryGiftController::class, 'audience'])->name('mystery-gift.akun');
+    Route::post('mystery-gift/daftar', [MysteryGiftController::class, 'storeAccess'])->name('mystery-gift.daftar.store');
+    Route::delete('mystery-gift/daftar/{access}', [MysteryGiftController::class, 'destroyAccess'])->name('mystery-gift.daftar.destroy');
+    Route::get('cetak-voucher/ekspor', [BoardController::class, 'exportCodes'])->name('cetak-voucher.ekspor');
+    Route::get('papan/{outlet:code}/pasang', [BoardController::class, 'install'])->name('papan.pasang');
+    Route::post('papan/{outlet:code}/pasang', [BoardController::class, 'markInstalled'])->name('papan.pasang.store');
+    Route::get('papan/{outlet:code}', [BoardController::class, 'show'])->name('papan.detail');
 
     // A5 Mitra dan pembayaran
     Route::get('pembayaran', [PartnerController::class, 'index'])->name('pembayaran');
     // Alamat lama: rekap ke Pembayaran mitra, akun dan PIN ke Master data > Mitra & akun.
-    Route::get('mitra', fn (Illuminate\Http\Request $r) => $r->query('tab') === 'akun' ? to_route('admin.master-data.mitra') : to_route('admin.pembayaran'))->name('mitra');
+    Route::get('mitra', fn (Request $r) => $r->query('tab') === 'akun' ? to_route('admin.master-data.mitra') : to_route('admin.pembayaran'))->name('mitra');
     Route::post('mitra', [PartnerController::class, 'store'])->name('mitra.store');
     Route::post('mitra/{partner}/pin', [PartnerController::class, 'resetPin'])->name('mitra.pin');
     Route::post('mitra/{partner}/status', [PartnerController::class, 'toggleStatus'])->name('mitra.status');
     Route::put('mitra/{partner}', [PartnerController::class, 'update'])->name('mitra.update');
     Route::post('mitra/{partner}/dibayar', [PartnerController::class, 'markPaid'])->name('mitra.dibayar');
     Route::post('mitra/{partner}/koreksi', [PartnerController::class, 'correct'])->name('mitra.koreksi');
+    Route::get('pembayaran/ekspor', [PartnerController::class, 'export'])->name('pembayaran.ekspor');
+    Route::get('mitra/bukti-tukar/{voucher}', [PartnerController::class, 'redemptionProof'])->name('mitra.bukti-tukar');
+    Route::get('mitra/bukti-bayar/{payout}', [PartnerController::class, 'payoutProof'])->name('mitra.bukti-bayar');
 
     // A6 Master data
     Route::get('master-data', [MasterDataController::class, 'index'])->name('master-data');
     Route::get('master-data/warung', [MasterDataController::class, 'warung'])->name('master-data.warung');
+    Route::get('master-data/warung/qr', [MasterDataController::class, 'qr'])->name('master-data.warung.qr');
+    Route::get('master-data/warung/qr/cetak', [MasterDataController::class, 'qr'])->name('master-data.warung.qr.cetak');
+    Route::get('master-data/warung/ekspor', [MasterDataController::class, 'exportOutlets'])->name('master-data.warung.ekspor');
     Route::get('master-data/area', [MasterDataController::class, 'area'])->name('master-data.area');
     Route::get('master-data/mitra', [MasterDataController::class, 'mitra'])->name('master-data.mitra');
     Route::get('master-data/jenis-voucher', [MasterDataController::class, 'jenisVoucher'])->name('master-data.jenis-voucher');

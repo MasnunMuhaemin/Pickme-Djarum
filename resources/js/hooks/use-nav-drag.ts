@@ -29,6 +29,8 @@ export function useNavDrag(onRelease: (key: string | null) => void) {
             const d = drag.current;
             if (!d) return;
             if (!d.moved && Math.abs(e.clientX - d.x0) < 8) return;
+            // Mulai geser: jari boleh keluar dari navbar tanpa memutus gerak. Ketukan biasa tidak pakai capture.
+            if (!d.moved) e.currentTarget.setPointerCapture?.(e.pointerId);
             d.moved = true;
             setDragKey(keyAt(e.currentTarget, e.clientX));
         },

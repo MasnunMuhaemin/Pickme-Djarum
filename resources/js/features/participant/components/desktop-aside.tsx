@@ -8,9 +8,9 @@ export function DesktopAside() {
         <aside className="bg-night text-cream relative sticky top-0 hidden h-dvh w-[340px] shrink-0 flex-col overflow-hidden p-7 lg:flex xl:w-[400px] xl:p-9">
             <div className="bg-lime/10 pointer-events-none absolute -top-24 -right-24 size-72 rounded-full blur-3xl" />
 
-            <Link href="/participant" className="relative flex items-center gap-2.5">
-                <span className="bg-lime text-ink grid size-9 place-items-center rounded-xl text-sm font-extrabold">P</span>
-                <span className="text-sm font-extrabold tracking-tight">PICKME</span>
+            {/* Logo sama dengan tampilan HP. */}
+            <Link href="/participant" className="relative self-start" aria-label="Papan Pick(me)">
+                <img src="/images/logo.webp" alt="Papan Pick(me)" className="h-14 w-auto" />
             </Link>
 
             <div className="relative mt-12 xl:mt-16">

@@ -4,7 +4,7 @@ import { useNavDrag } from '@/hooks/use-nav-drag';
 import { useSlidingIndicator } from '@/hooks/use-sliding-indicator';
 import { cn } from '@/lib/utils';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { ChevronLeft, ListOrdered, LogOut, ReceiptText, ScanLine } from 'lucide-react';
+import { ChevronLeft, LogOut, ReceiptText, ScanLine } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 export type PartnerShared = { name: string; type: string } | null;
@@ -27,8 +27,8 @@ export function PartnerPage({
 }: {
     title: string;
     back?: string;
-    /** Menu aktif di navbar: cek, antrean, rekap. */
-    nav?: 'cek' | 'antrean' | 'rekap';
+    /** Menu aktif di navbar: cek, rekap. */
+    nav?: 'cek' | 'rekap';
     footer?: ReactNode;
     hideNav?: boolean;
     children: ReactNode;
@@ -76,7 +76,7 @@ export function PartnerPage({
                     <>
                         {/* Pengganti tinggi navbar yang menempel tetap di bawah layar. */}
                         <div aria-hidden className="h-(--nav-h) shrink-0" />
-                        <PartnerNav active={nav} kuota={partner?.type === 'kuota'} />
+                        <PartnerNav active={nav} />
                     </>
                 )}
             </div>
@@ -88,10 +88,9 @@ export function PartnerPage({
  * Navbar bergaya navbar peserta: pil hitam, pil lime meluncur ke menu aktif. Menempel tetap di bawah layar (fixed)
  * dan tiap menu punya kolom sama lebar, jadi ikon lain tidak bergeser saat menu aktif melebar berisi label.
  */
-function PartnerNav({ active, kuota }: { active?: string; kuota: boolean }) {
+function PartnerNav({ active }: { active?: string }) {
     const items = [
         { key: 'cek', label: 'Cek kode', href: '/mitra', icon: ScanLine },
-        ...(kuota ? [{ key: 'antrean', label: 'Antrean', href: '/mitra/antrean', icon: ListOrdered }] : []),
         { key: 'rekap', label: 'Rekap', href: '/mitra/rekap', icon: ReceiptText },
     ];
     // Menu tujuan setelah gestur geser: pil tetap di sana sampai halaman berganti.
@@ -113,7 +112,7 @@ function PartnerNav({ active, kuota }: { active?: string; kuota: boolean }) {
                 {...handlers}
                 className={cn(
                     'pointer-events-auto relative mx-auto grid h-14 max-w-[384px] touch-none items-center gap-1 rounded-full bg-[#0b0b0b] px-1.5 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.45)] select-none',
-                    kuota ? 'grid-cols-4' : 'grid-cols-3',
+                    'grid-cols-3',
                 )}
             >
                 <span aria-hidden className="bg-lime pointer-events-none absolute top-0 left-0 rounded-full" style={indicatorStyle} />

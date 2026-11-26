@@ -10,7 +10,7 @@ use Carbon\CarbonInterface;
  * Tanda yang memasukkan klaim ke antrean admin (PRD bagian 18). Tanda tidak menolak klaim,
  * hanya menahannya untuk diperiksa admin.
  *
- * Saat foto diunggah: first_photo, random_sample, similar_photo, dark_photo, photo_delay.
+ * Saat foto diunggah: similar_photo, dark_photo, photo_delay (catatan admin, bukan persetujuan).
  * Saat kode dimasukkan (ClaimVerificationService): different_slot, late_code.
  */
 class ClaimFlagService
@@ -23,14 +23,6 @@ class ClaimFlagService
     {
         $config = config('participant.flags');
         $flags = [];
-
-        if ($config['first_photo'] && $this->isFirstPhoto($claim)) {
-            $flags[] = 'first_photo';
-        }
-
-        if ($config['random_sample_percent'] > 0 && random_int(1, 100) <= $config['random_sample_percent']) {
-            $flags[] = 'random_sample';
-        }
 
         if ($this->hasSimilarPhoto($claim, $photo['perceptual_hash'], $config['similar_photo_max_distance'])) {
             $flags[] = 'similar_photo';
@@ -45,14 +37,6 @@ class ClaimFlagService
         }
 
         return $flags;
-    }
-
-    private function isFirstPhoto(Claim $claim): bool
-    {
-        return ! ClaimPhoto::whereHas('claim', fn ($q) => $q
-            ->where('participant_id', $claim->participant_id)
-            ->where('id', '!=', $claim->id)
-        )->exists();
     }
 
     /**

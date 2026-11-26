@@ -55,8 +55,8 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * Aksen kartu putih profil (di belakang isi): bintang bergerigi besar dan kecil, lingkaran bertingkat, dan pola titik
- * hijau. `flip` mencerminkan susunannya supaya kartu yang berurutan tidak tampak sama.
+ * Aksen kartu putih profil (di belakang isi): bintang bergerigi besar dan kecil serta lingkaran bertingkat. `flip`
+ * mencerminkan susunannya supaya kartu yang berurutan tidak tampak sama.
  */
 function CardAccent({ flip }: { flip?: boolean }) {
     return (
@@ -65,12 +65,6 @@ function CardAccent({ flip }: { flip?: boolean }) {
             <span className={cn('bg-lime/40 absolute top-12 size-6', flip ? 'left-14' : 'right-14', STAR)} />
             <span className={cn('border-lime/25 absolute -bottom-14 size-32 rounded-full border-2', flip ? '-right-14' : '-left-14')} />
             <span className={cn('border-lime/20 absolute -bottom-7 size-16 rounded-full border-2', flip ? '-right-7' : '-left-7')} />
-            <span
-                className={cn(
-                    'absolute bottom-2 size-20 bg-[radial-gradient(circle,rgba(143,195,31,0.4)_1.5px,transparent_1.7px)] bg-[length:10px_10px]',
-                    flip ? 'left-2' : 'right-2',
-                )}
-            />
         </span>
     );
 }

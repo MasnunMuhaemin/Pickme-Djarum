@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Participant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Outlet;
-use App\Models\Participant;
 use App\Models\Reject;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,24 +13,11 @@ use Inertia\Response;
 class ScanController extends Controller
 {
     /**
-     * Peserta yang sudah masuk dan warungnya sudah diketahui langsung ke foto bungkus, tanpa scan ulang:
-     * warung dari QR yang terbaca di sesi ini, atau warung klaim terakhirnya. `?ganti` membuka kamera scan
-     * untuk pindah ke warung lain. Peserta yang belum pernah scan maupun klaim tetap scan QR dulu.
+     * Semua peserta, termasuk yang sudah masuk, melihat kamera scan dulu. Warung baru dipakai setelah QR
+     * benar-benar terbaca di sesi ini.
      */
-    public function show(Request $request): Response|RedirectResponse
+    public function show(): Response
     {
-        $participantId = $request->session()->get('participant_id');
-        if ($participantId && ! $request->has('ganti')) {
-            $code = $request->session()->get('outlet_scanned') ?: Participant::find($participantId)
-                ?->claims()->whereNotNull('submitted_at')->latest('submitted_at')->first()?->outlet?->code;
-
-            if ($code && Outlet::where('code', $code)->where('status', 'active')->exists()) {
-                $request->session()->put(['claim_outlet' => $code, 'outlet_scanned' => $code]);
-
-                return to_route('participant.foto', ['outlet' => $code]);
-            }
-        }
-
         return Inertia::render('participant/scan');
     }
 
@@ -62,7 +48,8 @@ class ScanController extends Controller
                 'occurred_at' => now(),
             ]);
 
-            return to_route('participant.qr-tidak-dikenal');
+            // Popup di halaman scan, bukan halaman terpisah. Alamat dituju langsung supaya popup pasti tampil.
+            return to_route('participant.scan')->withErrors(['qr' => 'QR ini belum terdaftar. Coba papan lain atau minta bantuan admin warung.']);
         }
 
         $request->session()->put(['claim_outlet' => $outlet->code, 'outlet_scanned' => $outlet->code]);

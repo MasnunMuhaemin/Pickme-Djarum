@@ -9,7 +9,7 @@ class Voucher extends Model
 {
     protected $fillable = [
         'claim_id', 'code', 'type', 'source', 'status', 'destination', 'failed_attempts',
-        'sent_at', 'processed_at', 'reference', 'partner_id', 'voucher_type_id', 'value', 'redeemed_at', 'fail_reason', 'proof_path', 'proof_at',
+        'sent_at', 'processed_at', 'reference', 'partner_id', 'voucher_type_id', 'mystery_prize_id', 'value', 'redeemed_at', 'fail_reason', 'proof_path', 'proof_at',
     ];
 
     protected $casts = [
@@ -37,10 +37,15 @@ class Voucher extends Model
         return $this->value ?? (int) config("participant.prize_values.{$this->type}", 0);
     }
 
-    /** Pulsa/kuota: diisi mitra kuota ke nomor HP peserta, bukan ditukar dengan kode (PRD FR-15). */
+    /** Pulsa/kuota: diisi admin ke nomor HP peserta (Pemenuhan › Top up), bukan ditukar dengan kode. */
     public function isKuota(): bool
     {
-        return $this->type === 'voucher' && $this->voucherType?->fulfillment === 'kuota';
+        return $this->type === 'voucher' && ($this->voucherType?->fulfillment === 'kuota' || $this->mysteryPrize?->fulfillment === 'topup');
+    }
+
+    public function mysteryPrize(): BelongsTo
+    {
+        return $this->belongsTo(MysteryPrize::class);
     }
 
     /** Mitra tempat voucher ditukar (A5 rekap pembayaran). */

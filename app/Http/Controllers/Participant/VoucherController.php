@@ -25,6 +25,8 @@ class VoucherController extends Controller
                 ...$voucher->only(['id', 'code', 'type', 'status', 'destination']),
                 // Mitra penukar (baris "Mitra" di detail voucher).
                 'partner' => $voucher->partner?->name ?? $voucher->voucherType?->partner_label,
+                // Tautan Google Maps toko mitra (diisi admin di Akun mitra).
+                'maps_url' => $voucher->partner?->maps_url,
             ],
             'reward' => RewardPresenter::voucher($voucher),
         ]);

@@ -47,6 +47,7 @@ class PartnerAuthController extends Controller
         }
 
         RateLimiter::clear($key);
+        $partner->update(['last_login_at' => now()]);
         $request->session()->regenerate();
         $request->session()->put('partner_id', $partner->id);
         ActivityLogger::log('partner.login', 'partner', $partner->id, [], $partner);

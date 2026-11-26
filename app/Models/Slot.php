@@ -9,12 +9,13 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Slot extends Model
 {
     protected $fillable = [
-        'board_id', 'position', 'code', 'prize_type', 'voucher_type_id', 'voucher_code', 'status', 'holder_id', 'held_until', 'used_at',
+        'board_id', 'position', 'code', 'prize_type', 'voucher_type_id', 'voucher_code', 'status', 'holder_id', 'held_until', 'used_at', 'installed_at',
     ];
 
     protected $casts = [
         'held_until' => 'datetime',
         'used_at' => 'datetime',
+        'installed_at' => 'datetime',
     ];
 
     public function board(): BelongsTo

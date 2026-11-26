@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Claim;
 use App\Models\Gift;
 use App\Models\Voucher;
 use App\Services\RewardCreationService;
@@ -15,74 +16,170 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * A3 Antrean pemenuhan. Tiga tab: Token listrik (Berhasil wajib nomor referensi agregator, Gagal wajib alasan
+ * A3 Antrean pemenuhan. Tab: Top up (pulsa/kuota diisi admin), Token listrik (Berhasil wajib nomor referensi agregator, Gagal wajib alasan
  * dan menambah hitungan), Bensin tunai (Hubungi lewat WhatsApp lalu Serahkan dengan tanggal dan penerima),
  * Merch dan LE (Kirim lalu Selesai, dengan tanggal). Permintaan yang 3 kali salah tampil di "Perlu bantuan admin".
  */
 class FulfillmentController extends Controller
 {
+    private const TABS = ['topup', 'token', 'bensin', 'barang', 'bantuan'];
+
     public function index(Request $request): Response
     {
-        // Tanpa pilihan tab: buka tab pertama yang ada antreannya.
-        $tab = in_array($request->query('tab'), ['token', 'bensin', 'barang'], true)
-            ? $request->query('tab')
-            : (AdminQueues::tokens()->exists() ? 'token' : (AdminQueues::fuel()->exists() ? 'bensin' : (AdminQueues::goods()->exists() ? 'barang' : 'token')));
+        $max = (int) config('participant.destination_max_failures');
+        $with = ['claim.participant', 'claim.outlet', 'voucherType', 'mysteryPrize'];
 
-        $tokens = Voucher::with('claim.participant')->where('type', 'token')
+        $topups = AdminQueues::topups()->with($with)->oldest('updated_at')->get();
+        $tokens = Voucher::with($with)->where('type', 'token')
             ->whereIn('status', ['pending_process', 'pending_data', 'rejected'])
             ->orderByRaw("status = 'pending_process' desc")->oldest()->get();
-        $fuel = Voucher::with('claim.participant')->where('type', 'bensin')
+        $fuel = Voucher::with($with)->where('type', 'bensin')
             ->whereIn('status', ['pending', 'contacted', 'handed_over'])
             ->orderByRaw("status = 'handed_over' asc")->oldest()->get();
-        $goods = Gift::with('claim.participant')->whereIn('type', AdminQueues::GIFT_TYPES)
+        $goods = Gift::with('claim.participant', 'claim.outlet')->whereIn('type', AdminQueues::GIFT_TYPES)
             ->whereIn('status', ['pending_address', 'ready_to_ship', 'shipping', 'done'])
             ->orderByRaw("status = 'done' asc")->oldest()->get();
-        $help = AdminQueues::needsHelp()->with('claim.participant')->oldest()->get();
+        $help = AdminQueues::needsHelp()->with($with)->oldest()->get();
 
-        return Inertia::render('admin/pemenuhan', [
-            'tab' => $tab,
-            'counts' => [
-                'token' => AdminQueues::tokens()->count(),
-                'bensin' => AdminQueues::fuel()->count(),
-                'barang' => AdminQueues::goods()->count(),
-            ],
-            'tokens' => $tokens->map(fn (Voucher $v) => [
-                ...$this->person($v->claim?->participant),
-                'id' => $v->id,
-                'value' => $this->rupiah($v->amount()),
-                'destination' => $v->destination,
-                'failed' => $v->failed_attempts,
-                'max' => (int) config('participant.destination_max_failures'),
-                'status' => $v->status,
-            ]),
-            'fuel' => $fuel->map(fn (Voucher $v) => [
-                ...$this->person($v->claim?->participant),
-                'id' => $v->id,
-                'value' => $this->rupiah($v->amount()),
-                'status' => $v->status,
-                'handed' => $v->status === 'handed_over' ? trim(($v->processed_at?->format('d M Y') ?? '').' · '.($v->reference ?? '')) : null,
-                'wa' => Mask::waLink($v->claim?->participant?->whatsapp, 'Halo, hadiah bensin tunai PICKME kamu siap diserahkan. Kapan bisa ditemui?'),
-            ]),
-            'goods' => $goods->map(fn (Gift $g) => [
-                'id' => $g->id,
-                'name' => $g->claim?->participant?->name,
-                'prize' => $g->type === 'limited_edition' ? 'Limited edition' : 'Merchandise',
-                'area' => $g->area,
-                'address' => $g->address,
-                'status' => $g->status,
-                'shipped_at' => $g->shipped_at?->format('d M Y'),
-                'completed_at' => $g->completed_at?->format('d M Y'),
-            ]),
-            'help' => $help->map(fn (Voucher $v) => [
-                ...$this->person($v->claim?->participant),
-                'id' => $v->id,
-                'value' => $this->rupiah($v->amount()),
-                'destination' => $v->destination,
-                'failed' => $v->failed_attempts,
-                'max' => (int) config('participant.destination_max_failures'),
-                'wa' => Mask::waLink($v->claim?->participant?->whatsapp, 'Halo, nomor tujuan hadiah PICKME kamu belum berhasil diproses. Boleh kirim nomor meter atau ID pelanggan PLN yang benar?'),
-            ]),
+        $rows = [
+            'topup' => $topups->map(fn (Voucher $v) => $this->voucherRow($v, 'topup', $max)),
+            'token' => $tokens->map(fn (Voucher $v) => $this->voucherRow($v, 'token', $max)),
+            'bensin' => $fuel->map(fn (Voucher $v) => $this->voucherRow($v, 'bensin', $max)),
+            'barang' => $goods->map(fn (Gift $g) => $this->giftRow($g)),
+            'bantuan' => $help->map(fn (Voucher $v) => $this->voucherRow($v, 'bantuan', $max)),
+        ];
+        $counts = [
+            'topup' => $topups->count(),
+            'token' => AdminQueues::tokens()->count(),
+            'bensin' => AdminQueues::fuel()->count(),
+            'barang' => AdminQueues::goods()->count(),
+            'bantuan' => $help->count(),
+        ];
+        // Tanpa pilihan tab: buka tab pertama yang ada antreannya.
+        $tab = in_array($request->query('tab'), self::TABS, true)
+            ? $request->query('tab')
+            : (collect(self::TABS)->first(fn ($t) => $counts[$t] > 0) ?? 'topup');
+
+        return Inertia::render('admin/pemenuhan', ['tab' => $tab, 'counts' => $counts, 'rows' => $rows]);
+    }
+
+    /** Satu baris antrean voucher (top up, token, bensin, perlu bantuan) dalam bentuk yang sama untuk daftar dan detail. */
+    private function voucherRow(Voucher $v, string $kind, int $max): array
+    {
+        $participant = $v->claim?->participant;
+        [$label, $done] = match ($v->status) {
+            'pending_process' => [$kind === 'token' ? 'Siap diproses' : 'Siap di-top up', false],
+            'pending_data' => ['Menunggu nomor', false],
+            'rejected' => ['Menunggu isi ulang', false],
+            'needs_admin' => ['Perlu bantuan', false],
+            'pending' => ['Menunggu dihubungi', false],
+            'contacted' => ['Dihubungi', false],
+            'handed_over' => ['Diserahkan', true],
+            default => [$v->status, true],
+        };
+        $prize = match (true) {
+            (bool) $v->mysteryPrize => "Mystery gift: {$v->mysteryPrize->name}",
+            $v->type === 'token' => 'Token listrik',
+            $v->type === 'bensin' => 'Bensin tunai',
+            default => $v->voucherType?->name ?? 'Pulsa/kuota',
+        };
+        $message = match ($kind) {
+            'bensin' => 'Halo, hadiah bensin tunai PICKME kamu siap diserahkan. Kapan bisa ditemui?',
+            'bantuan' => 'Halo, nomor tujuan hadiah PICKME kamu belum berhasil diproses. Boleh kirim nomor yang benar?',
+            default => 'Halo, ini admin PICKME soal hadiah kamu.',
+        };
+
+        return [
+            'key' => "v{$v->id}",
+            'id' => $v->id,
+            'kind' => $kind,
+            'type' => $v->type,
+            'name' => $participant?->name ?? '-',
+            'whatsapp' => $participant?->whatsapp,
+            'prize' => $prize,
+            'value' => $this->rupiah($v->amount()),
+            'status' => $v->status,
+            'label' => $label,
+            'done' => $done,
+            'at' => $v->updated_at?->format('d/m H:i'),
+            'claim' => $v->claim?->claim_code,
+            'outlet' => $v->claim?->outlet?->name,
+            'destination' => $v->destination,
+            'failed' => $v->failed_attempts,
+            'max' => $max,
+            'fail_reason' => $v->fail_reason,
+            'handed' => $v->status === 'handed_over' ? trim(($v->processed_at?->format('d M Y') ?? '').' · '.($v->reference ?? '')) : null,
+            'wa' => Mask::waLink($participant?->whatsapp, $message),
+        ];
+    }
+
+    private function giftRow(Gift $g): array
+    {
+        $participant = $g->claim?->participant;
+        $labels = ['pending_address' => 'Menunggu alamat', 'ready_to_ship' => 'Siap kirim', 'shipping' => 'Diantar', 'done' => 'Selesai'];
+
+        return [
+            'key' => "g{$g->id}",
+            'id' => $g->id,
+            'kind' => 'barang',
+            'type' => $g->type,
+            'name' => $participant?->name ?? '-',
+            'whatsapp' => $participant?->whatsapp,
+            'prize' => $g->type === 'limited_edition' ? 'Limited edition' : 'Merchandise',
+            'value' => null,
+            'status' => $g->status,
+            'label' => $labels[$g->status] ?? $g->status,
+            'done' => $g->status === 'done',
+            'at' => $g->updated_at?->format('d/m H:i'),
+            'claim' => $g->claim?->claim_code,
+            'outlet' => $g->claim?->outlet?->name,
+            'area' => $g->area,
+            'address' => $g->address,
+            'shipped_at' => $g->shipped_at?->format('d M Y'),
+            'completed_at' => $g->completed_at?->format('d M Y'),
+            'wa' => Mask::waLink($participant?->whatsapp, 'Halo, ini admin PICKME soal pengiriman hadiahmu.'),
+        ];
+    }
+
+    /** Pulsa/kuota diisi admin (bukan mitra kuota lagi). */
+    public function topupDone(Request $request, Voucher $voucher): RedirectResponse
+    {
+        abort_unless($voucher->isKuota() && $voucher->status === 'pending_process', 422);
+        $voucher->update(['status' => 'done', 'processed_at' => now(), 'fail_reason' => null]);
+        ActivityLogger::log('voucher.topup_done', 'voucher', $voucher->id, [], $request->user());
+
+        return back()->with('status', 'Top up ditandai selesai.');
+    }
+
+    /** Nomor tidak bisa diisi: kembali ke peserta untuk diisi ulang; setelah batas salah perlu bantuan admin. */
+    public function topupWrong(Request $request, Voucher $voucher): RedirectResponse
+    {
+        abort_unless($voucher->isKuota() && $voucher->status === 'pending_process', 422);
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:160']]);
+        $failed = $voucher->failed_attempts + 1;
+        $max = (int) config('participant.destination_max_failures');
+        $voucher->update([
+            'failed_attempts' => $failed,
+            'status' => $failed >= $max ? 'needs_admin' : 'rejected',
+            'fail_reason' => ($data['reason'] ?? null) ?: 'Nomor tidak bisa diisi',
         ]);
+        ActivityLogger::log('voucher.topup_wrong_number', 'voucher', $voucher->id, ['attempt' => $failed], $request->user());
+
+        return back()->with('status', $failed >= $max ? 'Gagal ke-'.$failed.': masuk Perlu bantuan.' : 'Dikembalikan ke peserta untuk isi ulang nomor.');
+    }
+
+    /** Perlu bantuan: admin mendapat nomor yang benar lewat WhatsApp lalu mengembalikannya ke antrean. */
+    public function helpResolve(Request $request, Voucher $voucher): RedirectResponse
+    {
+        abort_unless($voucher->status === 'needs_admin', 422);
+        $data = $request->validate(
+            ['destination' => ['required', 'string', 'regex:/^[0-9]{8,20}$/']],
+            ['destination.required' => 'Isi nomor yang benar.', 'destination.regex' => 'Nomor hanya angka, 8 sampai 20 digit.'],
+        );
+        $voucher->update(['destination' => $data['destination'], 'status' => 'pending_process', 'fail_reason' => null]);
+        ActivityLogger::log('voucher.help_resolved', 'voucher', $voucher->id, [], $request->user());
+
+        return back()->with('status', 'Nomor diperbarui. Permintaan kembali ke antrean.');
     }
 
     public function tokenSuccess(Request $request, Voucher $voucher): RedirectResponse
@@ -164,8 +261,8 @@ class FulfillmentController extends Controller
         return back()->with('status', 'Hadiah ditandai selesai diterima.');
     }
 
-    /** Hadiah klaim selesai diproses admin: capnya baru dihitung sekarang. Hadiah mystery gift tidak menambah cap. */
-    private function capFor(?\App\Models\Claim $claim): void
+    /** Hadiah klaim selesai diproses admin. Cap sudah dihitung saat klaim, jadi ini hanya pengaman idempoten. */
+    private function capFor(?Claim $claim): void
     {
         if ($claim) {
             app(RewardCreationService::class)->grantCap($claim);

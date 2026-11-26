@@ -61,7 +61,7 @@ export type CapMark = 'cap' | 'rejected';
  * Nomor kartu cap 1 sampai `total`: klaim ditolak tetap memakai nomornya, klaim berikutnya lanjut ke nomor sesudahnya.
  * Mystery gift ada di nomor tempat cap hijau ke-`mysteryAt` jatuh (atau akan jatuh).
  */
-export function capSlots(trail: CapMark[], mysteryAt = 5, total = 10) {
+export function capSlots(trail: CapMark[], mysteryAt = 5, total = 10, gift: { won?: boolean; enabled?: boolean } = {}) {
     let caps = 0;
     let giftAt = 0;
     trail.forEach((mark, i) => {
@@ -70,5 +70,8 @@ export function capSlots(trail: CapMark[], mysteryAt = 5, total = 10) {
         if (caps === mysteryAt) giftAt = i + 1;
     });
     if (!giftAt) giftAt = Math.min(total, trail.length + (mysteryAt - caps));
+    // Kado hanya tampil bila peserta mendapat mystery gift (diundi dengan peluang), atau belum sampai cap ke-5 dan
+    // mystery gift aktif. 0 = tidak ada kado di kartu.
+    if (caps >= mysteryAt ? !gift.won : gift.enabled === false) giftAt = 0;
     return { caps, giftAt, used: trail.length, marks: Array.from({ length: total }, (_, i): CapMark | null => trail[i] ?? null) };
 }

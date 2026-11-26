@@ -13,7 +13,7 @@ export default function MasterArea({ areas }: { areas: AreaRow[] }) {
     const [confirm, confirmDialog] = useConfirm();
 
     return (
-        <AdminLayout active="md-area" title="Area" subtitle="Langkah 1: daftar area kos untuk warung, form daftar peserta, dan alamat hadiah">
+        <AdminLayout active="md-area" title="Master data" subtitle="Area kos untuk warung, form daftar peserta, dan alamat hadiah.">
             <Card title={`${areas.length} area`} right={<Btn onClick={() => setAdding(true)}>Tambah area</Btn>}>
                 <SearchInput value={q} onChange={setQ} placeholder="Cari nama area" className="mb-3" />
                 {areas.length ? (

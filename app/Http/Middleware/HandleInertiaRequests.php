@@ -60,15 +60,19 @@ class HandleInertiaRequests extends Middleware
                 'pauseReason' => Setting::get('program_pause_reason'),
                 'outlets' => Outlet::orderBy('code')->get(['id', 'code', 'name', 'status']),
             ] : null,
-            // Akun mitra yang sedang masuk (halaman /mitra): nama di header dan menu antrean untuk mitra kuota.
+            // Akun mitra yang sedang masuk (halaman /mitra): nama di header.
             'partner' => fn () => $request->is('mitra', 'mitra/*') && $request->session()->get('partner_id')
                 ? Partner::find($request->session()->get('partner_id'))?->only(['name', 'type'])
                 : null,
+            // Mystery gift aktif/nonaktif (CMS): kado di kartu cap disembunyikan saat nonaktif.
+            'mysteryEnabled' => fn () => $request->is('participant', 'participant/*') ? (bool) Setting::get('mystery_enabled', true) : null,
             // Kalimat di gambar voucher peserta (diatur admin di Pengaturan).
             'voucherLines' => fn () => $request->is('participant', 'participant/*') ? Setting::voucherLines() : null,
             'flash' => [
                 'status' => fn () => $request->session()->get('status'),
                 'pin' => fn () => $request->session()->get('partner_pin'),
+                // Tautan WhatsApp berisi kode mystery gift setelah admin menyimpan kode.
+                'mysteryWa' => fn () => $request->session()->get('mystery_wa'),
             ],
         ]);
     }

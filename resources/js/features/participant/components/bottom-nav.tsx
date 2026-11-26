@@ -4,7 +4,7 @@ import { useSlidingIndicator } from '@/hooks/use-sliding-indicator';
 import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
 import { Link, router, usePage } from '@inertiajs/react';
-import { CreditCard, Gift, House, ScanLine, UserRound } from 'lucide-react';
+import { CreditCard, Gift, House, LogIn, ScanLine, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const items = [
@@ -14,6 +14,8 @@ const items = [
     { key: 'kartu', label: 'Leaderboard', href: '/participant/kartu', icon: CreditCard },
     { key: 'profil', label: 'Profil', href: '/participant/profil', icon: UserRound },
 ];
+
+const loginItem = { key: 'masuk', label: 'Masuk', href: '/participant/masuk', icon: LogIn };
 
 function activeKey(url: string): string {
     const path = url.split('?')[0];
@@ -28,10 +30,10 @@ function activeKey(url: string): string {
         return 'beranda';
     }
     if (path.startsWith('/participant/profil')) return 'profil';
-    if (path.startsWith('/participant/scan') || path.startsWith('/participant/qr-tidak-dikenal') || path.startsWith('/participant/lupa-pin')) {
+    if (path.startsWith('/participant/scan') || path.startsWith('/participant/lupa-pin')) {
         return 'scan';
     }
-    if (path.startsWith('/participant/kartu') || path.startsWith('/participant/mahasiswa')) {
+    if (path.startsWith('/participant/kartu')) {
         return 'kartu';
     }
     if (
@@ -46,6 +48,8 @@ function activeKey(url: string): string {
     ) {
         return 'hadiah';
     }
+    if (path.startsWith('/participant/masuk')) return 'masuk';
+
     return 'beranda';
 }
 
@@ -61,7 +65,9 @@ function useIsLoggedIn(): boolean {
 
 function useNavItems() {
     const isLoggedIn = useIsLoggedIn();
-    return isLoggedIn ? items : items.filter((item) => item.key !== 'hadiah' && item.key !== 'profil');
+    if (isLoggedIn) return items;
+    // Tamu tidak melihat Hadiahku dan Profil; menu Masuk menggantikannya.
+    return [...items.filter((item) => item.key !== 'hadiah' && item.key !== 'profil'), loginItem];
 }
 
 function useActiveNav(): string {
@@ -75,21 +81,21 @@ function useActiveNav(): string {
     return activeKey(path);
 }
 
-export function DesktopNav({ dark }: { dark?: boolean }) {
+export function DesktopNav() {
     const active = useActiveNav();
     const visibleItems = useNavItems();
     const caps = useCaps();
+    const loggedIn = useIsLoggedIn();
 
     return (
         <header
             className={cn(
-                'sticky top-0 z-30 hidden h-16 shrink-0 items-center justify-between gap-6 border-b px-8 backdrop-blur md:flex',
-                dark ? 'bg-night/90 text-cream border-white/10' : 'border-ink/10 bg-cream/90 text-ink',
+                // Latar hitam seperti navbar HP (dulu krem).
+                'text-cream sticky top-0 z-30 hidden h-16 shrink-0 items-center justify-between gap-6 border-b border-white/10 bg-[#0b0b0b] px-8 md:flex',
             )}
         >
-            <Link href="/participant" className="flex items-center gap-2">
-                <span className="bg-lime text-ink grid size-8 place-items-center rounded-lg text-[11px] font-extrabold">P</span>
-                <span className="text-xs font-extrabold tracking-tight">PICKME</span>
+            <Link href="/participant" className="flex items-center" aria-label="Papan Pick(me)">
+                <img src="/images/logo.webp" alt="Papan Pick(me)" className="h-10 w-auto" />
             </Link>
 
             <nav className="flex items-center gap-1">
@@ -103,17 +109,12 @@ export function DesktopNav({ dark }: { dark?: boolean }) {
                             prefetch="mount"
                             cacheFor="30s"
                             className={cn(
-                                'flex h-10 items-center gap-2 rounded-full px-4 text-[11px] font-bold transition',
-                                isActive
-                                    ? dark
-                                        ? 'bg-lime text-ink'
-                                        : 'bg-ink text-cream'
-                                    : dark
-                                      ? 'text-cream/60 hover:bg-white/5'
-                                      : 'text-ink-soft hover:bg-cream-deep',
+                                'flex h-10 items-center gap-2 rounded-full px-4 text-[11px] transition-colors duration-200',
+                                // Warna menu aktif sama dengan navbar HP: lime dengan teks hitam.
+                                isActive ? 'bg-lime font-extrabold text-[#0b0b0b]' : 'text-cream/70 hover:text-cream font-bold hover:bg-white/10',
                             )}
                         >
-                            <Icon className="size-4" />
+                            <Icon className="size-4" strokeWidth={isActive ? 2.25 : 1.75} />
                             {item.label}
                         </Link>
                     );
@@ -121,15 +122,24 @@ export function DesktopNav({ dark }: { dark?: boolean }) {
             </nav>
 
             <div className="flex items-center gap-2">
-                {useIsLoggedIn() && <span className="bg-lime-soft text-ink rounded-full px-3 py-1.5 text-[10px] font-bold">Kartu {caps} / 10</span>}
-                <LogoutButton dark={dark} />
+                {loggedIn ? (
+                    <>
+                        <span className="bg-lime-soft text-ink rounded-full px-3 py-1.5 text-[10px] font-bold">Kartu {caps} / 10</span>
+                        <LogoutButton dark />
+                    </>
+                ) : (
+                    <Link href="/participant/masuk" className="bg-lime text-ink h-10 rounded-full px-5 text-[12px] font-extrabold">
+                        Masuk
+                    </Link>
+                )}
             </div>
         </header>
     );
 }
 
 /** Label pendek di navbar HP supaya pil yang melebar tetap muat di HP kecil. */
-const NAV_LABELS: Record<string, string> = { hadiah: 'Hadiah' };
+// Label pendek supaya muat di kolom tetap (HP 360 px).
+const NAV_LABELS: Record<string, string> = { hadiah: 'Hadiah', kartu: 'Peringkat' };
 
 /** Lama pil meluncur sebelum membuka halaman tanpa navbar (kamera), supaya geraknya sempat terlihat. */
 const SLIDE_BEFORE_LEAVE_MS = 260;
@@ -165,21 +175,29 @@ export function BottomNav() {
 
     // Pil hitam melayang: menu aktif melebar berisi ikon dan label; pil lime meluncur ke menu aktif.
     return (
-        <nav className="pointer-events-none sticky bottom-0 z-30 mt-auto px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
-            <div
-                ref={containerRef}
-                {...handlers}
-                className={cn(
-                    'pointer-events-auto relative mx-auto h-14 touch-none items-center rounded-full bg-[#0b0b0b] px-1.5 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.45)] select-none',
-                    // 3 menu (kamera di tengah): tiga kolom tetap sama lebar, jadi menu lain diam saat pil berpindah.
-                    // 5 menu: jarak antar menu dibagi rata.
-                    cameraCentered ? 'grid max-w-[324px] grid-cols-3 gap-0.5' : 'flex max-w-[384px] justify-between',
-                )}
-            >
-                <span aria-hidden className="bg-lime pointer-events-none absolute top-0 left-0 rounded-full" style={indicatorStyle} />
-                {cameraCentered ? <>{visibleItems.map((item) => renderItem(item, true))}</> : visibleItems.map((item) => renderItem(item))}
-            </div>
-        </nav>
+        <>
+            {/* Safari iOS: navbar sticky bisa menutup isi bawah halaman. Navbar ditempel tetap (fixed) di bawah layar,
+            dan ruang kosong setinggi navbar menjaga isi terakhir tetap terlihat di atasnya. */}
+            <div aria-hidden className="h-(--nav-h) shrink-0 md:hidden" />
+            <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[430px] px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
+                <div
+                    ref={containerRef}
+                    {...handlers}
+                    className={cn(
+                        'pointer-events-auto relative mx-auto h-14 touch-none items-center rounded-full bg-[#0b0b0b] px-1.5 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.45)] select-none',
+                        // 5 menu (peserta masuk): jarak dibagi rata. 4 menu (tamu): empat kolom sama lebar.
+                        cameraCentered
+                            ? 'grid max-w-[324px] grid-cols-3 gap-0.5'
+                            : visibleItems.length === 4
+                              ? 'grid max-w-[352px] grid-cols-4'
+                              : 'grid max-w-[384px] grid-cols-5',
+                    )}
+                >
+                    <span aria-hidden className="bg-lime pointer-events-none absolute top-0 left-0 rounded-full" style={indicatorStyle} />
+                    {visibleItems.map((item) => renderItem(item, true))}
+                </div>
+            </nav>
+        </>
     );
 
     /** Buka menu hasil gestur; pil tetap di menu tujuan sampai halaman berganti. */
@@ -213,13 +231,13 @@ export function BottomNav() {
                 className={cn(
                     // Tinggi 44px tetap nyaman untuk jempol (PRD bagian 14).
                     'relative flex h-11 items-center justify-center rounded-full transition-colors duration-200',
-                    isActive ? 'text-ink gap-1 px-3 text-[12px] font-extrabold' : 'text-cream w-10 hover:bg-white/10',
+                    isActive ? 'gap-1 px-3 text-[12px] font-extrabold text-[#0b0b0b]' : 'text-cream w-10 hover:bg-white/10',
                     // Menu selebar kolomnya agar posisinya tidak bergeser.
                     fill && 'w-full min-w-0',
-                    fill && isActive && 'gap-0.5 px-1.5 text-[11px]',
+                    fill && isActive && 'gap-0.5 px-0.5 text-[10px] tracking-tight',
                 )}
             >
-                <Icon className="size-5 shrink-0" strokeWidth={isActive ? 2.25 : 1.75} />
+                <Icon className={cn('shrink-0', fill && isActive ? 'size-4' : 'size-5')} strokeWidth={isActive ? 2.25 : 1.75} />
                 {isActive && <span className="truncate">{NAV_LABELS[item.key] ?? item.label}</span>}
             </Link>
         );

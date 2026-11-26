@@ -125,12 +125,12 @@ class ParticipantAuthController extends Controller
         $devices->track($request, $participant, 'login');
         ActivityLogger::log('participant.login', 'participant', $participant->id, [], $participant);
 
-        if ($request->session()->get('claim_outlet')) {
-            return to_route('participant.foto', ['outlet' => $request->session()->get('claim_outlet')]);
-        }
+        // QR yang baru dipindai sebelum masuk langsung dipakai. Tanpa QR, peserta scan papan dulu.
+        $outlet = $request->session()->get('claim_outlet');
 
-        // Belum ada warung dari QR: ke Scan. Scan sendiri langsung ke foto bila warung klaim terakhir diketahui.
-        return to_route('participant.scan');
+        return $outlet
+            ? to_route('participant.foto', ['outlet' => $outlet])
+            : to_route('participant.scan');
     }
 
     public function logout(Request $request): RedirectResponse

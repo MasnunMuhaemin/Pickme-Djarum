@@ -35,13 +35,11 @@ export default function Login({ status }: LoginProps) {
             <Head title="Masuk admin" />
 
             <section className="bg-night text-cream relative flex shrink-0 flex-col justify-between overflow-hidden px-8 pt-10 pb-12 md:w-1/2 md:p-14">
-                <div aria-hidden className="bg-lime/20 absolute -top-24 -right-24 size-72 rounded-full blur-3xl" />
-                <div aria-hidden className="bg-lime/10 absolute -bottom-32 -left-20 size-80 rounded-full blur-3xl" />
+                {/* Banner ilustrasi kota di panel kiri, digelapkan supaya teks tetap terbaca. */}
+                <img src="/images/banner.webp" alt="" aria-hidden className="absolute inset-0 size-full object-cover select-none" />
+                <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-[#0d1b15]/55 via-[#0d1b15]/65 to-[#0d1b15]/90" />
 
-                <div className="relative flex items-center gap-2">
-                    <span className="bg-lime text-ink grid size-8 place-items-center rounded-lg text-[11px] font-extrabold">P</span>
-                    <span className="text-xs font-extrabold tracking-tight">PICKME</span>
-                </div>
+                <img src="/images/logo.webp" alt="Papan Pick(me)" className="relative h-14 w-auto self-start md:h-16" />
 
                 <div className="relative mt-10 md:mt-0">
                     <h1 className="font-marker -rotate-3 text-6xl leading-none text-white drop-shadow-[0_4px_0_rgba(0,0,0,0.35)] md:text-8xl">

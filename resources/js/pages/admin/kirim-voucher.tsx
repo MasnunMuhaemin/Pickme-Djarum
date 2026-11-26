@@ -38,11 +38,7 @@ export default function KirimVoucher({
     }
 
     return (
-        <AdminLayout
-            active="kirim-voucher"
-            title="Kirim voucher"
-            subtitle="Voucher mitra ke peserta lewat WhatsApp · yang sudah dikirim tetap tercatat"
-        >
+        <AdminLayout active="kirim-voucher" title="Pemenuhan" subtitle="Voucher mitra ke peserta lewat WhatsApp · yang sudah dikirim tetap tercatat">
             <PillTabs
                 active={tab}
                 tabs={[

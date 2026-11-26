@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Outlet;
 use App\Models\Setting;
 use App\Models\Slot;
-use App\Models\VoucherType;
 use App\Support\ActivityLogger;
 use App\Support\ProgramParameters;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +28,6 @@ class SettingsController extends Controller
             ['label' => 'Total slot', 'value' => (string) Slot::count(), 'stored' => 'Turunan'],
             ['label' => 'Isi slot (skema B)', 'value' => $this->prizeMix(), 'stored' => 'Generator'],
             ['label' => 'Batas klaim harian', 'value' => '2 per nomor per hari (belum diaktifkan selama uji coba)', 'stored' => 'Pengaturan'],
-            ['label' => 'Cek foto pertama peserta baru', 'value' => config('participant.flags.first_photo') ? 'Aktif' : 'Nonaktif', 'stored' => 'Pengaturan'],
             ['label' => 'Kartu loyalti', 'value' => '10 cap, mystery gift di cap ke-5', 'stored' => 'Tetap'],
         ];
 
@@ -49,8 +47,8 @@ class SettingsController extends Controller
             'parameters' => $editable,
             'paused' => Setting::programPaused(),
             'pauseReason' => Setting::get('program_pause_reason'),
-            'voucherLines' => implode("
-", Setting::voucherLines()),
+            'voucherLines' => implode('
+', Setting::voucherLines()),
         ]);
     }
 
@@ -66,8 +64,8 @@ class SettingsController extends Controller
             return back()->withErrors(['lines' => 'Tiap kalimat maksimal 60 karakter supaya muat di gambar voucher.']);
         }
 
-        Setting::put('voucher_lines', implode("
-", $lines));
+        Setting::put('voucher_lines', implode('
+', $lines));
         ActivityLogger::log('settings.voucher_lines', 'settings', null, ['count' => count($lines)], $request->user());
 
         return back()->with('status', count($lines).' kalimat voucher disimpan.');
@@ -103,9 +101,12 @@ class SettingsController extends Controller
 
     private function prizeMix(): string
     {
-        $types = VoucherType::sum('quantity');
-        $merch = Slot::where('prize_type', 'merch')->count();
+        // Isi papan yang sebenarnya (hasil generator): voucher, merchandise, limited edition.
+        $byType = Slot::selectRaw('prize_type, count(*) as n')->groupBy('prize_type')->pluck('n', 'prize_type');
+        $merch = (int) ($byType['merch'] ?? 0);
+        $limited = (int) ($byType['limited'] ?? 0);
+        $voucher = (int) $byType->sum() - $merch - $limited;
 
-        return ($types ?: Slot::where('prize_type', '!=', 'merch')->count())." voucher · {$merch} merchandise";
+        return "{$voucher} voucher · {$merch} merchandise · {$limited} limited edition";
     }
 }

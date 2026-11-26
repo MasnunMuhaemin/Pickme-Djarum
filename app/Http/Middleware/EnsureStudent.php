@@ -9,7 +9,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Program ini khusus mahasiswa. Peserta yang belum menjawab diarahkan ke pertanyaan "Kamu mahasiswa?",
- * yang menjawab "Bukan" diarahkan ke halaman khusus mahasiswa. Dipasang setelah middleware participant.
+ * yang menjawab "Bukan" ke pemberitahuan khusus mahasiswa. Keduanya popup di halaman scan.
+ * Dipasang setelah middleware participant.
  */
 class EnsureStudent
 {

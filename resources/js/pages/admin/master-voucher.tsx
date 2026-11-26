@@ -185,7 +185,7 @@ export default function MasterVoucher({
     const total = shown.reduce((sum, t) => sum + t.quantity, 0);
 
     return (
-        <AdminLayout active="md-voucher" title="Jenis voucher" subtitle="Langkah 3: jenis hadiah, mitra penukar, nilai, dan jumlah">
+        <AdminLayout active="md-voucher" title="Master data" subtitle="Jenis hadiah, mitra penukar, nilai, dan jumlah.">
             <div className="flex flex-wrap items-center gap-2">
                 <SearchInput value={q} onChange={setQ} placeholder="Cari jenis, mitra, atau pemenuhan" />
                 <SelectInput

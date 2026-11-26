@@ -74,7 +74,7 @@ export function AuthSheet({
 
     if (mode === 'login') {
         return (
-            <Sheet open onClose={onClose} title="Masuk dulu untuk klaim">
+            <Sheet open onClose={onClose} title="Masuk dulu untuk klaim" className="bg-white">
                 <p className="text-ink-soft text-[12px] leading-relaxed">Supaya hadiah dan kartu cap kamu aman. Lanjut dengan WhatsApp dan PIN.</p>
                 <form onSubmit={submitLogin} className="mt-4 space-y-3">
                     <label className="block">
@@ -142,7 +142,7 @@ export function AuthSheet({
 
     if (mode === 'register') {
         return (
-            <Sheet open onClose={onClose} title="Daftar peserta">
+            <Sheet open onClose={onClose} title="Daftar peserta" className="bg-white">
                 <p className="text-ink-soft text-[12px] leading-relaxed">Isi data dasar untuk ikut program. Minimal 21 tahun.</p>
                 <form onSubmit={submitRegister} className="mt-4 grid grid-cols-1 gap-3">
                     <label className="block">

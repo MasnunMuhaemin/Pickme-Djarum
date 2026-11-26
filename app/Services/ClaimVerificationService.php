@@ -9,8 +9,8 @@ use App\Support\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Pemeriksaan saat kode slot dimasukkan (PRD bagian 18) dan penentuan status klaim:
- * tanpa tanda disetujui otomatis; bertanda hanya menunggu admin (pending) bila hadiahnya token listrik.
+ * Pemeriksaan saat kode slot dimasukkan (PRD bagian 18). Tanpa persetujuan admin dan tanpa penahanan slot:
+ * kode slot kosong yang benar langsung jadi klaim berhasil; tanda hanya catatan untuk admin.
  */
 class ClaimVerificationService
 {
@@ -23,19 +23,14 @@ class ClaimVerificationService
         }
 
         $slot = Slot::with('board.outlet')->where('code', $normalized)->first();
-        $assigned = $claim->slot;
 
         $rejection = match (true) {
-            ! $slot => ['unknown_slot_code', 'Kode tidak dikenal. Cek lagi huruf dan angkanya. Slot tetap ditahan untuk kamu.'],
+            ! $slot => ['unknown_slot_code', 'Kode tidak dikenal. Cek lagi huruf dan angkanya.'],
             $slot->board->outlet_id !== $claim->outlet_id => [
                 'wrong_board',
                 "Kode ini dari papan titik lain. Ambil slot di papan {$claim->outlet->code}.",
             ],
-            $slot->status === 'used' => ['slot_used', 'Kode ini sudah pernah dipakai. Ambil slot yang ditunjuk untukmu.'],
-            $this->heldByOther($slot, $claim) => [
-                'slot_held_by_other',
-                "Slot ini sedang ditahan peserta lain. Ambil slot yang ditunjuk: {$assigned?->position}.",
-            ],
+            $slot->status === 'used' => ['slot_used', 'Kode ini sudah pernah dipakai. Ambil slot lain yang masih kosong.'],
             default => null,
         };
 
@@ -52,31 +47,24 @@ class ClaimVerificationService
             return ['error' => $message];
         }
 
-        return DB::transaction(function () use ($claim, $slot, $assigned) {
+        return DB::transaction(function () use ($claim, $slot) {
             $slot = Slot::whereKey($slot->id)->lockForUpdate()->first();
-            if ($slot->status === 'used' || $this->heldByOther($slot, $claim)) {
-                return ['error' => 'Slot ini baru saja diambil peserta lain. Ambil slot yang ditunjuk untukmu.'];
+            if ($slot->status === 'used') {
+                return ['error' => 'Slot ini baru saja diambil peserta lain. Ambil slot lain yang masih kosong.'];
             }
 
+            // Tidak ada penahanan: slot kosong mana pun di papan yang sama diterima.
             $flags = $claim->flags();
-            if ($assigned && $slot->id !== $assigned->id) {
-                // Slot kosong lain di papan yang sama: diterima dengan tanda, slot yang ditunjuk dilepas.
-                $flags[] = 'different_slot';
-                $assigned->newQuery()->whereKey($assigned->id)->where('status', 'held')
-                    ->update(['status' => 'empty', 'holder_id' => null, 'held_until' => null]);
-            }
 
             $photoAt = $claim->photo?->created_at ?? $claim->created_at;
             if ($photoAt && $photoAt->diffInMinutes(now()) > config('participant.flags.late_code_minutes')) {
                 $flags[] = 'late_code';
             }
 
-            // Klaim draf lain yang masa tahannya habis atas slot ini melepasnya (slot_id unik per klaim).
+            // Klaim draf lain yang disarankan slot ini melepasnya (slot_id unik per klaim).
             Claim::where('slot_id', $slot->id)->where('id', '!=', $claim->id)->where('status', 'draft')
                 ->update(['slot_id' => null, 'code' => null]);
 
-            // Hanya hadiah token listrik (perlu nomor meter dan diproses admin) yang menunggu pemeriksaan bila
-            // bertanda. Voucher kopi dan hadiah lain langsung disetujui; tandanya tetap disimpan untuk catatan admin.
             $flag = Claim::joinFlags($flags);
             // Tidak ada persetujuan admin: kode slot benar berarti hadiah langsung jadi milik peserta.
             // Tanda tetap disimpan sebagai catatan pemeriksaan admin.
@@ -101,12 +89,5 @@ class ClaimVerificationService
 
             return ['claim' => $claim->fresh()->load(['slot', 'voucher', 'gifts'])];
         });
-    }
-
-    private function heldByOther(Slot $slot, Claim $claim): bool
-    {
-        return $slot->status === 'held'
-            && $slot->holder_id !== $claim->participant_id
-            && $slot->held_until?->isFuture();
     }
 }

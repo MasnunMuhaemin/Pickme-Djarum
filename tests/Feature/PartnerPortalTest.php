@@ -8,6 +8,7 @@ use App\Models\Outlet;
 use App\Models\Participant;
 use App\Models\Partner;
 use App\Models\Slot;
+use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherType;
 use Database\Seeders\CustomerSeeder;
@@ -132,32 +133,33 @@ class PartnerPortalTest extends TestCase
             ->where('previous.9.month', now()->subWeeks(10)->startOfWeek()->format('Y-m')));
     }
 
-    public function test_kuota_queue_done_and_wrong_number(): void
+    public function test_kuota_top_up_is_done_by_admin_not_partner(): void
     {
         $kuota = Partner::create(['name' => 'Pulsa Jaya', 'type' => 'kuota', 'pin_hash' => Hash::make('3690'), 'status' => 'active']);
         $done = $this->voucher($kuota, 'KGRKUOTA1', 'pending_process', 'kuota');
         $wrong = $this->voucher($kuota, 'KGRKUOTA2', 'pending_process', 'kuota');
         $done->update(['destination' => '081234567890']);
 
-        // Mitra biasa tidak punya antrean.
-        $this->login();
-        $this->get('/mitra/antrean')->assertForbidden();
+        // Mitra kuota tidak punya menu antrean lagi, dan kode pulsa/kuota tidak ditukar lewat cek kode.
+        $this->login('3690');
+        $this->get('/mitra/antrean')->assertNotFound();
+        $this->get('/mitra/kode/KGRKUOTA1')->assertSessionHas('mitra_check.state', 'unknown');
         $this->post('/mitra/keluar');
 
-        $this->login('3690');
-        $this->get('/mitra/antrean')->assertInertia(fn ($page) => $page->has('items', 2));
-        // Kode pulsa/kuota tidak ditukar lewat cek kode.
-        $this->get('/mitra/kode/KGRKUOTA1')->assertSessionHas('mitra_check.state', 'unknown');
-
-        $this->post("/mitra/antrean/{$done->id}/selesai")->assertSessionHas('status', 'Top up ditandai selesai');
+        $this->actingAs(User::factory()->create(['is_admin' => true]));
+        $this->get('/admin/pemenuhan?tab=topup')->assertInertia(fn ($page) => $page->has('rows.topup', 2)->where('counts.topup', 2));
+        $this->post("/admin/pemenuhan/topup/{$done->id}/selesai")->assertSessionHas('status', 'Top up ditandai selesai.');
         $this->assertSame('done', $done->fresh()->status);
-        $this->assertNotNull($done->fresh()->redeemed_at);
 
-        $this->post("/mitra/antrean/{$wrong->id}/nomor-salah");
+        $this->post("/admin/pemenuhan/topup/{$wrong->id}/nomor-salah");
         $this->assertSame('rejected', $wrong->fresh()->status);
         $this->assertSame(1, $wrong->fresh()->failed_attempts);
 
-        $this->get('/mitra/rekap')->assertInertia(fn ($page) => $page->where('current.count', 1));
+        // Setelah batas salah: Perlu bantuan, admin isi nomor yang benar lalu kembali ke antrean.
+        $wrong->update(['status' => 'needs_admin']);
+        $this->post("/admin/pemenuhan/bantuan/{$wrong->id}", ['destination' => '081299998888'])->assertSessionHasNoErrors();
+        $this->assertSame('pending_process', $wrong->fresh()->status);
+        $this->assertSame('081299998888', $wrong->fresh()->destination);
     }
 
     public function test_participant_fills_phone_number_for_kuota(): void

@@ -4,7 +4,10 @@ namespace App\Services;
 
 use App\Models\Claim;
 use App\Models\Gift;
+use App\Models\MysteryAccess;
+use App\Models\MysteryPrize;
 use App\Models\Participant;
+use App\Models\Setting;
 use App\Models\Slot;
 use App\Models\Voucher;
 use App\Models\VoucherType;
@@ -15,13 +18,10 @@ class RewardCreationService
 {
     public function __construct(private SlotPrizeService $prizes) {}
 
-    /** Jenis voucher yang bisa keluar dari mystery gift (PRD keputusan 9: acak dari semua jenis). */
-    private const MYSTERY_VOUCHER_TYPES = ['voucher', 'token', 'bensin'];
-
     /**
-     * Klaim yang disetujui membentuk tepat satu hadiah (PRD FR-13). Cap langsung bertambah untuk voucher mitra;
-     * token, bensin, dan merchandise baru menambah cap setelah admin menyelesaikannya (lihat grantCap).
-     * Aman dipanggil berulang: klaim yang sudah punya hadiah tidak dibuatkan lagi.
+     * Klaim yang disetujui membentuk tepat satu hadiah (PRD FR-13). Cap langsung bertambah untuk semua jenis
+     * hadiah, termasuk token listrik, bensin, dan merchandise yang pemenuhannya menyusul. Aman dipanggil berulang:
+     * klaim yang sudah punya hadiah tidak dibuatkan lagi.
      */
     public function create(Claim $claim): Claim
     {
@@ -38,14 +38,16 @@ class RewardCreationService
                     'type' => 'merchandise',
                     'status' => 'pending_address',
                 ]);
+            } elseif ($type === 'limited') {
+                // Barang limited edition ada di plastik slot: peserta langsung memegangnya.
+                Gift::create(['claim_id' => $claim->id, 'type' => 'limited_edition', 'status' => 'done', 'completed_at' => now()]);
             } else {
                 $this->createVoucher($claim, $type, 'claim', $claim->slot->voucherType);
             }
 
             ActivityLogger::log('reward.created', 'claim', $claim->id, ['type' => $type], $claim->participant);
-            if ($type === 'voucher') {
-                $this->grantCap($claim);
-            }
+            // Cap dihitung saat klaim berhasil, bukan menunggu admin menyelesaikan hadiahnya.
+            $this->grantCap($claim);
 
             return $claim->load(['voucher', 'gifts', 'participant']);
         });
@@ -88,7 +90,7 @@ class RewardCreationService
             'partner_id' => $voucherType?->partner_id,
             'value' => $voucherType?->value ?? (int) config("participant.prize_values.{$type}", 0),
             'status' => match (true) {
-                // Pulsa/kuota: peserta mengisi nomor HP dulu, lalu mitra kuota mengisinya (PRD FR-15).
+                // Pulsa/kuota: peserta mengisi nomor HP dulu, lalu admin mengisinya di Pemenuhan › Top up.
                 $type === 'voucher' && $voucherType?->fulfillment === 'kuota' => 'pending_data',
                 $type === 'voucher' => 'sent',
                 $type === 'token' => 'pending_data',
@@ -101,38 +103,90 @@ class RewardCreationService
     }
 
     /**
-     * Cap ke-5 memberi satu mystery gift per peserta: voucher (peluang di pengaturan) atau 1 bungkus gratis.
+     * Cap ke-5 bisa memberi satu mystery gift per peserta (menu Mystery gift di CMS):
+     * 1. saklar aktif, akun tidak diblokir, dan (bila mode daftar izin) nomornya ada di daftar izin;
+     * 2. diundi dengan peluang di CMS: tidak semua peserta dapat;
+     * 3. yang menang mendapat satu hadiah acak dari isi yang aktif dan stoknya ada (makin banyak sisa, makin besar peluang).
      * Hadiah menempel ke klaim pertama yang disetujui dan ditandai asalnya, tanpa klaim baru.
      */
     private function mysteryGift(Participant $participant): void
     {
-        if ($participant->caps !== 5) {
+        if ($participant->caps !== 5 || ! Setting::get('mystery_enabled', true)) {
             return;
         }
 
         $claimIds = $participant->claims()->pluck('id');
         $alreadyGiven = Gift::whereIn('claim_id', $claimIds)->where('type', 'mystery_pack')->exists()
             || Voucher::whereIn('claim_id', $claimIds)->where('source', 'mystery')->exists();
-        if ($alreadyGiven) {
+        if ($alreadyGiven || ! $this->mysteryEligible($participant)) {
             return;
         }
 
         $claim = $participant->claims()->where('status', 'approved')->oldest()->first();
-
-        if (random_int(1, 100) <= config('participant.mystery_voucher_chance')) {
-            $type = self::MYSTERY_VOUCHER_TYPES[array_rand(self::MYSTERY_VOUCHER_TYPES)];
-            $this->createVoucher($claim, $type, 'mystery');
-            ActivityLogger::log('mystery.voucher', 'claim', $claim->id, ['type' => $type], $participant);
+        if (random_int(1, 100) > (int) config('participant.mystery_voucher_chance')) {
+            ActivityLogger::log('mystery.missed', 'claim', $claim->id, [], $participant);
 
             return;
         }
 
-        Gift::create([
-            'claim_id' => $claim->id,
-            'type' => 'mystery_pack',
-            'status' => 'pending',
-        ]);
-        ActivityLogger::log('mystery.free_pack', 'claim', $claim->id, [], $participant);
+        $prizes = MysteryPrize::where('active', true)->whereColumn('given', '<', 'stock')->lockForUpdate()->get();
+        $prize = $this->pickWeighted($prizes);
+        if (! $prize) {
+            ActivityLogger::log('mystery.out_of_stock', 'claim', $claim->id, [], $participant);
+
+            return;
+        }
+        $prize->increment('given');
+
+        if ($prize->fulfillment === 'ambil') {
+            Gift::create(['claim_id' => $claim->id, 'type' => 'mystery_pack', 'status' => 'pending', 'mystery_prize_id' => $prize->id]);
+        } else {
+            Voucher::create([
+                'claim_id' => $claim->id,
+                'code' => self::voucherCode(),
+                // kode: voucher digital yang kodenya dikirim admin; mitra & topup memakai jalur voucher yang sudah ada.
+                'type' => $prize->fulfillment === 'kode' ? 'digital' : 'voucher',
+                'source' => 'mystery',
+                'mystery_prize_id' => $prize->id,
+                'partner_id' => $prize->fulfillment === 'mitra' ? $prize->partner_id : null,
+                'value' => $prize->value,
+                'status' => match ($prize->fulfillment) {
+                    'mitra' => 'sent',
+                    'topup' => 'pending_data',
+                    default => 'pending_process',
+                },
+            ]);
+        }
+        ActivityLogger::log('mystery.won', 'claim', $claim->id, ['prize' => $prize->name], $participant);
+    }
+
+    /** Akun boleh mendapat mystery gift: tidak diblokir, dan ada di daftar izin bila mode daftar izin aktif. */
+    private function mysteryEligible(Participant $participant): bool
+    {
+        $access = MysteryAccess::where('whatsapp', $participant->whatsapp)->value('kind');
+        if ($access === 'block') {
+            return false;
+        }
+
+        return Setting::get('mystery_audience', 'all') !== 'list' || $access === 'allow';
+    }
+
+    /** Pilih satu hadiah acak, berbobot sisa stok. */
+    private function pickWeighted($prizes): ?MysteryPrize
+    {
+        $total = $prizes->sum(fn (MysteryPrize $p) => $p->remaining());
+        if ($total < 1) {
+            return null;
+        }
+        $roll = random_int(1, $total);
+        foreach ($prizes as $prize) {
+            $roll -= $prize->remaining();
+            if ($roll <= 0) {
+                return $prize;
+            }
+        }
+
+        return null;
     }
 
     /**

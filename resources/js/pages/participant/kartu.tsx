@@ -2,7 +2,7 @@ import { LimePage } from '@/features/participant/components/lime-page';
 import { RejectedCap } from '@/features/participant/components/ui';
 import { type CapMark, capSlots, type Reward, STAR, useMysteryReady } from '@/features/participant/rewards';
 import { cn } from '@/lib/utils';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Check, Crown, Gift, MessageSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -23,14 +23,17 @@ function CapCard({
     mysteryAt,
     outlets,
     mysteryReady,
+    won,
 }: {
     caps: number;
     capTrail: CapMark[];
+    won: boolean;
     mysteryAt: number;
     outlets: number;
     mysteryReady: boolean;
 }) {
-    const slots = capSlots(capTrail, mysteryAt);
+    const mysteryEnabled = usePage().props.mysteryEnabled as boolean | null;
+    const slots = capSlots(capTrail, mysteryAt, 10, { won, enabled: mysteryEnabled !== false });
     return (
         <section className="bg-night text-cream relative overflow-hidden rounded-[28px] px-5 pt-5 pb-5 md:px-7">
             <span aria-hidden className="absolute -top-12 -right-10 size-40 rounded-full bg-white/[0.04]" />
@@ -161,7 +164,7 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
     return (
         <span
             className={cn(
-                'bg-ink text-lime grid shrink-0 place-items-center rounded-full font-extrabold',
+                'bg-[#0b0b0b] text-lime grid shrink-0 place-items-center rounded-full font-extrabold',
                 size === 'lg' ? 'size-16 text-[24px] md:size-[72px]' : 'size-14 text-[20px]',
             )}
         >
@@ -170,54 +173,71 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
     );
 }
 
-/** Podium tiga besar: juara 1 di tengah (blok lime tertinggi), juara 2 kiri, juara 3 kanan. */
+/** Podium tiga besar: juara 1 di tengah (bar lime tertinggi), juara 2 kiri, juara 3 kanan. */
 function Podium({ rows }: { rows: LeaderRow[] }) {
     const order = [rows[1], rows[0], rows[2]];
-    const blocks = ['bg-ink text-lime', 'bg-lime text-ink', 'bg-ink text-lime'];
-    const heights = [96, 128, 72];
-    // Urutan naik: juara 3, juara 2, juara 1 (kolom: juara 2, juara 1, juara 3). Nama kelas ditulis utuh untuk Tailwind.
+    const blocks = [
+        'border-[#c0c0c0] bg-[#0b0b0b] text-[#c0c0c0]',
+        'border-transparent bg-lime text-ink',
+        'border-[#e59b2f] bg-[#0b0b0b] text-[#e59b2f]',
+    ];
+    const heights = [92, 132, 76];
+    // Urutan naik: juara 3, juara 2, juara 1 (kolom: juara 2, juara 1, juara 3).
     const bar = [
-        'motion-safe:animate-[podium-loop-2_6s_ease-in-out_infinite]',
-        'motion-safe:animate-[podium-loop-3_6s_ease-in-out_infinite]',
-        'motion-safe:animate-[podium-loop-1_6s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-loop-2_12s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-loop-3_12s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-loop-1_12s_ease-in-out_infinite]',
     ];
     const show = [
-        'motion-safe:animate-[podium-show-2_6s_ease-in-out_infinite]',
-        'motion-safe:animate-[podium-show-3_6s_ease-in-out_infinite]',
-        'motion-safe:animate-[podium-show-1_6s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-show-2_12s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-show-3_12s_ease-in-out_infinite]',
+        'motion-safe:animate-[podium-show-1_12s_ease-in-out_infinite]',
     ];
     return (
-        <div className="mt-6 grid min-h-[300px] grid-cols-3 items-end gap-3 md:min-h-[310px] md:gap-4">
-            {order.map((row, i) =>
-                row ? (
-                    <div
-                        key={row.rank}
-                        className="flex min-w-0 flex-col items-center text-center"
-                        style={{ '--h': `${heights[i]}px` } as React.CSSProperties}
-                    >
-                        {/* Avatar dan nama muncul dan hilang bersama bar; tinggi podium dikunci (min-h) supaya bar tumbuh dari dasar ke atas. */}
-                        <div className={cn('flex w-full flex-col items-center', show[i])}>
-                            {i === 1 && <Crown className="text-ink mb-1 size-6" strokeWidth={2.25} />}
-                            <Avatar name={row.name} size={i === 1 ? 'lg' : 'md'} />
-                            <p className="mt-1.5 w-full truncate text-[16px] font-extrabold">{row.name}</p>
-                            <p className="text-ink-soft text-[14px] font-bold">
-                                {row.caps} cap{row.is_me && ' · kamu'}
-                            </p>
-                        </div>
+        <div className="relative mt-5">
+            <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-4 top-0 h-[270px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(143,195,31,0.5),transparent_68%)] blur-xl motion-safe:animate-[podium-glow_12s_ease-in-out_infinite]"
+            />
+            <div className="relative grid min-h-[290px] grid-cols-3 items-end gap-2 md:gap-4">
+                {order.map((row, i) =>
+                    row ? (
                         <div
-                            className={cn(
-                                'mt-2 grid h-(--h) w-full place-items-center overflow-hidden rounded-2xl text-[44px] leading-none font-extrabold',
-                                bar[i],
-                                blocks[i],
-                            )}
+                            key={row.rank}
+                            className="flex min-w-0 flex-col items-center text-center"
+                            style={{ '--h': `${heights[i]}px` } as React.CSSProperties}
                         >
-                            <span className={show[i]}>{row.rank}</span>
+                            {/* Avatar dan nama muncul dan hilang bersama bar; tinggi podium dikunci supaya bar tumbuh dari dasar ke atas. */}
+                            <div className={cn('flex w-full flex-col items-center', show[i])}>
+                                {i === 1 && <Crown className="mb-1 size-7 text-[#f5c542]" strokeWidth={2.5} />}
+                                <Avatar name={row.name} size={i === 1 ? 'lg' : 'md'} />
+                                <p className="mt-1.5 w-full truncate text-[15px] font-extrabold">{row.name.trim().split(/\s+/)[0]}</p>
+                                <p className="mt-1 w-fit rounded-full bg-white px-2.5 py-0.5 text-[12px] font-bold shadow-sm">
+                                    {row.caps} cap{row.is_me && ' · kamu'}
+                                </p>
+                            </div>
+                            <div
+                                className={cn(
+                                    'relative mt-2 grid h-(--h) w-full place-items-center overflow-hidden rounded-t-2xl border-t-4 text-[44px] leading-none font-extrabold md:text-[52px]',
+                                    bar[i],
+                                    blocks[i],
+                                )}
+                            >
+                                {i === 1 && (
+                                    <span
+                                        aria-hidden
+                                        className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,transparent_28%,rgba(255,255,255,0.42)_44%,transparent_60%)]"
+                                    />
+                                )}
+                                <span className={show[i]}>{row.rank}</span>
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                    <span key={i} />
-                ),
-            )}
+                    ) : (
+                        <span key={i} />
+                    ),
+                )}
+            </div>
+            <span aria-hidden className="bg-[#0b0b0b] absolute inset-x-0 bottom-0 h-2 rounded-full" />
         </div>
     );
 }
@@ -252,7 +272,9 @@ export default function Kartu({
 
     return (
         <LimePage title="Leaderboard" tabTitle="Kartu dan peringkat" nav="kartu">
-            {name && <CapCard caps={caps} capTrail={capTrail} mysteryAt={mysteryAt} outlets={outlets} mysteryReady={mysteryReady} />}
+            {name && (
+                <CapCard caps={caps} capTrail={capTrail} mysteryAt={mysteryAt} outlets={outlets} mysteryReady={mysteryReady} won={Boolean(mystery)} />
+            )}
 
             <section className={cn(name && 'mt-6')}>
                 <div className="flex items-center justify-between gap-3">
