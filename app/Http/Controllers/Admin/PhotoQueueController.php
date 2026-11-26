@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Claim;
 use App\Models\Outlet;
+use App\Services\ClaimRejectionService;
 use App\Support\ActivityLogger;
 use App\Support\ClaimFlags;
 use Illuminate\Http\RedirectResponse;
-use App\Support\Mask;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -27,7 +27,7 @@ class PhotoQueueController extends Controller
         $search = trim((string) $request->query('q'));
         $claims = Claim::query()
             ->whereHas('photo')
-            ->where('status', 'approved')
+            ->whereIn('status', ['approved', 'rejected'])
             ->when($outlet, fn ($q) => $q->whereHas('outlet', fn ($o) => $o->where('code', $outlet)))
             // Cari nama atau nomor peserta, kode klaim, dan kode voucher.
             ->when($search, fn ($q) => $q->where(fn ($w) => $w->where('claim_code', 'like', "%{$search}%")
@@ -54,6 +54,26 @@ class PhotoQueueController extends Controller
         abort_unless($path && Storage::disk('local')->exists($path), 404);
 
         return Storage::disk('local')->response($path);
+    }
+
+    /**
+     * Tolak klaim: hadiahnya dibatalkan dan capnya dicabut, nomor cap peserta tetap terpakai sebagai "ditolak".
+     * Alasan wajib dan tercatat di log. Tidak bisa bila hadiahnya sudah diproses.
+     */
+    public function reject(Request $request, Claim $claim, ClaimRejectionService $rejections): RedirectResponse
+    {
+        $data = $request->validate(
+            ['reason' => ['required', 'string', 'min:5', 'max:200']],
+            ['reason.required' => 'Alasan penolakan wajib diisi.', 'reason.min' => 'Alasan minimal 5 karakter.'],
+        );
+
+        try {
+            $rejections->reject($claim, $data['reason'], $request->user());
+        } catch (\DomainException $e) {
+            return back()->withErrors(['reason' => $e->getMessage()]);
+        }
+
+        return back()->with('status', "Klaim {$claim->claim_code} ditolak. Hadiahnya dibatalkan dan capnya dicabut.");
     }
 
     /** Hapus foto bungkus (file dan catatannya). Klaim dan hadiahnya tetap; penghapusan tercatat di log. */
@@ -92,6 +112,10 @@ class PhotoQueueController extends Controller
                 ? ($claim->voucher->voucherType?->name ?? ucfirst($claim->voucher->type)).' · Rp'.number_format($claim->voucher->amount(), 0, ',', '.')
                 : ($claim->gifts->firstWhere('type', '!=', 'mystery_pack') ? 'Merchandise' : null),
             'voucher_code' => $claim->voucher?->code,
+            // Tolak klaim: hanya selama hadiahnya belum diproses.
+            'reject_blocker' => app(ClaimRejectionService::class)->blocker($claim),
+            'reject_reason' => $claim->reject_reason,
+            'rejected_at' => $claim->rejected_at?->format('d M Y H:i'),
         ];
     }
 }

@@ -1,8 +1,9 @@
+import { CapStrip } from '@/features/participant/components/cap-strip';
 import { FollowUpNotice } from '@/features/participant/components/follow-up-notice';
 import { PrizeReveal } from '@/features/participant/components/prize-reveal';
-import { Badge, OutlineButton, PageHeader, PrimaryButton, ProgressDots, Sheet } from '@/features/participant/components/ui';
-import { VoucherArt } from '@/features/participant/components/voucher-art';
-import { type Reward, rewardIcons, rewardStub, rewardToneClass } from '@/features/participant/rewards';
+import { Badge, OutlineButton, PageHeader, PrimaryButton, Sheet } from '@/features/participant/components/ui';
+import { RewardImage, VoucherArt } from '@/features/participant/components/voucher-art';
+import { type CapMark, type Reward, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
@@ -17,6 +18,7 @@ export default function KlaimBerhasil({
     mystery,
     claim,
     caps = 0,
+    capTrail = [],
     capPending = false,
 }: {
     reward: Reward | null;
@@ -24,6 +26,7 @@ export default function KlaimBerhasil({
     mystery?: Reward | null;
     claim: ClaimInfo;
     caps?: number;
+    capTrail?: CapMark[];
     capPending?: boolean;
 }) {
     // Animasi buka hadiah hanya sekali per klaim; muat ulang halaman langsung ke hasil.
@@ -38,8 +41,6 @@ export default function KlaimBerhasil({
         setMysteryOpen(false);
         if (needsFollowUp) setFollowUpOpen(true);
     }
-    const Icon = reward ? (rewardIcons[reward.kind] ?? Gift) : Gift;
-    const stub = rewardStub(reward?.kind ?? 'merch');
 
     return (
         <ParticipantLayout title="Klaim berhasil" nav="hadiah" hideBottomNav>
@@ -79,14 +80,7 @@ export default function KlaimBerhasil({
                         {reward?.kind === 'voucher' && reward.code ? (
                             <VoucherArt code={reward.code} value={reward.value} />
                         ) : (
-                            <div className={cn('relative grid h-32 place-items-center md:h-40', stub.bg)}>
-                                <Icon className={cn('size-10', stub.icon)} />
-                                {reward?.value && (
-                                    <span className="text-ink absolute top-2 right-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold">
-                                        {reward.value}
-                                    </span>
-                                )}
-                            </div>
+                            reward && <RewardImage reward={reward} showValue className="h-32 md:h-40" />
                         )}
                         <div className="p-4">
                             <div className="flex items-start justify-between gap-2">
@@ -119,10 +113,7 @@ export default function KlaimBerhasil({
 
                     <div>
                         <div className="mt-5 md:mt-0">
-                            <p className="text-[11px] font-bold">Kartu cap</p>
-                            <div className="mt-2 overflow-x-auto">
-                                <ProgressDots value={Math.min(caps, 10)} />
-                            </div>
+                            <CapStrip trail={capTrail} />
                             {capPending && (
                                 <p className="text-ink-soft mt-2 text-[11px] leading-snug">
                                     Cap untuk hadiah ini bertambah setelah hadiahnya selesai diproses admin.

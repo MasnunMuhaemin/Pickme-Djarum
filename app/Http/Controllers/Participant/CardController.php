@@ -30,6 +30,7 @@ class CardController extends Controller
 
         return Inertia::render('participant/kartu', [
             'caps' => $participant?->caps ?? 0,
+            'capTrail' => $participant?->capTrail() ?? [],
             'name' => $participant?->name,
             'mysteryAt' => 5,
             // Mystery gift yang sudah terbentuk; kartu menampilkan "Siap diklaim" sampai dibuka.

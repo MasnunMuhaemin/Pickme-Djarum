@@ -1,102 +1,44 @@
 import { BackLink, LogoutButton, NoticeSheet } from '@/features/participant/components/ui';
+import { useCameraCapture } from '@/hooks/use-camera-capture';
 import { Head, Link, useForm } from '@inertiajs/react';
-import imageCompression from 'browser-image-compression';
 import { Camera, ChevronLeft, RotateCcw } from 'lucide-react';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useState } from 'react';
 
 /**
  * P5: foto hanya dari kamera langsung, tanpa pilihan galeri (PRD FR-35). Jam watermark adalah jam server saat
  * layar ini dibuka (openedAt); server menandai klaim bila foto diterima terlalu lama setelahnya.
  */
 export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: string; openedAt?: string }) {
-    const video = useRef<HTMLVideoElement>(null);
-    const stream = useRef<MediaStream | null>(null);
-    const [cameraOn, setCameraOn] = useState(false);
-    const [cameraError, setCameraError] = useState('');
+    const { video, cameraOn, cameraError, setCameraError, capture: grab } = useCameraCapture('bungkus.jpg');
     const [preview, setPreview] = useState<string | null>(null);
+    const [sendFailed, setSendFailed] = useState(false);
     const form = useForm<{ photo: File | null; outlet: string }>({ photo: null, outlet });
 
-    useEffect(() => {
-        let stopped = false;
-
-        async function start() {
-            if (!navigator.mediaDevices?.getUserMedia) {
-                setCameraError('unsupported');
-                return;
-            }
-            try {
-                const media = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: 'environment' } },
-                    audio: false,
-                });
-                if (stopped) {
-                    media.getTracks().forEach((track) => track.stop());
-                    return;
-                }
-                stream.current = media;
-                if (video.current) {
-                    video.current.srcObject = media;
-                    await video.current.play();
-                }
-                setCameraOn(true);
-                setCameraError('');
-            } catch {
-                setCameraError('denied');
-            }
-        }
-
-        start();
-        return () => {
-            stopped = true;
-            stream.current?.getTracks().forEach((track) => track.stop());
-        };
-    }, []);
-
-    function capture() {
-        const source = video.current;
-        if (!source || !source.videoWidth) return;
-
-        // Bingkai kamera diambil dulu (maks 1600 px), lalu dikompres browser-image-compression sebelum diunggah.
-        const MAX_SIDE = 1600;
-        const scale = Math.min(1, MAX_SIDE / Math.max(source.videoWidth, source.videoHeight));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(source.videoWidth * scale);
-        canvas.height = Math.round(source.videoHeight * scale);
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(
-            async (blob) => {
-                if (!blob) return;
-                const raw = new File([blob], 'bungkus.jpg', { type: 'image/jpeg' });
-                // Kamera HP bisa 4K: tanpa kompres mudah melewati batas unggah server dan lambat di sinyal lemah.
-                // Gagal kompres (browser lama) tetap memakai bingkai asli yang sudah diperkecil.
-                const photo = await imageCompression(raw, {
-                    maxSizeMB: 0.3,
-                    maxWidthOrHeight: 1280,
-                    fileType: 'image/jpeg',
-                    initialQuality: 0.8,
-                    useWebWorker: true,
-                }).catch(() => raw);
-                const file = new File([photo], 'bungkus.jpg', { type: 'image/jpeg' });
-                form.setData('photo', file);
-                setPreview(URL.createObjectURL(file));
-            },
-            'image/jpeg',
-            0.9,
-        );
+    async function capture() {
+        const file = await grab();
+        if (!file) return;
+        form.setData('photo', file);
+        setPreview(URL.createObjectURL(file));
     }
 
     function retake() {
+        setSendFailed(false);
         form.setData('photo', null);
         setPreview(null);
     }
 
-    function submit(e: FormEvent) {
-        e.preventDefault();
+    function submit(e?: FormEvent) {
+        e?.preventDefault();
         if (!form.data.photo) return;
-        form.post('/participant/foto', { forceFormData: true, preserveScroll: true });
+        setSendFailed(false);
+        // Gagal kirim (koneksi putus atau server menolak): popup "Foto belum terkirim".
+        let sent = false;
+        form.post('/participant/foto', {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => (sent = true),
+            onFinish: () => !sent && setSendFailed(true),
+        });
     }
 
     const stamp = `${openedAt ?? '--:--:--'} · ${outlet} · KLM····`;
@@ -208,16 +150,28 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
             <NoticeSheet
                 open={Boolean(cameraError)}
                 onClose={() => setCameraError('')}
-                tone="danger"
+                tone="warn"
                 icon="!"
+                stacked
                 title={cameraError === 'unsupported' ? 'Kamera tidak bisa dibuka' : 'Kamera belum diizinkan'}
                 text={
                     cameraError === 'unsupported'
                         ? 'Browser ini tidak bisa membuka kamera. Buka halaman ini di Chrome atau Safari, bukan dari dalam Instagram atau WhatsApp.'
-                        : 'Izinkan akses kamera di pengaturan browser (ikon gembok di kolom alamat) untuk memfoto bungkus.'
+                        : 'Aktifkan izin kamera di pengaturan browser, lalu coba lagi.'
                 }
-                secondary={{ label: 'Kembali', href: '/participant' }}
                 primary={{ label: 'Coba lagi', onClick: () => window.location.reload() }}
+                secondary={{ label: 'Kembali ke papan', href: '/participant' }}
+            />
+            <NoticeSheet
+                open={sendFailed && !form.errors.photo}
+                onClose={() => setSendFailed(false)}
+                tone="warn"
+                icon="!"
+                stacked
+                title="Foto belum terkirim"
+                text="Periksa koneksi internet, lalu kirim ulang."
+                primary={{ label: 'Kirim ulang', onClick: () => submit() }}
+                secondary={{ label: 'Ambil ulang', onClick: retake }}
             />
         </div>
     );

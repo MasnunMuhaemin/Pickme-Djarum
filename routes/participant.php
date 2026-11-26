@@ -27,7 +27,8 @@ Route::prefix('participant')->name('participant.')->group(function () {
     Route::get('masuk', [ParticipantAuthController::class, 'showLogin'])->name('masuk');
     Route::post('masuk', [ParticipantAuthController::class, 'login'])->name('masuk.store');
     Route::post('keluar', [ParticipantAuthController::class, 'logout'])->name('keluar');
-    Route::get('daftar/belum-bisa', fn () => Inertia::render('participant/daftar-belum-bisa'))->name('daftar.belum-bisa');
+    // Dulu halaman "Belum bisa ikut"; sekarang popup di form daftar. Tautan lama ke beranda.
+    Route::redirect('daftar/belum-bisa', '/participant')->name('daftar.belum-bisa');
 
     // Halaman persetujuan bisa dibaca tamu dari form daftar; menyimpan persetujuan tetap wajib masuk.
     Route::get('persetujuan', [ConsentController::class, 'show'])->name('persetujuan');
@@ -45,11 +46,11 @@ Route::prefix('participant')->name('participant.')->group(function () {
         });
 
         Route::get('klaim/berhasil', [ClaimController::class, 'showSuccess'])->name('klaim.berhasil');
+        Route::get('klaim/{code}/ditolak', [ClaimController::class, 'showRejected'])->name('klaim.ditolak');
     });
 
     // Layar papan lama sudah dihapus; tautan lama diarahkan ke beranda.
     Route::redirect('papan', '/participant');
-
 
     Route::middleware('participant')->group(function () {
         Route::get('hadiah', [RewardController::class, 'index'])->name('hadiah');

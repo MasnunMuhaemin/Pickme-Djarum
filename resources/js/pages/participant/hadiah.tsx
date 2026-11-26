@@ -1,18 +1,14 @@
 import { FollowUpNotice } from '@/features/participant/components/follow-up-notice';
 import { limeLogoutClass } from '@/features/participant/components/lime-page';
 import { LogoutButton } from '@/features/participant/components/ui';
-import { voucherImage } from '@/features/participant/components/voucher-art';
-import { type Reward, rewardIcons, rewardStub, rewardToneClass } from '@/features/participant/rewards';
+import { RewardImage } from '@/features/participant/components/voucher-art';
+import { type Reward, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
-import type { LucideIcon } from 'lucide-react';
-import { Gift } from 'lucide-react';
 
 function RewardTicket({ reward }: { reward: Reward }) {
-    const Icon = rewardIcons[reward.kind] ?? Gift;
-    const stub = rewardStub(reward.kind);
     const className = cn(
         'flex min-h-[84px] md:min-h-[96px]',
         reward.href && 'focus-visible:ring-ink rounded-2xl transition-transform outline-none focus-visible:ring-2 active:scale-[0.98]',
@@ -22,32 +18,22 @@ function RewardTicket({ reward }: { reward: Reward }) {
     if (reward.href) {
         return (
             <Link href={reward.href} aria-label={`${reward.title}: ${reward.action ?? 'buka'}`} className={className}>
-                <TicketBody reward={reward} Icon={Icon} stub={stub} />
+                <TicketBody reward={reward} />
             </Link>
         );
     }
     return (
         <div className={className}>
-            <TicketBody reward={reward} Icon={Icon} stub={stub} />
+            <TicketBody reward={reward} />
         </div>
     );
 }
 
-function TicketBody({ reward, Icon, stub }: { reward: Reward; Icon: LucideIcon; stub: ReturnType<typeof rewardStub> }) {
+function TicketBody({ reward }: { reward: Reward }) {
     return (
         <>
             {/* Sobekan tiket kiri */}
-            {reward.kind === 'voucher' && reward.code ? (
-                <div className="relative w-[84px] shrink-0 overflow-hidden rounded-l-2xl md:w-[96px]">
-                    <img src={voucherImage(reward.code)} alt="" aria-hidden className="absolute inset-0 size-full object-cover" loading="lazy" />
-                    {/* Lapisan gelap supaya gambar tampak lebih elegan dan teks di sebelahnya menonjol. */}
-                    <span aria-hidden className="absolute inset-0 bg-black/40" />
-                </div>
-            ) : (
-                <div className={cn('grid w-[84px] shrink-0 place-items-center rounded-l-2xl md:w-[96px]', stub.bg)}>
-                    <Icon className={cn('size-7', stub.icon)} strokeWidth={2} />
-                </div>
-            )}
+            <RewardImage reward={reward} showIcon={false} className="w-[84px] shrink-0 rounded-l-2xl md:w-[96px]" />
 
             {/* Badan tiket, dipisah garis putus-putus dengan lubang di atas dan bawah */}
             <div className="relative min-w-0 flex-1 rounded-r-2xl border-l-2 border-dashed border-[#e8e1c4] bg-white px-3.5 py-3 md:px-5 md:py-4">

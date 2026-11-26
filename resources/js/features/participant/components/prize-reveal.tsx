@@ -3,7 +3,8 @@ import { Check } from 'lucide-react';
 import { type CSSProperties, type PointerEvent, useEffect, useRef, useState } from 'react';
 
 /** Bagian kartu yang harus tergosok sebelum kartu dianggap terbuka penuh. */
-const SCRATCH_DONE = 0.6;
+// Kartu terbuka setelah 85% penutup tergosok; sisa penutup lalu memudar.
+const SCRATCH_DONE = 0.85;
 const CONFETTI_COLORS = ['#8fc31f', '#1b3a1a', '#e23b2e', '#fdf8d5', '#72a012'];
 
 type Phase = 'cover' | 'done';
@@ -77,9 +78,10 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
 
     function finish() {
         setProgress(100);
-        setCoverGone(true);
         setCoin(null);
         setPhase('done');
+        // Sisa penutup memudar dulu (lihat kelas canvas), baru dilepas.
+        window.setTimeout(() => setCoverGone(true), reduced ? 0 : 700);
     }
 
     function scratch(e: PointerEvent<HTMLCanvasElement>) {
@@ -95,7 +97,7 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
         ctx.globalCompositeOperation = 'destination-out';
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.lineWidth = rect.width * 0.16;
+        ctx.lineWidth = rect.width * 0.12;
         ctx.beginPath();
         ctx.moveTo(last.current.x, last.current.y);
         ctx.lineTo(x, y);
@@ -104,7 +106,8 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
         // Hitung ulang persen tiap beberapa gerakan saja supaya ringan di HP.
         if (++moves.current % 6 === 0) {
             const ratio = clearedRatio(canvas);
-            setProgress(Math.min(99, Math.round((ratio / SCRATCH_DONE) * 100)));
+            // Persen yang tampil = bagian kartu yang benar-benar tergosok.
+            setProgress(Math.min(99, Math.round(ratio * 100)));
             if (ratio >= SCRATCH_DONE) finish();
         }
     }
@@ -188,7 +191,11 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
                                     aria-label="Kartu hadiah tertutup. Gosok kartu untuk membuka, atau tekan Enter."
                                     // Gosok tidak bisa dengan keyboard; Enter atau Spasi membuka kartu.
                                     onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), finish())}
-                                    className="focus-visible:ring-lime-dark absolute inset-0 size-full cursor-none touch-none outline-none focus-visible:ring-4"
+                                    className={cn(
+                                        'focus-visible:ring-lime-dark absolute inset-0 size-full cursor-none touch-none outline-none focus-visible:ring-4',
+                                        'transition-[opacity,transform] duration-700 ease-out',
+                                        done && 'pointer-events-none scale-105 opacity-0',
+                                    )}
                                     onPointerDown={(e) => {
                                         e.currentTarget.setPointerCapture(e.pointerId);
                                         const rect = e.currentTarget.getBoundingClientRect();

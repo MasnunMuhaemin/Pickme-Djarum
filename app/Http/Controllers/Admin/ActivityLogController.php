@@ -148,14 +148,14 @@ class ActivityLogController extends Controller
         $claims = Claim::whereIn('id', $ids('claim', 'subject'))->pluck('claim_code', 'id');
         $vouchers = Voucher::whereIn('id', $ids('voucher', 'subject'))->get(['id', 'code', 'type'])->keyBy('id');
         $outlets = Outlet::whereIn('id', $ids('outlet', 'subject'))->pluck('code', 'id');
-        $partners = Partner::whereIn('id', $ids('partner', 'subject'))->pluck('name', 'id');
+        $partners = Partner::whereIn('id', $ids('partner')->merge($ids('partner', 'subject')))->pluck('name', 'id');
         $gifts = Gift::whereIn('id', $ids('gift', 'subject'))->pluck('type', 'id');
 
         return $logs->map(function (ActivityLog $log) use ($users, $participants, $claims, $vouchers, $outlets, $partners, $gifts) {
             $actor = match ($log->actor_type) {
                 'admin' => $users[$log->actor_id] ?? 'Admin',
                 'participant' => 'Peserta '.($participants[$log->actor_id] ?? ''),
-                'partner' => 'Mitra',
+                'partner' => 'Mitra '.($partners[$log->actor_id] ?? ''),
                 default => 'Sistem',
             };
             $voucher = $vouchers[$log->subject_id] ?? null;

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Box, Camera, Droplet, Gift, Zap } from 'lucide-react';
+import { Box, Camera, Droplet, Gift, Smartphone, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export type RewardTone = 'done' | 'progress' | 'waiting' | 'rejected';
@@ -27,6 +27,7 @@ export type Reward = {
 export const rewardIcons: Record<string, LucideIcon> = {
     voucher: Camera,
     token: Zap,
+    kuota: Smartphone,
     bensin: Droplet,
     merch: Box,
     mystery: Gift,
@@ -38,12 +39,6 @@ export const rewardToneClass: Record<RewardTone, string> = {
     waiting: 'bg-[#e9e2bf] text-ink-soft',
     rejected: 'bg-[#fbe3e0] text-danger',
 };
-
-/** Voucher memakai gradasi cokelat (seperti foto bungkus), hadiah lain kotak hitam dengan ikon lime. */
-export function rewardStub(kind: string) {
-    if (kind === 'voucher') return { bg: 'bg-gradient-to-b from-[#dcc3a3] to-[#6b4a33]', icon: 'text-cream/70' };
-    return { bg: 'bg-[#0b0b0b]', icon: 'text-lime' };
-}
 
 /** Penanda di perangkat bahwa mystery gift sudah dibuka (kartu cap tidak lagi menampilkan "Siap diklaim"). */
 export const mysteryOpenedKey = (id: number) => `pickme:mystery-opened:${id}`;
@@ -58,3 +53,22 @@ export function useMysteryReady(mystery: { id: number } | null | undefined): boo
 /** Bentuk bintang bergerigi untuk cap yang sudah didapat. */
 export const STAR =
     '[clip-path:polygon(50%_0%,61%_9%,75%_5%,80%_19%,94%_22%,91%_36%,100%_50%,91%_64%,94%_78%,80%_81%,75%_95%,61%_91%,50%_100%,39%_91%,25%_95%,20%_81%,6%_78%,9%_64%,0%_50%,9%_36%,6%_22%,20%_19%,25%_5%,39%_9%)]';
+
+/** Isi kartu cap dari server (Participant::capTrail): cap dihitung, atau klaim yang ditolak admin. */
+export type CapMark = 'cap' | 'rejected';
+
+/**
+ * Nomor kartu cap 1 sampai `total`: klaim ditolak tetap memakai nomornya, klaim berikutnya lanjut ke nomor sesudahnya.
+ * Mystery gift ada di nomor tempat cap hijau ke-`mysteryAt` jatuh (atau akan jatuh).
+ */
+export function capSlots(trail: CapMark[], mysteryAt = 5, total = 10) {
+    let caps = 0;
+    let giftAt = 0;
+    trail.forEach((mark, i) => {
+        if (mark !== 'cap') return;
+        caps++;
+        if (caps === mysteryAt) giftAt = i + 1;
+    });
+    if (!giftAt) giftAt = Math.min(total, trail.length + (mysteryAt - caps));
+    return { caps, giftAt, used: trail.length, marks: Array.from({ length: total }, (_, i): CapMark | null => trail[i] ?? null) };
+}

@@ -246,6 +246,21 @@
     }
 }
 /*
+ * Cap yang sudah didapat berdenyut hijau seperti hadiah cap ke-5. Dipasang di pembungkus (drop-shadow), karena
+ * bentuk bintang bergerigi (clip-path) memotong bayangan biasa.
+ */
+@keyframes cap-glow {
+    0%,
+    100% {
+        filter: drop-shadow(0 0 2px rgba(143, 195, 31, 0.35));
+        transform: scale(1);
+    }
+    50% {
+        filter: drop-shadow(0 0 9px rgba(143, 195, 31, 0.95));
+        transform: scale(1.06);
+    }
+}
+/*
  * Podium berulang tanpa henti (siklus 6 detik): juara 3, juara 2, lalu juara 1 naik bergantian, tertahan, lalu turun
  * bersamaan. Angka di nama keyframe = urutan naik. --h = tinggi akhir bar.
  */

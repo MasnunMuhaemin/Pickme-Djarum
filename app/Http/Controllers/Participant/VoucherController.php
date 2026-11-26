@@ -23,6 +23,8 @@ class VoucherController extends Controller
         return Inertia::render('participant/voucher', [
             'voucher' => [
                 ...$voucher->only(['id', 'code', 'type', 'status', 'destination']),
+                // Mitra penukar (baris "Mitra" di detail voucher).
+                'partner' => $voucher->partner?->name ?? $voucher->voucherType?->partner_label,
             ],
             'reward' => RewardPresenter::voucher($voucher),
         ]);

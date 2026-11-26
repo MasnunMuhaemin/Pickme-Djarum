@@ -80,7 +80,7 @@ class GiftController extends Controller
     }
 
     /**
-     * Nomor tujuan token listrik: bisa diisi saat menunggu data atau setelah nomor ditolak. Setelah ditolak
+     * Nomor tujuan token listrik (nomor meter) atau pulsa/kuota (nomor HP): bisa diisi saat menunggu data atau setelah nomor ditolak. Setelah ditolak
      * sebanyak batas di pengaturan, status menjadi perlu bantuan admin (PRD FR-16).
      */
     public function showDestination(Request $request, ?int $voucherId = null): Response|RedirectResponse
@@ -92,7 +92,7 @@ class GiftController extends Controller
         }
 
         return Inertia::render('participant/nomor-tujuan', [
-            'voucher' => $voucher->only(['id', 'type', 'status', 'failed_attempts']),
+            'voucher' => [...$voucher->only(['id', 'type', 'status', 'failed_attempts']), 'kuota' => $voucher->isKuota()],
             'reward' => RewardPresenter::voucher($voucher),
             'maxFailures' => config('participant.destination_max_failures'),
         ]);
@@ -104,6 +104,10 @@ class GiftController extends Controller
         $voucher = $this->voucher($participant, $voucherId);
         if (! $this->canFillDestination($voucher)) {
             return to_route('participant.hadiah');
+        }
+
+        if ($voucher->isKuota()) {
+            $request->validate(['destination' => ['regex:/^08[0-9]{8,11}$/']], ['destination.regex' => 'Nomor HP diawali 08, 10 sampai 13 angka.']);
         }
 
         $voucher->update([
@@ -140,7 +144,7 @@ class GiftController extends Controller
 
     private function canFillDestination(Voucher $voucher): bool
     {
-        return $voucher->type === 'token'
+        return ($voucher->type === 'token' || $voucher->isKuota())
             && in_array($voucher->status, ['pending_data', 'rejected'], true)
             && $voucher->failed_attempts < config('participant.destination_max_failures');
     }

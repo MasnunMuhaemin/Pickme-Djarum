@@ -40,6 +40,23 @@ class Participant extends Model
             ->count();
     }
 
+    /**
+     * Isi kartu cap berurutan (maks 10 nomor): 'cap' untuk klaim yang capnya dihitung, 'rejected' untuk klaim yang
+     * ditolak admin. Klaim ditolak tetap memakai satu nomor, jadi klaim berikutnya lanjut ke nomor sesudahnya.
+     *
+     * @return list<'cap'|'rejected'>
+     */
+    public function capTrail(): array
+    {
+        return $this->claims()
+            ->where(fn ($q) => $q->where(fn ($a) => $a->where('status', 'approved')->whereNotNull('cap_at'))->orWhere('status', 'rejected'))
+            ->orderByRaw('coalesce(cap_at, rejected_at)')
+            ->limit(10)
+            ->pluck('status')
+            ->map(fn (string $status) => $status === 'rejected' ? 'rejected' : 'cap')
+            ->all();
+    }
+
     public function claims(): HasMany
     {
         return $this->hasMany(Claim::class);

@@ -1,5 +1,6 @@
 import { LimePage } from '@/features/participant/components/lime-page';
 import { logoutParticipant, OutlineButton } from '@/features/participant/components/ui';
+import { STAR } from '@/features/participant/rewards';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 import { ChevronRight } from 'lucide-react';
@@ -15,11 +16,31 @@ type Me = {
     area: string | null;
 };
 
-function Stat({ label, value, className }: { label: string; value: string; className: string }) {
+/** Kartu angka dengan aksen bintang bergerigi di pojok kanan atas, seperti kartu pintasan di beranda. */
+function Stat({
+    label,
+    value,
+    className,
+    starClass,
+    rings,
+}: {
+    label: string;
+    value: string;
+    className: string;
+    starClass: string;
+    rings?: boolean;
+}) {
     return (
-        <div className={cn('rounded-2xl p-3.5', className)}>
-            <p className="truncate text-[10px] font-extrabold tracking-wide uppercase opacity-70">{label}</p>
-            <p className="mt-1 text-[24px] leading-none font-extrabold">{value}</p>
+        <div className={cn('relative overflow-hidden rounded-2xl p-3.5', className)}>
+            {rings && (
+                <>
+                    <span aria-hidden className="border-ink/15 absolute -top-10 -right-10 size-24 rounded-full border-2" />
+                    <span aria-hidden className="border-ink/15 absolute -top-5 -right-5 size-14 rounded-full border-2" />
+                </>
+            )}
+            <span aria-hidden className={cn('absolute -top-3 -right-3 size-10', STAR, starClass)} />
+            <p className="relative truncate text-[10px] font-extrabold tracking-wide uppercase opacity-70">{label}</p>
+            <p className="relative mt-1 text-[24px] leading-none font-extrabold">{value}</p>
         </div>
     );
 }
@@ -30,6 +51,27 @@ function Row({ label, value }: { label: string; value: string }) {
             <span className="text-ink-soft">{label}</span>
             <span className="text-right font-extrabold">{value}</span>
         </div>
+    );
+}
+
+/**
+ * Aksen kartu putih profil (di belakang isi): bintang bergerigi besar dan kecil, lingkaran bertingkat, dan pola titik
+ * hijau. `flip` mencerminkan susunannya supaya kartu yang berurutan tidak tampak sama.
+ */
+function CardAccent({ flip }: { flip?: boolean }) {
+    return (
+        <span aria-hidden className="pointer-events-none absolute inset-0">
+            <span className={cn('bg-lime-soft absolute -top-7 size-20', flip ? '-left-7' : '-right-7', STAR)} />
+            <span className={cn('bg-lime/40 absolute top-12 size-6', flip ? 'left-14' : 'right-14', STAR)} />
+            <span className={cn('border-lime/25 absolute -bottom-14 size-32 rounded-full border-2', flip ? '-right-14' : '-left-14')} />
+            <span className={cn('border-lime/20 absolute -bottom-7 size-16 rounded-full border-2', flip ? '-right-7' : '-left-7')} />
+            <span
+                className={cn(
+                    'absolute bottom-2 size-20 bg-[radial-gradient(circle,rgba(143,195,31,0.4)_1.5px,transparent_1.7px)] bg-[length:10px_10px]',
+                    flip ? 'left-2' : 'right-2',
+                )}
+            />
+        </span>
     );
 }
 
@@ -46,40 +88,48 @@ export default function Profil({ me }: { me: Me }) {
 
     return (
         <LimePage title="Profil saya" nav="profil">
-            <div className="flex items-center gap-3 rounded-3xl bg-white p-4">
-                <span className="bg-ink text-lime ring-lime grid size-14 shrink-0 place-items-center rounded-full text-[22px] font-extrabold ring-2">
+            <div className="relative flex items-center gap-3 overflow-hidden rounded-3xl bg-white p-4">
+                <CardAccent />
+                <span className="bg-ink text-lime ring-lime relative grid size-14 shrink-0 place-items-center rounded-full text-[22px] font-extrabold ring-2">
                     {me.name.trim().charAt(0).toUpperCase()}
                 </span>
-                <p className="min-w-0 flex-1 truncate text-[20px] font-extrabold tracking-tight">{me.name}</p>
-                <span className="bg-lime shrink-0 rounded-full px-3 py-1.5 text-[12px] font-extrabold">{status}</span>
+                <p className="relative min-w-0 flex-1 truncate text-[20px] font-extrabold tracking-tight">{me.name}</p>
+                <span className="bg-lime relative shrink-0 rounded-full px-3 py-1.5 text-[12px] font-extrabold">{status}</span>
             </div>
 
             <div className="mt-3 grid grid-cols-3 gap-2.5">
-                <Stat label="Cap" value={`${Math.min(me.caps, 10)}/10`} className="bg-night text-cream" />
-                <Stat label="Peringkat" value={me.rank ? `#${me.rank}` : '-'} className="bg-lime text-ink" />
+                <Stat label="Cap" value={`${Math.min(me.caps, 10)}/10`} className="text-cream bg-[#0b0b0b]" starClass="bg-[#2b3a12]" />
+                <Stat label="Peringkat" value={me.rank ? `#${me.rank}` : '-'} className="bg-lime text-ink" starClass="bg-[#7aa91a]" rings />
                 <Stat
                     label="Klaim hari ini"
                     value={me.daily_limit > 0 ? `${me.claims_today}/${me.daily_limit}` : `${me.claims_today}`}
                     className="border-ink border-2 bg-white"
+                    starClass="bg-lime-soft"
                 />
             </div>
 
             <h2 className="mt-6 text-[18px] font-extrabold tracking-tight">Akun</h2>
-            <div className="divide-ink/8 mt-2 divide-y rounded-3xl bg-white px-5 py-1">
-                <Row label="Nomor WhatsApp" value={me.whatsapp} />
-                <Row label="Status" value={status} />
-                <Row label="Area kos" value={me.area ?? '-'} />
-                <Row label="PIN" value="••••" />
+            <div className="relative mt-2 overflow-hidden rounded-3xl bg-white px-5 py-1">
+                <CardAccent flip />
+                <div className="divide-ink/8 relative divide-y">
+                    <Row label="Nomor WhatsApp" value={me.whatsapp} />
+                    <Row label="Status" value={status} />
+                    <Row label="Area kos" value={me.area ?? '-'} />
+                    <Row label="PIN" value="••••" />
+                </div>
             </div>
 
             <h2 className="mt-6 text-[18px] font-extrabold tracking-tight">Pintasan</h2>
-            <div className="divide-ink/8 mt-2 divide-y rounded-3xl bg-white px-5 py-1">
-                {SHORTCUTS.map((item) => (
-                    <Link key={item.href} href={item.href} className="flex items-center justify-between py-3.5 text-[14px] font-bold">
-                        {item.label}
-                        <ChevronRight className="text-ink-soft size-4" />
-                    </Link>
-                ))}
+            <div className="relative mt-2 overflow-hidden rounded-3xl bg-white px-5 py-1">
+                <CardAccent />
+                <div className="divide-ink/8 relative divide-y">
+                    {SHORTCUTS.map((item) => (
+                        <Link key={item.href} href={item.href} className="flex items-center justify-between py-3.5 text-[14px] font-bold">
+                            {item.label}
+                            <ChevronRight className="text-ink-soft size-4" />
+                        </Link>
+                    ))}
+                </div>
             </div>
 
             <OutlineButton onClick={logoutParticipant} className="mt-6">

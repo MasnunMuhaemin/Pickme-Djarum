@@ -87,9 +87,11 @@ class RewardCreationService
             'voucher_type_id' => $voucherType?->id,
             'partner_id' => $voucherType?->partner_id,
             'value' => $voucherType?->value ?? (int) config("participant.prize_values.{$type}", 0),
-            'status' => match ($type) {
-                'voucher' => 'sent',
-                'token' => 'pending_data',
+            'status' => match (true) {
+                // Pulsa/kuota: peserta mengisi nomor HP dulu, lalu mitra kuota mengisinya (PRD FR-15).
+                $type === 'voucher' && $voucherType?->fulfillment === 'kuota' => 'pending_data',
+                $type === 'voucher' => 'sent',
+                $type === 'token' => 'pending_data',
                 default => 'pending',
             },
             // Kode voucher langsung terlihat di Hadiahku; sent_at diisi saat admin mengirimnya lewat WhatsApp

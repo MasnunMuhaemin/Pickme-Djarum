@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\Claim;
+use App\Models\Voucher;
 use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PhotoService
 {
@@ -25,21 +27,8 @@ class PhotoService
         $hash = $this->hash($image, $width, $height);
 
         $stamp = ($cameraOpenedAt ?? now())->format('d/m H:i:s').' - '.$claim->outlet->code.' - '.$claim->claim_code;
-        $font = 5;
-        $tw = imagefontwidth($font) * strlen($stamp);
-        $th = imagefontheight($font);
-        $bg = imagecolorallocatealpha($image, 0, 0, 0, 40);
-        $fg = imagecolorallocate($image, 255, 255, 255);
-        imagefilledrectangle($image, 6, $height - $th - 12, $tw + 14, $height - 6, $bg);
-        imagestring($image, $font, 10, $height - $th - 9, $stamp, $fg);
-
-        // JPEG kualitas 80: foto yang sudah dikompres di HP tidak membengkak lagi seperti bila disimpan PNG.
         $path = 'claims/'.$claim->id.'.jpg';
-        ob_start();
-        imagejpeg($image, null, 80);
-        $jpeg = ob_get_clean();
-        imagedestroy($image);
-        Storage::disk('local')->put($path, $jpeg);
+        $this->stampAndSave($image, [$stamp], $path);
 
         $claim->photo()->updateOrCreate(['claim_id' => $claim->id], [
             'path' => $path,
@@ -53,6 +42,55 @@ class PhotoService
             'brightness' => $brightness,
             'is_dark' => $brightness < config('participant.brightness_threshold'),
         ];
+    }
+
+    /**
+     * Foto bukti penukaran mitra: watermark jam server, nama mitra, kode, dan nilai voucher.
+     *
+     * @return string path di disk local
+     */
+    public function storeProof(Voucher $voucher, UploadedFile $file): string
+    {
+        $image = imagecreatefromstring($file->getContent());
+        if ($image === false) {
+            throw new \RuntimeException('File gambar tidak valid.');
+        }
+
+        $lines = [
+            now()->format('d/m/Y H:i:s').' WIB',
+            Str::ascii((string) $voucher->partner?->name).' - '.$voucher->code.' - Rp'.number_format($voucher->amount(), 0, ',', '.'),
+        ];
+        $path = 'proofs/'.$voucher->id.'.jpg';
+        $this->stampAndSave($image, $lines, $path);
+
+        return $path;
+    }
+
+    /**
+     * Tulis cap teks (satu baris atau lebih) di kiri bawah lalu simpan sebagai JPEG kualitas 80 (foto HP tidak
+     * membengkak seperti PNG).
+     *
+     * @param  list<string>  $lines
+     */
+    private function stampAndSave(\GdImage $image, array $lines, string $path): void
+    {
+        $height = imagesy($image);
+        $font = 5;
+        $tw = imagefontwidth($font) * max(array_map('strlen', $lines));
+        $th = imagefontheight($font);
+        $boxHeight = $th * count($lines) + 2 * (count($lines) - 1);
+        $bg = imagecolorallocatealpha($image, 0, 0, 0, 40);
+        $fg = imagecolorallocate($image, 255, 255, 255);
+        imagefilledrectangle($image, 6, $height - $boxHeight - 12, $tw + 14, $height - 6, $bg);
+        foreach ($lines as $i => $line) {
+            imagestring($image, $font, 10, $height - $boxHeight - 9 + $i * ($th + 2), $line, $fg);
+        }
+
+        ob_start();
+        imagejpeg($image, null, 80);
+        $jpeg = ob_get_clean();
+        imagedestroy($image);
+        Storage::disk('local')->put($path, $jpeg);
     }
 
     private function brightness(\GdImage $image, int $width, int $height): int

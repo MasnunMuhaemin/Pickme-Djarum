@@ -1,6 +1,7 @@
+import { NoticeSheet } from '@/features/participant/components/ui';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { AlertCircle, Check, Copy, Eye, EyeOff } from 'lucide-react';
-import { FormEvent, useRef, useState } from 'react';
+import { Check, Copy, Eye, EyeOff } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Slot = { code: string | null; position: string };
 type Claim = { id: number; status: string; claim_code?: string; held_until?: string | null; slot?: Slot | null } | null;
@@ -60,16 +61,28 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
 
     const error = form.errors.code;
     const boxes = [0, 1, 2, 3, 4, 5];
+    // Kode ditolak: popup. "Coba lagi" mengosongkan kotak kode; slot tetap ditahan untuk peserta.
+    const [errorOpen, setErrorOpen] = useState(false);
+    useEffect(() => setErrorOpen(Boolean(error)), [error]);
+    const unknownCode = error?.startsWith('Kode tidak dikenal');
+
+    function tryAgain() {
+        setErrorOpen(false);
+        setChars(['', '', '', '', '', '']);
+        form.setData('code', '');
+        form.clearErrors('code');
+        refs.current[0]?.focus();
+    }
 
     return (
-        <div className="bg-lime text-ink min-h-dvh">
+        <div className="bg-cream text-ink min-h-dvh">
             <Head title="Ambil slot" />
             <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col md:max-w-[720px]">
-                <header className="px-6 pt-8 pb-4">
+                <header className="lime-hero px-6 pt-8 pb-14">
                     <h1 className="text-[34px] leading-none font-extrabold tracking-tight">Ambil slot</h1>
                 </header>
 
-                <main className="bg-cream flex flex-1 flex-col rounded-t-[28px] px-5 pt-5 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
+                <main className="bg-cream relative -mt-7 flex flex-1 flex-col rounded-t-[28px] px-5 pt-5 pb-8">
                     <div className="flex items-center justify-between gap-3">
                         <span className="bg-lime-soft text-ink inline-flex w-fit items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold">
                             <Check className="size-3.5" />
@@ -157,16 +170,6 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                         </div>
                     )}
 
-                    {error && (
-                        <div
-                            role="alert"
-                            className="text-danger mt-5 flex items-start gap-2 rounded-xl bg-[#fbe3e0] p-3 text-[11px] leading-relaxed font-semibold"
-                        >
-                            <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                            <span>{error}</span>
-                        </div>
-                    )}
-
                     <form onSubmit={submit} className="mt-5">
                         <p className="text-[13px] font-extrabold">Masukkan kode</p>
                         <div className="mt-2 flex justify-between gap-1.5">
@@ -206,6 +209,16 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                     )}
                 </main>
             </div>
+            <NoticeSheet
+                open={errorOpen}
+                onClose={tryAgain}
+                tone="warn"
+                icon="!"
+                stacked
+                title={unknownCode ? 'Kode tidak dikenal' : 'Kode belum cocok'}
+                text={unknownCode ? 'Cek lagi huruf dan angkanya, lalu masukkan ulang kodenya.' : (error ?? '')}
+                primary={{ label: 'Coba lagi', onClick: tryAgain }}
+            />
         </div>
     );
 }

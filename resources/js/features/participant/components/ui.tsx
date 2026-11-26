@@ -132,7 +132,8 @@ export function PageHeader({
                     )}
                     <div className="flex items-center gap-2">
                         {right}
-                        <LogoutButton className="bg-ink text-lime hover:bg-ink/85 hover:text-lime md:hidden" />
+                        {/* Layar dengan tombol tutup (Klaim berhasil) tidak menampilkan tombol keluar kedua. */}
+                        {!close && <LogoutButton className="bg-ink text-lime hover:bg-ink/85 hover:text-lime md:hidden" />}
                     </div>
                 </div>
                 {title && (
@@ -488,23 +489,46 @@ export function NoticeSheet({
     text,
     primary,
     secondary,
+    stacked,
 }: {
     open: boolean;
     onClose: () => void;
     icon: ReactNode;
-    tone?: 'danger' | 'dark';
+    /** danger: lingkaran merah penuh; warn: lingkaran merah muda dengan ikon merah (desain mitra); dark: hitam. */
+    tone?: 'danger' | 'warn' | 'dark';
     title: string;
     text: string;
     primary: { label: string; href?: string; onClick?: () => void };
     secondary?: { label: string; href?: string; onClick?: () => void };
+    /** Tombol bersusun: utama di atas, garis di bawah (desain mitra). Bawaan: berdampingan. */
+    stacked?: boolean;
 }) {
+    const secondaryButton = secondary && (
+        <OutlineButton
+            href={secondary.href}
+            onClick={secondary.onClick ?? (secondary.href ? undefined : onClose)}
+            className={stacked ? 'border-ink h-14 border-2 text-[16px] font-extrabold' : undefined}
+        >
+            {secondary.label}
+        </OutlineButton>
+    );
+    const primaryButton = (
+        <PrimaryButton
+            href={primary.href}
+            onClick={primary.onClick ?? (primary.href ? undefined : onClose)}
+            className={stacked ? 'h-14 text-[16px] font-extrabold' : undefined}
+        >
+            {primary.label}
+        </PrimaryButton>
+    );
+
     return (
         <Sheet open={open} onClose={onClose}>
             <div className="py-1">
                 <span
                     className={cn(
                         'grid size-14 place-items-center rounded-full text-[20px] font-extrabold',
-                        tone === 'danger' ? 'bg-danger text-white' : 'bg-ink text-lime',
+                        tone === 'danger' ? 'bg-danger text-white' : tone === 'warn' ? 'text-danger bg-[#fbe3e0] text-[26px]' : 'bg-ink text-lime',
                     )}
                 >
                     {icon}
@@ -512,16 +536,17 @@ export function NoticeSheet({
                 <h2 className="mt-4 text-[24px] leading-tight font-extrabold tracking-tight">{title}</h2>
                 <p className="text-ink-soft mt-1.5 text-[13px] leading-relaxed">{text}</p>
             </div>
-            <div className="mt-5 flex gap-2.5">
-                {secondary && (
-                    <OutlineButton href={secondary.href} onClick={secondary.onClick ?? (secondary.href ? undefined : onClose)}>
-                        {secondary.label}
-                    </OutlineButton>
-                )}
-                <PrimaryButton href={primary.href} onClick={primary.onClick ?? (primary.href ? undefined : onClose)}>
-                    {primary.label}
-                </PrimaryButton>
-            </div>
+            {stacked ? (
+                <div className="mt-5 flex flex-col gap-3">
+                    {primaryButton}
+                    {secondaryButton}
+                </div>
+            ) : (
+                <div className="mt-5 flex gap-2.5">
+                    {secondaryButton}
+                    {primaryButton}
+                </div>
+            )}
         </Sheet>
     );
 }
@@ -619,21 +644,16 @@ function SheetPanel({ onClose, title, children }: SheetProps) {
     );
 }
 
-export function ProgressDots({ value, total = 10 }: { value: number; total?: number }) {
+/** Nomor kartu cap yang klaimnya ditolak admin: tetap terpakai (krem bercincin lime), tapi tidak dihitung sebagai cap. */
+export function RejectedCap({ number, className }: { number: number; className?: string }) {
     return (
-        <div className="flex items-center gap-1.5">
-            {Array.from({ length: total }, (_, i) => (
-                <span
-                    key={i}
-                    className={cn(
-                        'grid size-7 place-items-center rounded-full text-[10px] font-bold',
-                        i < value ? 'bg-ink text-cream' : 'border-ink/20 text-ink-soft border',
-                    )}
-                >
-                    {i < value ? <Check className="size-3" /> : i + 1}
-                </span>
-            ))}
-        </div>
+        <span
+            aria-label={`Cap ${number}: klaim ditolak`}
+            title="Klaim ditolak"
+            className={cn('bg-cream text-ink ring-lime grid place-items-center rounded-full font-extrabold ring-[3px]', className)}
+        >
+            {number}
+        </span>
     );
 }
 

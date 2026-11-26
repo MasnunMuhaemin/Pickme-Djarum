@@ -16,7 +16,6 @@ const SKIP = [
     /^\/participant\/slot(\?|$)/,
     /^\/participant\/klaim\/berhasil(\?|$)/,
     /^\/participant\/terima-kasih(\?|$)/,
-    /^\/participant\/daftar\/belum-bisa(\?|$)/,
 ];
 
 function load(): string[] {
@@ -64,6 +63,11 @@ export function startNavHistory(): void {
 
 /** Kembali ke halaman peserta sebelumnya; bila tidak ada, ke `fallback`. */
 export function goBack(fallback: string): void {
+    // Riwayat hanya berisi halaman peserta: halaman lain (mis. mitra) langsung ke tujuan bawaannya.
+    if (!fallback.startsWith('/participant')) {
+        router.visit(fallback);
+        return;
+    }
     const stack = load();
     const here = current();
     while (stack.length && stack[stack.length - 1] === here) stack.pop();

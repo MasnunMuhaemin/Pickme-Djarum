@@ -47,7 +47,7 @@ class DemoParticipantSeeder extends Seeder
         $this->approvedClaim($participant, $outlet, 'token', null);
         $this->approvedClaim($participant, $outlet, 'merch', null);
 
-        $participant->update(['caps' => $participant->claims()->where('status', 'approved')->count()]);
+        $participant->update(['caps' => $participant->claims()->whereNotNull('cap_at')->count()]);
     }
 
     private function approvedClaim(Participant $participant, Outlet $outlet, string $type, ?string $code): void
@@ -65,6 +65,8 @@ class DemoParticipantSeeder extends Seeder
             'claim_code' => 'KLM'.str_pad((string) random_int(1, 9999), 4, '0', STR_PAD_LEFT),
             'status' => 'approved',
             'submitted_at' => now()->subDays(3),
+            // Cap dihitung (peringkat memakai cap_at).
+            'cap_at' => now()->subDays(3),
         ]);
 
         $slot->update(['status' => 'used', 'used_at' => now()->subDays(3), 'holder_id' => $participant->id]);

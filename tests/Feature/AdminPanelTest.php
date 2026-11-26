@@ -117,9 +117,6 @@ class AdminPanelTest extends TestCase
         $this->post('/admin/mitra', ['name' => 'Kopi Tanpa Area', 'type' => 'umum', 'whatsapp' => '081299990003'])->assertSessionHasNoErrors();
     }
 
-
-
-
     public function test_token_success_needs_reference_and_third_failure_needs_admin(): void
     {
         $claim = $this->rewardedClaim('token');
@@ -167,7 +164,8 @@ class AdminPanelTest extends TestCase
 
     public function test_voucher_dispatch_marks_sent(): void
     {
-        $claim = $this->rewardedClaim('voucher');
+        // Voucher mitra (bukan pulsa/kuota, yang menunggu nomor HP dan tidak dikirim lewat layar ini).
+        $claim = $this->rewardedClaim('voucher', voucherTypeId: VoucherType::where('fulfillment', 'mitra')->value('id'));
         $this->actingAs($this->admin);
         $voucher = $claim->fresh()->voucher;
 
@@ -442,19 +440,52 @@ class AdminPanelTest extends TestCase
     public function test_admin_edits_voucher_lines_shown_to_participants(): void
     {
         $this->actingAs($this->admin)
-            ->post('/admin/pengaturan/kalimat-voucher', ['lines' => "  kalimat satu 
+            ->post('/admin/pengaturan/kalimat-voucher', ['lines' => '  kalimat satu 
 
 kalimat dua
-"])
+'])
             ->assertSessionHasNoErrors();
         $this->assertSame(['kalimat satu', 'kalimat dua'], Setting::voucherLines());
 
         $this->post('/admin/pengaturan/kalimat-voucher', ['lines' => str_repeat('a', 61)])->assertSessionHasErrors('lines');
-        $this->post('/admin/pengaturan/kalimat-voucher', ['lines' => "
+        $this->post('/admin/pengaturan/kalimat-voucher', ['lines' => '
  
-"])->assertSessionHasErrors('lines');
+'])->assertSessionHasErrors('lines');
         $this->assertSame(['kalimat satu', 'kalimat dua'], Setting::voucherLines());
 
         $this->get('/participant')->assertInertia(fn ($page) => $page->where('voucherLines', ['kalimat satu', 'kalimat dua']));
+    }
+
+    public function test_admin_rejects_claim_keeps_its_cap_number_and_cancels_reward(): void
+    {
+        $mitra = VoucherType::where('fulfillment', 'mitra')->value('id');
+        $participant = $this->participant();
+        $first = $this->rewardedClaim('voucher', $participant, $mitra);
+        $this->travel(1)->minutes();
+        $second = $this->rewardedClaim('voucher', $participant, $mitra);
+        $this->assertSame(2, $participant->fresh()->caps);
+
+        $this->actingAs($this->admin);
+        $this->post("/admin/antrean-foto/{$first->id}/tolak", ['reason' => 'x'])->assertSessionHasErrors('reason');
+        $this->post("/admin/antrean-foto/{$first->id}/tolak", ['reason' => 'Foto bukan bungkus program'])->assertSessionHasNoErrors();
+
+        $first->refresh();
+        $this->assertSame('rejected', $first->status);
+        $this->assertSame('cancelled', $first->voucher->status);
+        $this->assertSame(1, $participant->fresh()->caps);
+        // Nomor 1 tetap terpakai sebagai "ditolak", klaim berikutnya di nomor 2.
+        $this->assertSame(['rejected', 'cap'], $participant->fresh()->capTrail());
+        $this->assertSame('Klaim ditolak', RewardPresenter::voucher($first->voucher)['status_label']);
+
+        // Hadiah yang sudah ditukar mitra tidak bisa ditolak lagi.
+        $second->voucher->update(['status' => 'redeemed', 'redeemed_at' => now()]);
+        $this->post("/admin/antrean-foto/{$second->id}/tolak", ['reason' => 'Foto bukan bungkus program'])->assertSessionHasErrors('reason');
+        $this->assertSame('approved', $second->fresh()->status);
+
+        // Mitra: kode dari klaim yang ditolak tampil sebagai voucher dibatalkan.
+        $partner = Partner::create(['name' => 'Mitra Uji', 'type' => 'umum', 'pin_hash' => Hash::make('2580'), 'status' => 'active']);
+        $first->voucher->update(['partner_id' => $partner->id]);
+        $this->post('/mitra/masuk', ['pin' => '2580']);
+        $this->post('/mitra/cek', ['code' => $first->voucher->code])->assertSessionHas('mitra_check.state', 'cancelled');
     }
 }

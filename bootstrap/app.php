@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureAdmin;
 use App\Http\Middleware\EnsureParticipant;
+use App\Http\Middleware\EnsurePartner;
 use App\Http\Middleware\EnsureClaimOpen;
 use App\Http\Middleware\EnsureConsent;
 use App\Http\Middleware\EnsureStudent;
@@ -25,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => EnsureAdmin::class,
             'participant' => EnsureParticipant::class,
+            'partner' => EnsurePartner::class,
             'student' => EnsureStudent::class,
             'consented' => EnsureConsent::class,
             'claim-open' => EnsureClaimOpen::class,

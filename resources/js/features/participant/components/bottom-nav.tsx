@@ -1,10 +1,11 @@
 import { LogoutButton } from '@/features/participant/components/ui';
+import { useNavDrag } from '@/hooks/use-nav-drag';
 import { useSlidingIndicator } from '@/hooks/use-sliding-indicator';
 import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
 import { Link, router, usePage } from '@inertiajs/react';
 import { CreditCard, Gift, House, ScanLine, UserRound } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const items = [
     { key: 'beranda', label: 'Beranda', href: '/participant', icon: House },
@@ -30,11 +31,13 @@ function activeKey(url: string): string {
     if (path.startsWith('/participant/scan') || path.startsWith('/participant/qr-tidak-dikenal') || path.startsWith('/participant/lupa-pin')) {
         return 'scan';
     }
-    if (path.startsWith('/participant/kartu') || path.startsWith('/participant/mystery-gift') || path.startsWith('/participant/mahasiswa')) {
+    if (path.startsWith('/participant/kartu') || path.startsWith('/participant/mahasiswa')) {
         return 'kartu';
     }
     if (
         path.startsWith('/participant/hadiah') ||
+        // Mystery gift adalah hadiah (detailnya dibuka dari Hadiahku), bukan bagian Leaderboard.
+        path.startsWith('/participant/mystery-gift') ||
         path.startsWith('/participant/voucher') ||
         path.startsWith('/participant/nomor-tujuan') ||
         path.startsWith('/participant/alamat') ||
@@ -136,9 +139,7 @@ export function BottomNav() {
     // Menu tujuan yang sedang dituju; halaman kamera tidak punya navbar, jadi pil meluncur dulu baru pindah.
     const [leavingTo, setLeavingTo] = useState<string | null>(null);
     // Gestur geser seperti tab bar iOS: selama jari digeser, pil mengikuti menu di bawah jari.
-    const [dragKey, setDragKey] = useState<string | null>(null);
-    const drag = useRef<{ x0: number; moved: boolean } | null>(null);
-    const suppressClick = useRef(false);
+    const { dragKey, handlers } = useNavDrag((key) => goTo(key));
     const target = dragKey ?? leavingTo ?? active;
     const { containerRef, indicatorStyle } = useSlidingIndicator('bottom-nav', target);
     const visibleItems = useNavItems();
@@ -167,36 +168,7 @@ export function BottomNav() {
         <nav className="pointer-events-none sticky bottom-0 z-30 mt-auto px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
             <div
                 ref={containerRef}
-                onPointerDown={(e) => {
-                    drag.current = { x0: e.clientX, moved: false };
-                }}
-                onPointerMove={(e) => {
-                    const d = drag.current;
-                    if (!d) return;
-                    if (!d.moved && Math.abs(e.clientX - d.x0) < 8) return;
-                    d.moved = true;
-                    setDragKey(keyAt(e.clientX));
-                }}
-                onPointerUp={(e) => {
-                    const d = drag.current;
-                    drag.current = null;
-                    if (!d?.moved) return; // ketukan biasa: ditangani Link
-                    suppressClick.current = true;
-                    const key = keyAt(e.clientX);
-                    setDragKey(null);
-                    goTo(key);
-                }}
-                onPointerCancel={() => {
-                    drag.current = null;
-                    setDragKey(null);
-                }}
-                onClickCapture={(e) => {
-                    // Klik yang menyusul gestur geser tidak membuka menu kedua kalinya.
-                    if (!suppressClick.current) return;
-                    suppressClick.current = false;
-                    e.preventDefault();
-                    e.stopPropagation();
-                }}
+                {...handlers}
                 className={cn(
                     'pointer-events-auto relative mx-auto h-14 touch-none items-center rounded-full bg-[#0b0b0b] px-1.5 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.45)] select-none',
                     // 3 menu (kamera di tengah): tiga kolom tetap sama lebar, jadi menu lain diam saat pil berpindah.
@@ -209,17 +181,6 @@ export function BottomNav() {
             </div>
         </nav>
     );
-
-    /** Menu yang titik tengahnya paling dekat dengan posisi jari. */
-    function keyAt(clientX: number): string | null {
-        let best: { key: string; distance: number } | null = null;
-        containerRef.current?.querySelectorAll<HTMLElement>('[data-nav-key]').forEach((el) => {
-            const r = el.getBoundingClientRect();
-            const distance = Math.abs(clientX - (r.left + r.width / 2));
-            if (!best || distance < best.distance) best = { key: el.dataset.navKey ?? '', distance };
-        });
-        return best ? (best as { key: string }).key : null;
-    }
 
     /** Buka menu hasil gestur; pil tetap di menu tujuan sampai halaman berganti. */
     function goTo(key: string | null) {

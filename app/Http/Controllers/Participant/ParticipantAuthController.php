@@ -67,7 +67,8 @@ class ParticipantAuthController extends Controller
             ]);
             $devices->track($request, null, 'register_rejected');
 
-            return to_route('participant.daftar.belum-bisa');
+            // Popup "Belum bisa ikut" di atas form daftar; data isian tidak disimpan.
+            return back()->withErrors(['underage' => 'Kamu belum memenuhi syarat usia program ini.']);
         }
 
         RateLimiter::hit($registerKey, 24 * 60 * 60);

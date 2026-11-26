@@ -42,8 +42,8 @@ class Setting extends Model
     /** @return list<string> Satu kalimat per baris, disimpan sebagai teks. */
     public static function voucherLines(): array
     {
-        $saved = array_values(array_filter(array_map('trim', explode("
-", (string) static::get('voucher_lines', '')))));
+        $saved = array_values(array_filter(array_map('trim', explode('
+', (string) static::get('voucher_lines', '')))));
 
         return $saved ?: self::VOUCHER_LINES;
     }

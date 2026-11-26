@@ -4,9 +4,7 @@ import type { Reward } from '@/features/participant/rewards';
 import { useForm } from '@inertiajs/react';
 import { FormEvent } from 'react';
 
-type Voucher = { id: number; type: string; status: string; failed_attempts?: number };
-
-const digitsOnly = (value: string) => value.replace(/\D/g, '').slice(0, 20);
+type Voucher = { id: number; type: string; status: string; failed_attempts?: number; kuota?: boolean };
 
 function SummaryRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
     return (
@@ -17,14 +15,34 @@ function SummaryRow({ label, value, mono }: { label: string; value: string; mono
     );
 }
 
+/** Teks per jenis: nomor meter PLN untuk token listrik, nomor HP untuk pulsa/kuota (diisi mitra kuota). */
+const COPY = {
+    token: {
+        subtitle: 'Isi nomor meter atau ID pelanggan PLN dua kali supaya tidak salah.',
+        label: 'Nomor meter atau ID pelanggan',
+        min: 8,
+        max: 20,
+        after: 'Setelah itu admin menghubungi kamu lewat WhatsApp.',
+    },
+    kuota: {
+        subtitle: 'Isi nomor HP tujuan pulsa atau kuota dua kali supaya tidak salah.',
+        label: 'Nomor HP tujuan',
+        min: 10,
+        max: 13,
+        after: 'Setelah itu admin membantu lewat WhatsApp.',
+    },
+};
+
 /**
- * Nomor meter atau ID pelanggan PLN untuk token listrik: diisi dua kali dan harus sama, dengan ringkasan jenis,
+ * Nomor meter atau ID pelanggan PLN untuk token listrik, atau nomor HP untuk pulsa/kuota: diisi dua kali dan harus sama, dengan ringkasan jenis,
  * nilai, dan nomor sebelum dikirim (PRD bagian 14).
  */
 export default function NomorTujuan({ voucher, reward, maxFailures = 3 }: { voucher: Voucher; reward: Reward; maxFailures?: number }) {
+    const copy = voucher.kuota ? COPY.kuota : COPY.token;
+    const digitsOnly = (value: string) => value.replace(/\D/g, '').slice(0, copy.max);
     const form = useForm({ destination: '', destination_confirmation: '' });
     const mismatch = form.data.destination_confirmation.length > 0 && form.data.destination !== form.data.destination_confirmation;
-    const ready = form.data.destination.length >= 8 && form.data.destination === form.data.destination_confirmation;
+    const ready = form.data.destination.length >= copy.min && form.data.destination === form.data.destination_confirmation;
 
     function submit(e?: FormEvent) {
         e?.preventDefault();
@@ -34,7 +52,7 @@ export default function NomorTujuan({ voucher, reward, maxFailures = 3 }: { vouc
     return (
         <LimePage
             title="Nomor tujuan"
-            subtitle="Isi nomor meter atau ID pelanggan PLN dua kali supaya tidak salah."
+            subtitle={copy.subtitle}
             back="/participant/hadiah"
             nav="hadiah"
             hideBottomNav
@@ -55,7 +73,7 @@ export default function NomorTujuan({ voucher, reward, maxFailures = 3 }: { vouc
                 )}
 
                 <label className="block">
-                    <span className="mb-2 block text-[13px] font-extrabold">Nomor meter atau ID pelanggan</span>
+                    <span className="mb-2 block text-[13px] font-extrabold">{copy.label}</span>
                     <Input
                         inputMode="numeric"
                         autoComplete="off"
@@ -88,7 +106,7 @@ export default function NomorTujuan({ voucher, reward, maxFailures = 3 }: { vouc
                 </div>
 
                 <p className="text-ink-soft mt-4 text-[12px] leading-relaxed">
-                    Maksimal {maxFailures} kali salah nomor. Setelah itu admin menghubungi kamu lewat WhatsApp.
+                    Maksimal {maxFailures} kali salah nomor. {copy.after}
                 </p>
             </form>
         </LimePage>

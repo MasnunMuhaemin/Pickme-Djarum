@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Outlet;
 use App\Models\Participant;
+use App\Models\Partner;
 use App\Models\Setting;
 use App\Support\AdminQueues;
 use Illuminate\Foundation\Inspiring;
@@ -59,6 +60,10 @@ class HandleInertiaRequests extends Middleware
                 'pauseReason' => Setting::get('program_pause_reason'),
                 'outlets' => Outlet::orderBy('code')->get(['id', 'code', 'name', 'status']),
             ] : null,
+            // Akun mitra yang sedang masuk (halaman /mitra): nama di header dan menu antrean untuk mitra kuota.
+            'partner' => fn () => $request->is('mitra', 'mitra/*') && $request->session()->get('partner_id')
+                ? Partner::find($request->session()->get('partner_id'))?->only(['name', 'type'])
+                : null,
             // Kalimat di gambar voucher peserta (diatur admin di Pengaturan).
             'voucherLines' => fn () => $request->is('participant', 'participant/*') ? Setting::voucherLines() : null,
             'flash' => [

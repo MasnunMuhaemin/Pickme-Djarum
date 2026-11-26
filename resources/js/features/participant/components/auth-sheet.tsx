@@ -1,6 +1,17 @@
-import { Checkbox, DateField, Input, PinInput, PrimaryButton, Select, Sheet, toWhatsapp, WHATSAPP_MAX } from '@/features/participant/components/ui';
+import {
+    Checkbox,
+    DateField,
+    Input,
+    NoticeSheet,
+    PinInput,
+    PrimaryButton,
+    Select,
+    Sheet,
+    toWhatsapp,
+    WHATSAPP_MAX,
+} from '@/features/participant/components/ui';
 import { deviceId } from '@/lib/device';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import { FormEvent, useEffect, useState } from 'react';
 
 type Area = { id: number; name: string };
@@ -41,6 +52,9 @@ export function AuthSheet({
         device_id: deviceId(),
     });
     const [registerAgree, setRegisterAgree] = useState(false);
+    // Dari form ini atau dari error halaman (mis. dikirim ulang setelah muat ulang).
+    const pageErrors = (usePage().props.errors as Record<string, string> | undefined) ?? {};
+    const underage = (register.errors as Record<string, string>).underage ?? pageErrors.underage;
     const pinMismatch = register.data.pin_confirmation.length === 4 && register.data.pin_confirmation !== register.data.pin;
 
     function submitLogin(e: FormEvent) {
@@ -102,6 +116,27 @@ export function AuthSheet({
                     </div>
                 </form>
             </Sheet>
+        );
+    }
+
+    // Usia belum cukup: data tidak disimpan, isian dikosongkan, popup ditutup bersama form daftar.
+    if (mode === 'register' && underage) {
+        return (
+            <NoticeSheet
+                open
+                onClose={() => {
+                    sessionStorage.removeItem(DRAFT_KEY);
+                    register.reset();
+                    register.clearErrors();
+                    onClose();
+                }}
+                tone="warn"
+                icon="!"
+                title="Belum bisa ikut"
+                text="Kamu belum memenuhi syarat usia program ini. Data isianmu tidak disimpan."
+                stacked
+                primary={{ label: 'Tutup' }}
+            />
         );
     }
 

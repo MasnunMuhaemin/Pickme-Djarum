@@ -79,6 +79,7 @@ class HomeController extends Controller
         return [
             'name' => $participant->name,
             'caps' => $participant->caps,
+            'cap_trail' => $participant->capTrail(),
             'rank' => $this->rankings->ranking()->firstWhere('participant_id', $participant->id)?->rank,
             // Dibatasi ke batas harian (0 = tanpa batas): klaim lama sebelum aturan batas berlaku tidak membuat angka melebihi batas.
             'claims_today' => $limit > 0 ? min($today, $limit) : $today,

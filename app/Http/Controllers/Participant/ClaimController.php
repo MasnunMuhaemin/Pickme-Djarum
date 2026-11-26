@@ -72,8 +72,6 @@ class ClaimController extends Controller
         PhotoService $photos,
         SlotAssignmentService $slots,
         ClaimFlagService $flagger,
-        ClaimVerificationService $verification,
-        RewardCreationService $rewards,
     ): RedirectResponse {
         $participant = $this->participant($request);
         // Dicek lagi di sini supaya batas tidak bisa dilewati dengan mengirim foto langsung.
@@ -101,14 +99,8 @@ class ClaimController extends Controller
             return to_route('participant.home')->withErrors(['claim' => $assigned['error']]);
         }
 
-        // Tanpa input kode dan tanpa persetujuan admin: foto diterima berarti kode slot langsung jadi milik peserta.
-        $result = $verification->submitCode($assigned['claim'], $assigned['claim']->slot->code);
-        if (isset($result['error'])) {
-            return to_route('participant.slot')->withErrors(['code' => $result['error']]);
-        }
-        $rewards->create($result['claim']);
-
-        return to_route('participant.klaim.berhasil');
+        // P6: papan slot dengan slot yang ditunjuk; peserta memasukkan kode slot, lalu hadiah dibuka di Klaim berhasil.
+        return to_route('participant.slot');
     }
 
     /** P6: slot yang ditunjuk dan input kode. */
@@ -165,6 +157,24 @@ class ClaimController extends Controller
         return to_route('participant.klaim.berhasil');
     }
 
+    /** Klaim yang ditolak admin: alasan, kartu cap (nomornya tetap terpakai), dan bantuan admin. */
+    public function showRejected(Request $request, string $code): Response
+    {
+        $participant = $this->participant($request);
+        $claim = $participant->claims()->where('claim_code', $code)->where('status', 'rejected')->firstOrFail();
+
+        return Inertia::render('participant/klaim-ditolak', [
+            'claim' => [
+                'claim_code' => $claim->claim_code,
+                'reason' => $claim->reject_reason,
+                'rejected_at' => $claim->rejected_at?->format('d M Y H:i'),
+            ],
+            'capTrail' => $participant->capTrail(),
+            'dailyLimit' => (int) config('participant.daily_claim_limit'),
+            'adminWhatsapp' => config('participant.admin_whatsapp'),
+        ]);
+    }
+
     /** P7: hasil klaim, diisi dari data hadiah klaim terakhir yang disetujui. */
     public function showSuccess(Request $request): Response|RedirectResponse
     {
@@ -190,6 +200,7 @@ class ClaimController extends Controller
                 'submitted_at' => $claim->submitted_at?->format('d M Y H:i'),
             ],
             'caps' => $participant->fresh()->caps,
+            'capTrail' => $participant->capTrail(),
             // Token, bensin, dan merchandise: cap baru bertambah setelah admin menyelesaikan hadiahnya.
             'capPending' => ! $claim->cap_at,
         ]);

@@ -17,7 +17,7 @@ class RewardController extends Controller
     public function index(Request $request): Response
     {
         $participant = Participant::findOrFail($request->session()->get('participant_id'));
-        $claims = $participant->claims()->where('status', 'approved')->with(['vouchers', 'gifts', 'slot'])->get();
+        $claims = $participant->claims()->whereIn('status', ['approved', 'rejected'])->with(['vouchers', 'gifts', 'slot'])->get();
 
         $rewards = $claims->flatMap(function ($claim) {
             $items = [];
@@ -37,7 +37,7 @@ class RewardController extends Controller
 
         return Inertia::render('participant/hadiah', [
             'rewards' => $rewards,
-            'approvedClaims' => $claims->count(),
+            'approvedClaims' => $claims->where('status', 'approved')->count(),
         ]);
     }
 

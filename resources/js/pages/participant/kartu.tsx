@@ -1,5 +1,6 @@
 import { LimePage } from '@/features/participant/components/lime-page';
-import { type Reward, STAR, useMysteryReady } from '@/features/participant/rewards';
+import { RejectedCap } from '@/features/participant/components/ui';
+import { type CapMark, capSlots, type Reward, STAR, useMysteryReady } from '@/features/participant/rewards';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 import { Check, Crown, Gift, MessageSquare } from 'lucide-react';
@@ -16,7 +17,20 @@ const prizeBadge: Record<Exclude<Prize, null>, { label: string; className: strin
 };
 
 /** Kartu cap hitam seperti desain: angka besar, sobekan tiket, 10 lingkaran cap, dan status mystery gift. */
-function CapCard({ caps, mysteryAt, outlets, mysteryReady }: { caps: number; mysteryAt: number; outlets: number; mysteryReady: boolean }) {
+function CapCard({
+    caps,
+    capTrail,
+    mysteryAt,
+    outlets,
+    mysteryReady,
+}: {
+    caps: number;
+    capTrail: CapMark[];
+    mysteryAt: number;
+    outlets: number;
+    mysteryReady: boolean;
+}) {
+    const slots = capSlots(capTrail, mysteryAt);
     return (
         <section className="bg-night text-cream relative overflow-hidden rounded-[28px] px-5 pt-5 pb-5 md:px-7">
             <span aria-hidden className="absolute -top-12 -right-10 size-40 rounded-full bg-white/[0.04]" />
@@ -46,15 +60,14 @@ function CapCard({ caps, mysteryAt, outlets, mysteryReady }: { caps: number; mys
             <div className="relative grid grid-cols-5 justify-items-center gap-y-3">
                 {Array.from({ length: 10 }, (_, i) => {
                     const number = i + 1;
-                    const isMystery = number === mysteryAt;
-                    const filled = number <= caps;
-                    if (isMystery && caps >= mysteryAt) {
+                    const mark = slots.marks[i];
+                    const isMystery = number === slots.giftAt;
+                    if (isMystery && mark === 'cap') {
                         const circle = (
                             <span
                                 className={cn(
-                                    'text-ink grid size-12 place-items-center rounded-full bg-white ring-4 ring-[#8fcf3a] md:size-14',
-                                    mysteryReady &&
-                                        'shadow-[0_0_18px_4px_rgba(143,195,31,0.65)] motion-safe:animate-[gift-glow_1.8s_ease-in-out_infinite]',
+                                    // Kado cap ke-5 selalu berdenyut hijau, sebelum maupun sesudah dibuka.
+                                    'text-ink grid size-12 place-items-center rounded-full bg-white shadow-[0_0_18px_4px_rgba(143,195,31,0.65)] ring-4 ring-[#8fcf3a] motion-safe:animate-[gift-glow_1.8s_ease-in-out_infinite] md:size-14',
                                 )}
                             >
                                 <Gift className="size-5" />
@@ -68,19 +81,28 @@ function CapCard({ caps, mysteryAt, outlets, mysteryReady }: { caps: number; mys
                             <span key={number}>{circle}</span>
                         );
                     }
-                    if (filled) {
+                    if (mark === 'rejected') {
+                        return <RejectedCap key={number} number={number} className="size-12 text-[15px] md:size-14" />;
+                    }
+                    if (mark === 'cap') {
                         return (
+                            // Pembungkus berdenyut hijau (cap-glow), isinya muncul satu per satu (cap-pop).
                             <span
                                 key={number}
-                                className={cn(
-                                    'bg-lime grid size-12 place-items-center motion-safe:animate-[cap-pop_.5s_ease-out_both] md:size-14',
-                                    STAR,
-                                )}
-                                style={{ animationDelay: `${150 + i * 110}ms` }}
-                                aria-label={`Cap ${number}`}
+                                className="motion-safe:animate-[cap-glow_1.8s_ease-in-out_infinite]"
+                                style={{ animationDelay: `${i * 180}ms` }}
                             >
-                                <span className="border-ink/70 grid size-8 place-items-center rounded-full border-2">
-                                    <Check className="text-ink size-4" strokeWidth={3} />
+                                <span
+                                    className={cn(
+                                        'bg-lime grid size-12 place-items-center motion-safe:animate-[cap-pop_.5s_ease-out_both] md:size-14',
+                                        STAR,
+                                    )}
+                                    style={{ animationDelay: `${150 + i * 110}ms` }}
+                                    aria-label={`Cap ${number}`}
+                                >
+                                    <span className="border-ink/70 grid size-8 place-items-center rounded-full border-2">
+                                        <Check className="text-ink size-4" strokeWidth={3} />
+                                    </span>
                                 </span>
                             </span>
                         );
@@ -104,10 +126,10 @@ function CapCard({ caps, mysteryAt, outlets, mysteryReady }: { caps: number; mys
                     </Link>
                 ) : (
                     <p className="text-cream/80 text-[13px] font-semibold">
-                        {caps < mysteryAt
-                            ? `${mysteryAt - caps} cap lagi buka mystery gift di cap ke-${mysteryAt}.`
-                            : caps < 10
-                              ? `${10 - caps} cap lagi kartu penuh.`
+                        {slots.caps < mysteryAt
+                            ? `${mysteryAt - slots.caps} cap lagi buka mystery gift.`
+                            : slots.used < 10
+                              ? `${10 - slots.used} cap lagi kartu penuh.`
                               : 'Kartu penuh. Pembelian berikutnya tetap dihitung untuk peringkat.'}
                     </p>
                 )}
@@ -118,7 +140,7 @@ function CapCard({ caps, mysteryAt, outlets, mysteryReady }: { caps: number; mys
 }
 
 /** Angka cap naik dari 0 saat halaman dibuka; langsung angka akhir bila pengguna memilih kurangi gerakan. */
-function CountUp({ to }: { to: number }) {
+export function CountUp({ to }: { to: number }) {
     const [value, setValue] = useState(to);
     useEffect(() => {
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || to === 0) return;
@@ -202,6 +224,7 @@ function Podium({ rows }: { rows: LeaderRow[] }) {
 
 export default function Kartu({
     caps = 0,
+    capTrail = [],
     name,
     mysteryAt = 5,
     mystery = null,
@@ -211,6 +234,7 @@ export default function Kartu({
     whatsappGroup,
 }: {
     caps?: number;
+    capTrail?: CapMark[];
     name?: string | null;
     mysteryAt?: number;
     mystery?: Reward | null;
@@ -228,7 +252,7 @@ export default function Kartu({
 
     return (
         <LimePage title="Leaderboard" tabTitle="Kartu dan peringkat" nav="kartu">
-            {name && <CapCard caps={caps} mysteryAt={mysteryAt} outlets={outlets} mysteryReady={mysteryReady} />}
+            {name && <CapCard caps={caps} capTrail={capTrail} mysteryAt={mysteryAt} outlets={outlets} mysteryReady={mysteryReady} />}
 
             <section className={cn(name && 'mt-6')}>
                 <div className="flex items-center justify-between gap-3">

@@ -1,5 +1,7 @@
+import { type Reward, rewardIcons } from '@/features/participant/rewards';
 import { cn } from '@/lib/utils';
 import { usePage } from '@inertiajs/react';
+import { Gift } from 'lucide-react';
 
 /**
  * Gambar voucher bergaya komik. Kode voucher tampil di kotak putih kecil, kotak besar berisi kalimat nyeleneh.
@@ -44,6 +46,49 @@ function hash(text: string): number {
 /** Gambar voucher untuk kode ini (sama dengan yang dipakai VoucherArt), mis. untuk thumbnail di Hadiahku. */
 export function voucherImage(code: string): string {
     return VARIANTS[hash(code) % VARIANTS.length].src;
+}
+
+/**
+ * Gambar hadiah untuk Hadiahku dan detail: ilustrasi voucher (dipilih tetap dari kode atau id hadiah), lapisan gelap,
+ * ikon jenis hadiah di tengah untuk hadiah selain voucher mitra, dan nilai di pojok kanan atas bila diminta.
+ */
+export function RewardImage({
+    reward,
+    showValue,
+    showIcon = true,
+    className,
+    iconClassName = 'size-10',
+}: {
+    reward: Pick<Reward, 'kind' | 'id' | 'code' | 'value'>;
+    showValue?: boolean;
+    /** Ikon jenis hadiah di tengah (hadiah selain voucher mitra); daftar Hadiahku tanpa ikon. */
+    showIcon?: boolean;
+    className?: string;
+    iconClassName?: string;
+}) {
+    const Icon = rewardIcons[reward.kind] ?? Gift;
+    return (
+        <div className={cn('relative overflow-hidden', className)}>
+            <img
+                src={voucherImage(reward.code ?? `${reward.kind}-${reward.id}`)}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 size-full object-cover"
+                loading="lazy"
+            />
+            <span aria-hidden className="absolute inset-0 bg-black/45" />
+            {showIcon && reward.kind !== 'voucher' && (
+                <span className="absolute inset-0 grid place-items-center">
+                    <Icon className={cn('text-lime drop-shadow', iconClassName)} strokeWidth={2} />
+                </span>
+            )}
+            {showValue && reward.value && (
+                <span className="text-ink absolute top-2.5 right-2.5 rounded-full bg-white/90 px-3 py-1 text-[12px] font-extrabold">
+                    {reward.value}
+                </span>
+            )}
+        </div>
+    );
 }
 
 const pos = (b: Box) => ({ left: `${b.left}%`, top: `${b.top}%`, width: `${b.width}%`, height: `${b.height}%` });

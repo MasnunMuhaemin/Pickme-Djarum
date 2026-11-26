@@ -24,6 +24,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('antrean-foto', [PhotoQueueController::class, 'index'])->name('antrean-foto');
     Route::get('antrean-foto/{claim}/foto', [PhotoQueueController::class, 'photo'])->name('antrean-foto.foto');
     Route::delete('antrean-foto/{claim}/foto', [PhotoQueueController::class, 'destroyPhoto'])->name('antrean-foto.foto.hapus');
+    Route::post('antrean-foto/{claim}/tolak', [PhotoQueueController::class, 'reject'])->name('antrean-foto.tolak');
 
     // A3 Antrean pemenuhan
     Route::get('pemenuhan', [FulfillmentController::class, 'index'])->name('pemenuhan');

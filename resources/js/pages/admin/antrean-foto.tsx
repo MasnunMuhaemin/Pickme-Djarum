@@ -1,7 +1,20 @@
-import { Btn, Card, Chip, Empty, Modal, Phone, SearchInput, SelectInput, useConfirm, useServerSearch } from '@/features/admin/ui';
+import {
+    Btn,
+    Card,
+    Chip,
+    Empty,
+    FieldError,
+    Modal,
+    Phone,
+    SearchInput,
+    SelectInput,
+    TextArea,
+    useConfirm,
+    useServerSearch,
+} from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
-import { Link, router } from '@inertiajs/react';
-import { ImageOff, Trash2 } from 'lucide-react';
+import { Link, router, useForm } from '@inertiajs/react';
+import { Ban, ImageOff, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 type PhotoItem = {
@@ -19,12 +32,16 @@ type PhotoItem = {
     slot: string | null;
     reward: string | null;
     voucher_code: string | null;
+    /** Alasan klaim tidak bisa ditolak (hadiah sudah diproses), atau null bila bisa. */
+    reject_blocker: string | null;
+    reject_reason: string | null;
+    rejected_at: string | null;
 };
 
 const STATUS: Record<string, { label: string; tone: 'green' | 'yellow' | 'red' | 'gray' }> = {
     approved: { label: 'Berhasil', tone: 'green' },
     pending: { label: 'Klaim lama: menunggu', tone: 'yellow' },
-    rejected: { label: 'Klaim lama: ditolak', tone: 'red' },
+    rejected: { label: 'Ditolak', tone: 'red' },
 };
 
 /** A2 Foto klaim: galeri foto bungkus tiap klaim, terbaru dulu. Tidak ada persetujuan admin lagi. */
@@ -42,6 +59,21 @@ export default function FotoKlaim({
     search: string;
 }) {
     const [open, setOpen] = useState<PhotoItem | null>(null);
+    // Tolak klaim: alasan wajib, hadiah dibatalkan dan cap dicabut.
+    const [rejecting, setRejecting] = useState<PhotoItem | null>(null);
+    const rejectForm = useForm({ reason: '' });
+
+    function submitReject() {
+        if (!rejecting) return;
+        rejectForm.post(`/admin/antrean-foto/${rejecting.id}/tolak`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setRejecting(null);
+                setOpen(null);
+                rejectForm.reset();
+            },
+        });
+    }
     const [confirm, confirmDialog] = useConfirm();
     const [q, setQ] = useServerSearch(search, (value) =>
         router.get(query(1, outlet, value), {}, { preserveState: true, preserveScroll: true, replace: true }),
@@ -171,6 +203,17 @@ export default function FotoKlaim({
                                             ),
                                         ],
                                         ['Riwayat', open.history],
+                                        ...(open.status === 'rejected'
+                                            ? ([
+                                                  [
+                                                      'Status',
+                                                      <Chip key="st" tone="red">
+                                                          Ditolak{open.rejected_at ? ` · ${open.rejected_at}` : ''}
+                                                      </Chip>,
+                                                  ],
+                                                  ['Alasan', open.reject_reason ?? '-'],
+                                              ] as const)
+                                            : []),
                                     ] as const
                                 ).map(([label, value]) => (
                                     <div key={label} className="flex justify-between gap-3 py-2">
@@ -189,9 +232,50 @@ export default function FotoKlaim({
                                     </div>
                                 </div>
                             )}
-                            <Btn variant="red" className="mt-4" onClick={() => askDelete(open)}>
-                                <Trash2 className="size-3.5" />
-                                Hapus foto
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {open.status === 'approved' && !open.reject_blocker && (
+                                    <Btn variant="outline" onClick={() => setRejecting(open)}>
+                                        <Ban className="size-3.5" />
+                                        Tolak klaim
+                                    </Btn>
+                                )}
+                                <Btn variant="red" onClick={() => askDelete(open)}>
+                                    <Trash2 className="size-3.5" />
+                                    Hapus foto
+                                </Btn>
+                            </div>
+                            {open.status === 'approved' && open.reject_blocker && (
+                                <p className="text-ink/50 mt-2 text-[11px] leading-relaxed">{open.reject_blocker}</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Modal>
+            <Modal open={rejecting !== null} onClose={() => setRejecting(null)} danger>
+                {rejecting && (
+                    <div>
+                        <h2 className="text-[15px] font-extrabold">Tolak klaim {rejecting.claim_code}?</h2>
+                        <p className="text-ink/60 mt-1 text-[12px] leading-relaxed">
+                            Hadiah klaim ini dibatalkan dan capnya dicabut. Di kartu cap peserta, nomor ini tampil sebagai &quot;ditolak&quot; dan
+                            klaim berikutnya lanjut ke nomor sesudahnya. Penolakan tercatat di log.
+                        </p>
+                        <label htmlFor="reject-reason" className="mt-3 block text-[12px] font-bold">
+                            Alasan penolakan
+                        </label>
+                        <TextArea
+                            id="reject-reason"
+                            value={rejectForm.data.reason}
+                            onChange={(e) => rejectForm.setData('reason', e.target.value)}
+                            placeholder="Mis. foto bukan bungkus produk program"
+                            className="mt-1"
+                        />
+                        <FieldError message={rejectForm.errors.reason} />
+                        <div className="mt-4 flex justify-end gap-2">
+                            <Btn variant="outline" onClick={() => setRejecting(null)}>
+                                Batal
+                            </Btn>
+                            <Btn variant="red" disabled={rejectForm.data.reason.trim().length < 5 || rejectForm.processing} onClick={submitReject}>
+                                Tolak klaim
                             </Btn>
                         </div>
                     </div>

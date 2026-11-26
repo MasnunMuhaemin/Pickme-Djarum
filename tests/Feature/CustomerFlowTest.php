@@ -11,9 +11,11 @@ use App\Models\Setting;
 use App\Models\Slot;
 use App\Models\User;
 use App\Models\Voucher;
+use App\Services\RewardCreationService;
 use Database\Seeders\CustomerSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -80,16 +82,21 @@ class CustomerFlowTest extends TestCase
     private function uploadPhoto(int $gray = 120, int $seed = 0): Claim
     {
         $this->get('/participant/foto');
-        $this->post('/participant/foto', ['photo' => $this->photo($gray, $seed), 'outlet' => 'W07'])->assertRedirect('/participant/klaim/berhasil');
+        $this->post('/participant/foto', ['photo' => $this->photo($gray, $seed), 'outlet' => 'W07'])->assertRedirect('/participant/slot');
 
-        return Claim::latest('id')->firstOrFail();
+        // Papan slot: kode di balik slot yang ditunjuk dimasukkan, baru hadiah terbentuk.
+        $claim = Claim::latest('id')->firstOrFail();
+        $this->get('/participant/slot')->assertInertia(fn ($page) => $page->where('claim.slot.code', $claim->slot->code));
+        $this->post('/participant/slot', ['code' => $claim->slot->code])->assertRedirect('/participant/klaim/berhasil');
+
+        return $claim->fresh();
     }
 
     public function test_underage_registration_is_rejected_without_saving_participant(): void
     {
         $response = $this->post('/participant/daftar', $this->register(now()->subYears(10)->toDateString()));
 
-        $response->assertRedirect('/participant/daftar/belum-bisa');
+        $response->assertSessionHasErrors('underage');
         $this->assertDatabaseMissing('participants', ['whatsapp' => '081234567890']);
         $this->assertDatabaseHas('rejects', ['reason' => 'underage']);
     }
@@ -190,6 +197,28 @@ class CustomerFlowTest extends TestCase
         $this->assertTrue(Voucher::where('claim_id', $claim->id)->exists());
     }
 
+    public function test_rejected_claims_never_add_caps_or_ranking(): void
+    {
+        $participant = $this->readyParticipant();
+        $this->prizesAre('voucher');
+
+        // Kode slot salah: klaim ditolak di layar Ambil slot, tetap draf tanpa cap.
+        $this->get('/participant/foto');
+        $this->post('/participant/foto', ['photo' => $this->photo(seed: 71), 'outlet' => 'W07'])->assertRedirect('/participant/slot');
+        $this->post('/participant/slot', ['code' => 'ZZZZZZ'])->assertSessionHasErrors('code');
+        $claim = Claim::latest('id')->firstOrFail();
+        $this->assertNotSame('approved', $claim->status);
+        $this->assertNull($claim->cap_at);
+
+        // Klaim berstatus ditolak tidak bisa diberi cap, juga bila diminta langsung.
+        $claim->update(['status' => 'rejected']);
+        app(RewardCreationService::class)->grantCap($claim);
+        $this->assertNull($claim->fresh()->cap_at);
+
+        $this->assertSame(0, $participant->fresh()->caps);
+        $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->has('leaderboard.total', 0));
+    }
+
     public function test_token_cap_counts_only_after_admin_marks_it_sent(): void
     {
         $participant = $this->readyParticipant();
@@ -211,7 +240,6 @@ class CustomerFlowTest extends TestCase
         $this->assertNotNull($claim->fresh()->cap_at);
         $this->get('/participant/kartu')->assertInertia(fn ($page) => $page->where('leaderboard.total.0.caps', 1));
     }
-
 
     public function test_first_photo_and_similar_photo_are_flagged(): void
     {
@@ -530,7 +558,7 @@ class CustomerFlowTest extends TestCase
         $participant = $this->readyParticipant();
         $claim = Claim::create(['participant_id' => $participant->id, 'outlet_id' => Outlet::first()->id, 'claim_code' => 'KLM0004', 'status' => 'approved']);
         // Voucher tidak punya masa berlaku: kolomnya sudah dihapus dan tidak pernah berstatus kadaluarsa.
-        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('vouchers', 'expires_at'));
+        $this->assertFalse(Schema::hasColumn('vouchers', 'expires_at'));
         Voucher::create(['claim_id' => $claim->id, 'code' => 'KGROLD001', 'type' => 'voucher', 'status' => 'sent', 'created_at' => now()->subYear()]);
 
         $this->get('/participant/hadiah')->assertInertia(fn ($page) => $page->where('rewards.0.status_label', 'Terkirim'));
