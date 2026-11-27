@@ -18,6 +18,6 @@ class SlotCodeRequest extends FormRequest
 
     public function messages(): array
     {
-        return ['code.required' => 'Isi kode 6 karakter dari balik slot.'];
+        return ['code.required' => 'Isi kode 6 karakter dari balik hadiah.'];
     }
 }

@@ -90,7 +90,7 @@ export default function IsiPapan({
                         {(
                             [
                                 ['merch', 'Merchandise', placed.merch, 'Peserta isi alamat, admin kirim.'],
-                                ['limited', 'Limited edition', placed.limited, 'Diambil langsung dari plastik slot.'],
+                                ['limited', 'Limited edition', placed.limited, 'Diambil langsung dari plastik hadiah.'],
                             ] as const
                         ).map(([key, label, done, hint]) => (
                             <label key={key} className="bg-cream block rounded-xl p-3 text-[12px] font-extrabold">
@@ -131,7 +131,7 @@ export default function IsiPapan({
                             <dd className="text-lime text-[18px] font-extrabold tabular-nums">{total}</dd>
                         </div>
                         <div className="flex justify-between">
-                            <dt className="text-white/60">Slot papan</dt>
+                            <dt className="text-white/60">Hadiah papan</dt>
                             <dd className="font-extrabold tabular-nums">
                                 {stock.boards} × 25 = {stock.slots}
                             </dd>
@@ -145,10 +145,10 @@ export default function IsiPapan({
                     >
                         {diff === 0 ? <Check className="size-4" strokeWidth={3} /> : <AlertTriangle className="size-4" />}
                         {diff === 0
-                            ? 'Pas dengan jumlah slot.'
+                            ? 'Pas dengan jumlah hadiah.'
                             : diff > 0
-                              ? `Lebih ${diff} dari jumlah slot.`
-                              : `Kurang ${-diff}; sisa slot diisi voucher acak.`}
+                              ? `Lebih ${diff} dari jumlah hadiah.`
+                              : `Kurang ${-diff}; sisa hadiah diisi voucher acak.`}
                     </p>
                     <Btn
                         variant="yellow"

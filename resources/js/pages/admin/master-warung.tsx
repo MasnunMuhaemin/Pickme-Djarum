@@ -44,7 +44,7 @@ export default function MasterWarung({
     const rows = outlets.filter((o) => matches(q, o.code, o.name, o.area, ...o.areas));
 
     return (
-        <AdminLayout active="md-warung" title="Warung" subtitle={`${stats.total} warung, ${stats.total * 25} slot`}>
+        <AdminLayout active="md-warung" title="Warung" subtitle={`${stats.total} warung, ${stats.total * 25} hadiah`}>
             <div className="-mt-2 mb-4 flex flex-wrap justify-end gap-2">
                 <Link
                     href="/admin/cetak-voucher"
@@ -79,9 +79,9 @@ export default function MasterWarung({
                     tone="bg-[#fde0dc] text-[#b42318]"
                 />
                 <StatCard
-                    label="Slot tersisa"
+                    label="Hadiah tersisa"
                     value={stats.emptySlots}
-                    hint={`dari ${stats.total * 25} slot`}
+                    hint={`dari ${stats.total * 25} hadiah`}
                     icon={ScanLine}
                     tone="bg-[#e9e2bf] text-ink"
                 />
@@ -103,7 +103,7 @@ export default function MasterWarung({
                                 <th className="py-2 pl-3 font-semibold">Titik</th>
                                 <th className="py-2 font-semibold">Nama warung</th>
                                 <th className="py-2 font-semibold">Area</th>
-                                <th className="py-2 font-semibold">Slot terpakai</th>
+                                <th className="py-2 font-semibold">Hadiah terpakai</th>
                                 <th className="py-2 font-semibold">QR</th>
                                 <th className="py-2 font-semibold">Status</th>
                                 <th className="py-2 pr-3 font-semibold">Aksi</th>

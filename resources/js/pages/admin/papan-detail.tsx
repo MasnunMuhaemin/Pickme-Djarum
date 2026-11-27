@@ -52,7 +52,7 @@ export default function PapanDetail({ selected, stock }: { selected: Selected | 
         <AdminLayout
             active="md-warung"
             title={`${selected.code} · ${selected.name}`}
-            subtitle={`${selected.area ?? '-'} · papan 5×5, 25 slot. Kode di balik slot hanya terlihat oleh admin.`}
+            subtitle={`${selected.area ?? '-'} · papan 5×5, 25 hadiah. Kode di balik hadiah hanya terlihat oleh admin.`}
         >
             <div className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-2">
                 <Link href="/admin/master-data/warung" className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12px] font-bold">
@@ -151,7 +151,7 @@ export default function PapanDetail({ selected, stock }: { selected: Selected | 
                         <span className="bg-[#f2b134]" style={{ width: `${(usedMerch / 25) * 100}%` }} />
                     </div>
                     <p className="text-ink/50 mt-1.5 text-[11px]">
-                        Terpakai {used} · Belum {25 - used} dari 25 slot
+                        Terpakai {used} · Belum {25 - used} dari 25 hadiah
                     </p>
                 </section>
 
@@ -182,7 +182,7 @@ export default function PapanDetail({ selected, stock }: { selected: Selected | 
                     {slot && (
                         <section className="rounded-2xl bg-white p-5">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-[14px] font-extrabold">Slot {slot.position}</h2>
+                                <h2 className="text-[14px] font-extrabold">Hadiah {slot.position}</h2>
                                 <span className="bg-cream-deep rounded-full px-2.5 py-0.5 text-[10px] font-extrabold">
                                     {STATUS_LABEL[slot.status] ?? slot.status}
                                 </span>
@@ -190,7 +190,7 @@ export default function PapanDetail({ selected, stock }: { selected: Selected | 
                             <dl className="divide-ink/5 mt-2 divide-y text-[12px]">
                                 {(
                                     [
-                                        ['Kode slot', slot.code],
+                                        ['Kode hadiah', slot.code],
                                         ['Hadiah', slot.prize],
                                         ['Kode voucher', slot.voucher_code ?? '-'],
                                         ['Pengambil', slot.by ?? '-'],

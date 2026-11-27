@@ -49,7 +49,7 @@ export default function Papan({
     const pick = (code: string) => router.get('/admin/papan', { titik: code }, { preserveScroll: true, preserveState: true, replace: true });
 
     return (
-        <AdminLayout active="papan" title="Papan dan slot" subtitle={`${outlets.length} papan × 25 slot = ${totals.slots} slot`}>
+        <AdminLayout active="papan" title="Papan dan hadiah" subtitle={`${outlets.length} papan × 25 hadiah = ${totals.slots} hadiah`}>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <section className="rounded-2xl bg-white p-4">
                     <div className="overflow-x-auto">
@@ -59,7 +59,7 @@ export default function Papan({
                                     <th className="py-2 pl-3 font-semibold">Titik</th>
                                     <th className="py-2 font-semibold">Nama warung</th>
                                     <th className="py-2 font-semibold">Area</th>
-                                    <th className="py-2 font-semibold">Slot terpakai</th>
+                                    <th className="py-2 font-semibold">Hadiah terpakai</th>
                                     <th className="py-2 pr-3 font-semibold">Status</th>
                                 </tr>
                             </thead>
@@ -138,7 +138,7 @@ export default function Papan({
                             </div>
                             <dl className="divide-ink/5 mt-2 divide-y text-[12px]">
                                 <div className="flex justify-between py-2">
-                                    <dt className="text-ink/55">Slot terpakai</dt>
+                                    <dt className="text-ink/55">Hadiah terpakai</dt>
                                     <dd className="font-extrabold">
                                         {selected.used} dari {selected.total}
                                     </dd>

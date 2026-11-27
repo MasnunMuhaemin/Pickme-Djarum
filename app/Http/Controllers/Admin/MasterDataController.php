@@ -156,7 +156,7 @@ class MasterDataController extends Controller
     {
         return response()->streamDownload(function () {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Titik', 'Nama warung', 'Area', 'Status', 'Slot terpakai', 'Total slot', 'Alamat QR']);
+            fputcsv($out, ['Titik', 'Nama warung', 'Area', 'Status', 'Hadiah terpakai', 'Total hadiah', 'Alamat QR']);
             foreach (Outlet::with(['area', 'board.slots'])->orderBy('code')->get() as $o) {
                 $slots = $o->board?->slots ?? collect();
                 fputcsv($out, [$o->code, $o->name, $o->area?->name, $o->status === 'active' ? 'Aktif' : 'Dijeda',
@@ -298,7 +298,7 @@ class MasterDataController extends Controller
         $outlet->update(['whatsapp' => $data['whatsapp']]);
         ActivityLogger::log('master.outlet_created', 'outlet', $outlet->id, ['code' => $code], $request->user());
 
-        return back()->with('status', "Warung {$code} ditambahkan dengan 25 slot. Alamat QR: ".url($code));
+        return back()->with('status', "Warung {$code} ditambahkan dengan 25 hadiah. Alamat QR: ".url($code));
     }
 
     /** Ubah warung: nama, area kos, dan jenis voucher papannya. Slot kosong yang jenisnya tidak dipilih lagi diisi ulang. */
@@ -319,7 +319,7 @@ class MasterDataController extends Controller
             'from' => $before, 'to' => ['areas' => $areaIds, 'voucher_types' => $typeIds], 'slots_refilled' => $fixed,
         ], $request->user());
 
-        return back()->with('status', "Warung {$outlet->code} diperbarui.".($fixed ? " {$fixed} slot kosong diisi ulang." : ''));
+        return back()->with('status', "Warung {$outlet->code} diperbarui.".($fixed ? " {$fixed} hadiah kosong diisi ulang." : ''));
     }
 
     public function storeArea(Request $request): RedirectResponse

@@ -106,7 +106,7 @@ export default function Persetujuan({ consent, guest = false }: { consent: Conse
                                 items={[
                                     'Foto bungkus dari kamera',
                                     'Titik warung yang kamu scan dan waktu klaim',
-                                    'Slot, kode, dan hadiah yang kamu dapat',
+                                    'Hadiah dan kode yang kamu dapat',
                                 ]}
                             />
                             <Sub>Kalau hadiahmu barang atau pulsa</Sub>

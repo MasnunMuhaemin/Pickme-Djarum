@@ -143,7 +143,7 @@ class ClaimController extends Controller
     ): RedirectResponse {
         $claim = $this->activeDraft($request);
         if (! $claim || ! $claim->slot_id) {
-            return to_route('participant.home')->withErrors(['claim' => 'Klaim tidak ditemukan atau slot belum ditunjuk.']);
+            return to_route('participant.home')->withErrors(['claim' => 'Klaim tidak ditemukan atau hadiah belum ditunjuk.']);
         }
 
         $result = $verification->submitCode($claim, $form->input('code'));

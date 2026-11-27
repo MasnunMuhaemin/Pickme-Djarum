@@ -28,9 +28,9 @@ class ClaimVerificationService
             ! $slot => ['unknown_slot_code', 'Kode tidak dikenal. Cek lagi huruf dan angkanya.'],
             $slot->board->outlet_id !== $claim->outlet_id => [
                 'wrong_board',
-                "Kode ini dari papan titik lain. Ambil slot di papan {$claim->outlet->code}.",
+                "Kode ini dari papan titik lain. Ambil hadiah di papan {$claim->outlet->code}.",
             ],
-            $slot->status === 'used' => ['slot_used', 'Kode ini sudah pernah dipakai. Ambil slot lain yang masih kosong.'],
+            $slot->status === 'used' => ['slot_used', 'Kode ini sudah pernah dipakai. Ambil hadiah lain yang masih kosong.'],
             default => null,
         };
 
@@ -50,7 +50,7 @@ class ClaimVerificationService
         return DB::transaction(function () use ($claim, $slot) {
             $slot = Slot::whereKey($slot->id)->lockForUpdate()->first();
             if ($slot->status === 'used') {
-                return ['error' => 'Slot ini baru saja diambil peserta lain. Ambil slot lain yang masih kosong.'];
+                return ['error' => 'Hadiah ini baru saja diambil peserta lain. Ambil hadiah lain yang masih kosong.'];
             }
 
             // Tidak ada penahanan: slot kosong mana pun di papan yang sama diterima.

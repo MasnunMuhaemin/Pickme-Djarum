@@ -31,7 +31,7 @@ const prizeStyle: Record<string, { icon: LucideIcon; tile: string }> = {
     bensin: { icon: Fuel, tile: 'from-[#e7c9b4] to-[#8a4f35]' },
 };
 
-const steps = ['Beli bungkus', 'Foto bungkus', 'Ambil slot'];
+const steps = ['Beli bungkus', 'Foto bungkus', 'Ambil hadiah'];
 
 type LastBoard = { code: string; name: string; area: string | null; total: number; used: number; filled: boolean[] } | null;
 type Leader = { name: string; caps: number };
@@ -99,7 +99,7 @@ function ClaimNotices({ limit = 2 }: { limit?: number }) {
                 onClose={close}
                 icon="0"
                 title="Papan ini sudah penuh"
-                text="Semua 25 slot sudah diambil. Coba papan warung lain."
+                text="Semua 25 hadiah sudah diambil. Coba papan warung lain."
                 stacked
                 primary={{ label: 'Mengerti' }}
                 secondary={{ label: 'Scan papan lain', href: '/participant/scan?ganti=1' }}
@@ -289,8 +289,8 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                         <PromoCard
                             href="/participant/scan"
                             tag="Papan warung"
-                            title="Jajan dekat. Ambil slotnya."
-                            text="Beli bungkus di warung terdekat, foto, lalu ambil slot."
+                            title="Jajan dekat. Ambil hadiahnya."
+                            text="Beli bungkus di warung terdekat, foto, lalu ambil hadiah."
                             image="/images/banner.webp"
                         />
                         <PromoCard
@@ -316,7 +316,7 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
     );
 }
 
-/** Papan terakhir (desain): titik 5×5 slot terisi, nama warung, dan progres slot. */
+/** Papan terakhir (desain): titik 5×5 hadiah terisi, nama warung, dan progres hadiah. */
 function LastBoardCard({ board }: { board: NonNullable<LastBoard> }) {
     const left = board.total - board.used;
     return (
@@ -331,7 +331,7 @@ function LastBoardCard({ board }: { board: NonNullable<LastBoard> }) {
                 <div className="flex items-center gap-4">
                     <div
                         className="bg-cream grid shrink-0 grid-cols-5 gap-1.5 rounded-2xl p-3"
-                        aria-label={`${board.used} dari ${board.total} slot terisi`}
+                        aria-label={`${board.used} dari ${board.total} hadiah terisi`}
                     >
                         {board.filled.map((filled, i) => (
                             <span key={i} className={cn('size-3.5 rounded-full', filled ? 'bg-lime' : 'border border-[#b9b08a]')} />
@@ -341,7 +341,7 @@ function LastBoardCard({ board }: { board: NonNullable<LastBoard> }) {
                         <p className="truncate text-[18px] font-extrabold">{board.name}</p>
                         <p className="text-ink-soft truncate text-[13px]">
                             {board.area ? `${board.area} · ` : ''}
-                            {board.total} slot sekali habis
+                            {board.total} hadiah sekali habis
                         </p>
                         <span className="mt-2 block h-2.5 overflow-hidden rounded-full bg-[#e3dcb0]">
                             <span
@@ -351,7 +351,7 @@ function LastBoardCard({ board }: { board: NonNullable<LastBoard> }) {
                         </span>
                         <p className="mt-1.5 flex justify-between text-[13px] font-extrabold">
                             <span>
-                                {board.used} / {board.total} slot terisi
+                                {board.used} / {board.total} hadiah terisi
                             </span>
                             <span className="text-lime-dark">Sisa {left}</span>
                         </p>
@@ -465,7 +465,7 @@ function Landing({ modal, areas = [], prizes = [] }: { modal?: string; areas?: A
     }
 
     return (
-        <ParticipantLayout title="Beli bungkus, ambil slot" nav="beranda">
+        <ParticipantLayout title="Beli bungkus, ambil hadiah" nav="beranda">
             {/* Hero: ilustrasi warung sebagai latar penuh, digelapkan ke bawah supaya teks terbaca. */}
             <div className="bg-night relative overflow-hidden px-5 pt-10 pb-16 md:px-8 md:pt-12">
                 <img
@@ -484,10 +484,10 @@ function Landing({ modal, areas = [], prizes = [] }: { modal?: string; areas?: A
                 <h1 className="text-cream relative mt-3 text-[40px] leading-[1.02] font-extrabold tracking-tight md:text-[52px]">
                     Beli bungkus,
                     <br />
-                    foto, ambil slot.
+                    foto, ambil hadiah.
                 </h1>
                 <p className="text-cream/75 relative mt-3 max-w-[340px] text-[14px] leading-snug md:max-w-[460px]">
-                    Slot ditunjuk sistem secara acak. Isinya tidak terlihat sampai kamu klaim.
+                    Hadiah ditunjuk sistem secara acak. Isinya tidak terlihat sampai kamu klaim.
                 </p>
             </div>
 
@@ -506,7 +506,7 @@ function Landing({ modal, areas = [], prizes = [] }: { modal?: string; areas?: A
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-[15px] font-extrabold">{prize.title}</p>
                                         <p className="text-ink-soft truncate text-[13px]">
-                                            {prize.subtitle} · {prize.remaining > 0 ? `${prize.remaining} slot tersisa` : 'Habis minggu ini'}
+                                            {prize.subtitle} · {prize.remaining > 0 ? `${prize.remaining} hadiah tersisa` : 'Habis minggu ini'}
                                         </p>
                                     </div>
                                     <span className="shrink-0 text-[15px] font-extrabold">{prize.value}</span>

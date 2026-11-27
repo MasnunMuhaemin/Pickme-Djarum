@@ -175,7 +175,7 @@ export default function AntreanFoto({
                                     [
                                         ['Peserta', open.participant],
                                         ['WhatsApp', <Phone key="wa" value={open.whatsapp} />],
-                                        ['Warung · slot', `${open.outlet} · ${open.slot ?? '-'}`],
+                                        ['Warung · hadiah', `${open.outlet} · ${open.slot ?? '-'}`],
                                         ['Waktu', `${open.date} · ${open.time}`],
                                         ['Hadiah', open.reward ?? '-'],
                                         [

@@ -38,16 +38,19 @@ class HomeController extends Controller
             ]);
         }
 
-        // Jenis hadiah yang ada di papan aktif, beserta sisa slot yang masih kosong.
-        $prizes = Slot::query()
+        return Inertia::render('participant/home', ['prizes' => self::guestPrizes()]);
+    }
+
+    /** Jenis hadiah yang ada di papan aktif, beserta sisa slot yang masih kosong (beranda tamu). */
+    public static function guestPrizes()
+    {
+        return Slot::query()
             ->whereHas('board', fn ($q) => $q->where('status', 'active'))
             ->get(['prize_type', 'status'])
             ->groupBy('prize_type')
             ->sortBy(fn ($slots, $type) => array_search($type, self::ORDER, true) === false ? 99 : array_search($type, self::ORDER, true))
             ->map(fn ($slots, $type) => RewardPresenter::prize($type, $slots->where('status', 'empty')->count()))
             ->values();
-
-        return Inertia::render('participant/home', ['prizes' => $prizes]);
     }
 
     /** Profil saya: ringkasan cap, peringkat, klaim hari ini, dan data akun. */

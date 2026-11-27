@@ -53,6 +53,28 @@ export function useSlidingIndicator(navKey: string, activeKey: string, snap = fa
         };
     }, [navKey, activeKey, snap]);
 
+    // Lebar navbar bisa berubah (laci HP vs sidebar laptop, putar layar): ukur ulang supaya pil selebar menunya.
+    useLayoutEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        // Panggilan pertama (saat mulai dipantau) dilewati supaya animasi pindah menu tidak terpotong.
+        let first = true;
+        const observer = new ResizeObserver(() => {
+            if (first) {
+                first = false;
+                return;
+            }
+            const el = container.querySelector<HTMLElement>('[data-active="true"]');
+            if (!el) return;
+            const next = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+            lastRect.set(navKey, next);
+            setAnimate(false);
+            setRect(next);
+        });
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, [navKey]);
+
     const style: CSSProperties = rect
         ? {
               transform: `translate(${rect.x}px, ${rect.y}px)`,

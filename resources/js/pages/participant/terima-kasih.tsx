@@ -39,7 +39,7 @@ export default function TerimaKasih() {
                             <span className="font-bold">W07</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-ink-soft">Slot kamu</span>
+                            <span className="text-ink-soft">Hadiah kamu</span>
                             <span className="font-bold">C3</span>
                         </div>
                     </div>

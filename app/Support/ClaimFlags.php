@@ -11,7 +11,7 @@ class ClaimFlags
         'similar_photo' => 'Foto mirip klaim lain',
         'dark_photo' => 'Foto gelap',
         'photo_delay' => 'Foto dikirim lama setelah kamera dibuka',
-        'different_slot' => 'Slot berbeda dari penunjukan',
+        'different_slot' => 'Hadiah berbeda dari penunjukan',
         'late_code' => 'Jeda foto ke kode lebih dari 30 menit',
     ];
 

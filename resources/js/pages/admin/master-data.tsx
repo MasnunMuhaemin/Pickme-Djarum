@@ -96,7 +96,7 @@ export default function MasterData({
                     n={4}
                     icon={LayoutGrid}
                     title="Warung dan isi papan"
-                    text="Titik warung dengan papan 25 slot, lalu jumlah voucher, merchandise, dan limited edition."
+                    text="Titik warung dengan papan 25 hadiah, lalu jumlah voucher, merchandise, dan limited edition."
                     stat={`${counts.outlets} warung · stok ${stock.voucher + stock.merch + stock.limited} untuk ${stock.slots} slot`}
                     href="/admin/master-data/isi-papan"
                     done={counts.outlets > 0 && stock.voucher + stock.merch + stock.limited === stock.slots}
@@ -105,8 +105,8 @@ export default function MasterData({
                     n={5}
                     icon={KeyRound}
                     title="Generator kode unik"
-                    text="Membuat slot dan kode 6 karakter untuk semua papan. Sekali jalan, lalu terkunci."
-                    stat={locked ? `Terkunci · ${counts.slots} slot${generatorRunAt ? ` · ${generatorRunAt}` : ''}` : 'Belum dijalankan'}
+                    text="Membuat hadiah dan kode 6 karakter untuk semua papan. Sekali jalan, lalu terkunci."
+                    stat={locked ? `Terkunci · ${counts.slots} hadiah${generatorRunAt ? ` · ${generatorRunAt}` : ''}` : 'Belum dijalankan'}
                     href="/admin/generator"
                     done={locked}
                 />

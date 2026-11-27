@@ -37,7 +37,7 @@ class SlotAssignmentService
             $slot = (clone $slots)->whereNotIn('id', $suggested)->inRandomOrder()->first() ?? $slots->inRandomOrder()->first();
 
             if (! $slot) {
-                return ['error' => 'Papan penuh. Semua slot sudah diambil.'];
+                return ['error' => 'Papan penuh. Semua hadiah sudah diambil.'];
             }
 
             // slot_id unik per klaim: saran lama di klaim draf lain dilepas.

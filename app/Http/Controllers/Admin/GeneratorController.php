@@ -81,7 +81,7 @@ class GeneratorController extends Controller
             return $created;
         });
 
-        return back()->with('status', "Generator selesai: {$created} slot dan kode unik dibuat. Generator terkunci.");
+        return back()->with('status', "Generator selesai: {$created} hadiah dan kode unik dibuat. Generator terkunci.");
     }
 
     /** Setelah terkunci: isi papan warung baru dari sisa stok. */
@@ -93,7 +93,7 @@ class GeneratorController extends Controller
         $created = $this->prizes->fillEmptyBoards();
         ActivityLogger::log('generator.fill', 'settings', null, ['slots' => $created], $request->user());
 
-        return back()->with('status', $created ? "{$created} slot dibuat untuk papan baru." : 'Tidak ada papan kosong.');
+        return back()->with('status', $created ? "{$created} hadiah dibuat untuk papan baru." : 'Tidak ada papan kosong.');
     }
 
     /** Terkunci bila pernah dijalankan, atau bila papan sudah berisi sebelum ada generator (data lama). */

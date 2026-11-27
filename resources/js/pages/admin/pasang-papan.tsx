@@ -29,7 +29,7 @@ export default function PasangPapan({
         <AdminLayout
             active="md-warung"
             title={`${outlet.code} · ${outlet.name}`}
-            subtitle={`${outlet.area ?? '-'} · panduan pasang 25 slot. Urutan A1 sampai E5, kiri ke kanan, baris demi baris.`}
+            subtitle={`${outlet.area ?? '-'} · panduan pasang 25 hadiah. Urutan A1 sampai E5, kiri ke kanan, baris demi baris.`}
         >
             <div className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-2">
                 <Link
@@ -139,7 +139,7 @@ export default function PasangPapan({
                                 </button>
                             </>
                         ) : (
-                            <p className="text-ink/60 mt-2 text-[12px]">Semua 25 slot sudah terpasang.</p>
+                            <p className="text-ink/60 mt-2 text-[12px]">Semua 25 hadiah sudah terpasang.</p>
                         )}
                     </section>
 

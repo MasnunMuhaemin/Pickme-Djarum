@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { ArrowRight, QrCode } from 'lucide-react';
 
-const steps = ['Beli bungkus', 'Foto bungkus', 'Ambil slot'];
+const steps = ['Beli bungkus', 'Foto bungkus', 'Ambil hadiah'];
 
 export function DesktopAside() {
     return (
@@ -17,7 +17,7 @@ export function DesktopAside() {
                 <p className="text-lime text-[10px] font-bold tracking-[0.25em] uppercase">Program warung</p>
                 <h2 className="mt-3 text-[34px] leading-[1.03] font-extrabold tracking-tight xl:text-[42px]">Hadiah nyata dari warung sekitar.</h2>
                 <p className="text-cream/60 mt-4 max-w-[290px] text-[13px] leading-relaxed">
-                    Tanpa undian. Beli bungkus, foto, lalu ambil satu slot di papan mingguan.
+                    Tanpa undian. Beli bungkus, foto, lalu ambil satu hadiah di papan mingguan.
                 </p>
             </div>
 
@@ -38,7 +38,7 @@ export function DesktopAside() {
                     </span>
                     <div>
                         <p className="text-xs font-bold">Mulai dari papan warung</p>
-                        <p className="text-cream/50 mt-0.5 text-[10px]">Scan QR, pilih slot, kirim kode.</p>
+                        <p className="text-cream/50 mt-0.5 text-[10px]">Scan QR, pilih hadiah, kirim kode.</p>
                     </div>
                 </div>
                 <Link

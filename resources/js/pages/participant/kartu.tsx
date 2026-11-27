@@ -12,7 +12,7 @@ type Position = { rank: number; caps: number; prize: Prize } | null;
 type Tab = 'total' | 'weekly';
 
 const prizeBadge: Record<Exclude<Prize, null>, { label: string; className: string }> = {
-    golden_slot: { label: 'Golden slot', className: 'bg-lime text-ink' },
+    golden_slot: { label: 'Golden hadiah', className: 'bg-lime text-ink' },
     limited_edition: { label: 'Limited edition', className: 'bg-[#e9e2bf] text-ink' },
 };
 
@@ -361,7 +361,7 @@ export default function Kartu({
                 </div>
 
                 <p className="text-ink-soft mt-3 text-[12px] leading-relaxed">
-                    10 teratas dapat merchandise limited edition, 4 teratas dapat golden slot Laga Kosan. Urutan: cap terbanyak, lalu yang lebih dulu
+                    10 teratas dapat merchandise limited edition, 4 teratas dapat golden hadiah Laga Kosan. Urutan: cap terbanyak, lalu yang lebih dulu
                     mencapai jumlah itu.
                 </p>
             </section>

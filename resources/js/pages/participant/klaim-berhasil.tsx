@@ -171,7 +171,7 @@ export default function KlaimBerhasil({
             )}
             {revealing && (
                 <PrizeReveal
-                    label={`Papan ${claim.outlet}${claim.slot ? ` · Slot ${claim.slot}` : ''}`}
+                    label={`Papan ${claim.outlet}${claim.slot ? ` · Hadiah ${claim.slot}` : ''}`}
                     onDone={() => {
                         window.sessionStorage.setItem(revealKey, '1');
                         setRevealing(false);

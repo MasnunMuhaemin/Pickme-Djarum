@@ -34,7 +34,7 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
                 <Card>
                     <SearchInput value={q} onChange={setQ} placeholder="Cari nama peserta atau titik" className="mb-3" />
                     {rows.length ? (
-                        <Table head={['#', 'Peserta', 'Titik', 'Cap', 'Foto', 'Hadiah', 'Golden slot']}>
+                        <Table head={['#', 'Peserta', 'Titik', 'Cap', 'Foto', 'Hadiah', 'Golden hadiah']}>
                             {rows
                                 .filter((row) => matches(q, row.name, row.outlet))
                                 .map((row) => (
@@ -46,7 +46,7 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
                                         <Td>{row.flagged > 0 ? <Chip tone="yellow">{row.flagged} ditandai</Chip> : '-'}</Td>
                                         <Td>
                                             <span className="flex gap-1">
-                                                {row.golden && <Chip tone="yellow">Golden slot</Chip>}
+                                                {row.golden && <Chip tone="yellow">Golden hadiah</Chip>}
                                                 {row.merch && <Chip tone="black">Merch LE</Chip>}
                                             </span>
                                         </Td>
@@ -74,12 +74,12 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
                             <br />
                             <br />
                             10 teratas: merchandise limited edition.
-                            <br />4 teratas: golden slot Laga Kosan.
+                            <br />4 teratas: golden hadiah Laga Kosan.
                         </p>
                     </Card>
                     <Card title="Tutup peringkat">
                         <p className="text-ink/60 text-[11px] leading-relaxed">
-                            Ditutup sebelum Laga Kosan dimulai. Admin mengonfirmasi dulu apakah pemenang bisa main. Jika tidak, slot turun ke
+                            Ditutup sebelum Laga Kosan dimulai. Admin mengonfirmasi dulu apakah pemenang bisa main. Jika tidak, hadiah turun ke
                             peringkat berikutnya.
                         </p>
                         {closedAt ? (
@@ -98,7 +98,7 @@ export default function Peringkat({ tab, rows, closedAt }: { tab: 'total' | 'min
 
             <Modal open={open} onClose={() => setOpen(false)} danger>
                 <h3 className="text-[16px] font-extrabold">Tutup peringkat?</h3>
-                <p className="text-ink/60 mt-1 text-[12px]">Pemenang golden slot dan merch LE dikunci sesuai urutan saat ini.</p>
+                <p className="text-ink/60 mt-1 text-[12px]">Pemenang golden hadiah dan merch LE dikunci sesuai urutan saat ini.</p>
                 <label className="mt-3 flex items-center gap-2 text-[12px]">
                     <input
                         type="checkbox"

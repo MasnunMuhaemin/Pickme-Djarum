@@ -12,7 +12,7 @@ export function ClaimDetails({ claim }: { claim: NonNullable<ClaimStatus> }) {
     const rows = [
         ['Kode klaim', claim.claim_code],
         ['Titik', claim.outlet],
-        ['Slot', claim.slot],
+        ['Hadiah', claim.slot],
         ['Dikirim', claim.submitted_at],
     ].filter((row): row is [string, string] => Boolean(row[1]));
 

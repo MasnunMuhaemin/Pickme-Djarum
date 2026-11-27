@@ -75,10 +75,10 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
 
     return (
         <div className="bg-cream text-ink min-h-dvh">
-            <Head title="Ambil slot" />
+            <Head title="Ambil hadiah" />
             <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col md:max-w-[720px]">
                 <header className="lime-hero px-6 pt-8 pb-14">
-                    <h1 className="text-[34px] leading-none font-extrabold tracking-tight">Ambil slot</h1>
+                    <h1 className="text-[34px] leading-none font-extrabold tracking-tight">Ambil hadiah</h1>
                 </header>
 
                 <main className="bg-cream relative -mt-7 flex flex-1 flex-col rounded-t-[28px] px-5 pt-5 pb-8">
@@ -124,7 +124,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                                                 {selected ? (
                                                     <span className="text-center leading-none">
                                                         <span className="block text-[13px]">{slotPosition}</span>
-                                                        <span className="mt-0.5 block text-[7px] tracking-[0.12em]">SLOT KAMU</span>
+                                                        <span className="mt-0.5 block text-[7px] tracking-[0.12em]">HADIAH KAMU</span>
                                                     </span>
                                                 ) : (
                                                     slotPosition
@@ -136,7 +136,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                             ))}
                         </div>
                         <p className="text-ink mt-4 text-[12px] leading-relaxed">
-                            Ambil slot {position} di papan warung (atau slot lain yang masih kosong), lalu masukkan kode 6 karakter yang tercetak di
+                            Ambil hadiah {position} di papan warung (atau hadiah lain yang masih kosong), lalu masukkan kode 6 karakter yang tercetak di
                             baliknya.
                         </p>
                     </div>
@@ -144,7 +144,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                     {slotCode && (
                         <div className="border-ink/25 mt-5 rounded-2xl border border-dashed p-3">
                             <div className="flex items-center justify-between">
-                                <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Kode slot</p>
+                                <p className="text-ink-soft text-[9px] font-bold tracking-widest uppercase">Kode hadiah</p>
                                 <button
                                     type="button"
                                     onClick={() => setRevealed(!revealed)}
@@ -167,10 +167,10 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                                     </button>
                                 </div>
                             ) : (
-                                <p className="text-ink-soft mt-2 text-[11px]">Ketuk "Lihat kode" untuk reveal kode slotmu.</p>
+                                <p className="text-ink-soft mt-2 text-[11px]">Ketuk "Lihat kode" untuk reveal kode hadiahmu.</p>
                             )}
                             <p className="text-ink-soft mt-2 text-[10px] leading-relaxed">
-                                Kode ini tercetak di balik slot fisik {position}. Salin ke kolom di bawah untuk memeriksa.
+                                Kode ini tercetak di balik hadiah fisik {position}. Salin ke kolom di bawah untuk memeriksa.
                             </p>
                         </div>
                     )}
@@ -195,7 +195,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                             ))}
                         </div>
                         <p className="text-ink-soft mt-2 text-[10px] leading-relaxed">
-                            Kode 6 karakter di balik slot. Huruf besar otomatis, spasi dan strip diabaikan.
+                            Kode 6 karakter di balik hadiah. Huruf besar otomatis, spasi dan strip diabaikan.
                         </p>
 
                         <button

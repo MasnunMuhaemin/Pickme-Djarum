@@ -31,8 +31,8 @@ class ParticipantAuthController extends Controller
     }
 
     /**
-     * Popup masuk/daftar di atas halaman Scan. Peserta yang sudah masuk (mis. kembali lewat tombol back)
-     * langsung ke Scan tanpa popup, karena kamera dijeda selama popup terbuka.
+     * Popup masuk/daftar di atas beranda tamu (bukan di atas kamera Scan). Peserta yang sudah masuk
+     * (mis. kembali lewat tombol back) langsung ke Scan.
      */
     private function authPage(Request $request, string $modal): Response|RedirectResponse
     {
@@ -40,9 +40,10 @@ class ParticipantAuthController extends Controller
             return to_route('participant.scan');
         }
 
-        return Inertia::render('participant/scan', [
+        return Inertia::render('participant/home', [
             'modal' => $modal,
             'areas' => Area::orderBy('name')->get(['id', 'name']),
+            'prizes' => HomeController::guestPrizes(),
         ]);
     }
 

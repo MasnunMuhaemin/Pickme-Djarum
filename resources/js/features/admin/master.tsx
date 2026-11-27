@@ -68,7 +68,7 @@ export function OutletDialog({
     return (
         <Modal open onClose={onClose}>
             <h3 className="pr-8 text-[15px] font-extrabold">{outlet ? `Ubah warung ${outlet.code}` : 'Tambah warung'}</h3>
-            {!outlet && <p className="text-ink/55 mt-1 text-[12px]">Warung baru otomatis mendapat alamat QR dan 25 slot A1 sampai E5.</p>}
+            {!outlet && <p className="text-ink/55 mt-1 text-[12px]">Warung baru otomatis mendapat alamat QR dan 25 hadiah A1 sampai E5.</p>}
             <RequiredNote />
             <div className="mt-3 space-y-3">
                 {!outlet && (
@@ -136,7 +136,7 @@ export function OutletDialog({
 
             {confirming && (
                 <p className="mt-3 rounded-lg bg-[#fff3a3]/60 px-3 py-2 text-[12px]">
-                    Pilihan voucher berubah. Slot papan {outlet?.code} yang masih kosong akan diisi ulang sesuai pilihan baru; slot yang sudah diambil
+                    Pilihan voucher berubah. Hadiah papan {outlet?.code} yang masih kosong akan diisi ulang sesuai pilihan baru; hadiah yang sudah diambil
                     peserta tidak berubah. Simpan?
                 </p>
             )}

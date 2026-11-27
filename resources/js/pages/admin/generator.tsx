@@ -89,7 +89,7 @@ export default function Generator({
         <AdminLayout
             active="md-generator"
             title="Generator kode unik"
-            subtitle={`Membuat kode slot 6 karakter untuk papan ${stock.boards} warung. Dibuat sekali, tidak ada pembuatan ulang selama program.`}
+            subtitle={`Membuat kode hadiah 6 karakter untuk papan ${stock.boards} warung. Dibuat sekali, tidak ada pembuatan ulang selama program.`}
         >
             <div className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -156,9 +156,9 @@ export default function Generator({
                         </div>
                         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px]">
                             <span className="font-extrabold">
-                                Total {total} slot = {stock.voucher} + {stock.merch} + {stock.limited}
+                                Total {total} hadiah = {stock.voucher} + {stock.merch} + {stock.limited}
                             </span>
-                            <span className="text-ink/50">{stock.boards} papan × 25 slot</span>
+                            <span className="text-ink/50">{stock.boards} papan × 25 hadiah</span>
                         </div>
                         <div className="mt-2 flex items-center justify-between text-[11px]">
                             <span className="text-ink/60">Ikuti stok di master data</span>
@@ -190,7 +190,7 @@ export default function Generator({
                         </div>
                     </Card>
 
-                    <Card title="Format kode slot" right={<KeyRound className="text-ink/40 size-4" />}>
+                    <Card title="Format kode hadiah" right={<KeyRound className="text-ink/40 size-4" />}>
                         <dl className="space-y-2 text-[12px]">
                             {(
                                 [
@@ -229,7 +229,7 @@ export default function Generator({
                                 <div className="mt-4 grid grid-cols-3 gap-2">
                                     {(
                                         [
-                                            [result.slots, 'slot dibuat'],
+                                            [result.slots, 'hadiah dibuat'],
                                             [result.unique, 'kode unik'],
                                             [result.duplicates, 'kode ganda'],
                                         ] as const
@@ -241,7 +241,7 @@ export default function Generator({
                                     ))}
                                 </div>
                                 <p className="mt-4 border-t border-white/10 pt-3 text-[11px] text-white/50">
-                                    {stock.boards} papan × 25 slot = {stock.slots} · {stock.voucher} voucher + {stock.merch} merchandise +{' '}
+                                    {stock.boards} papan × 25 hadiah = {stock.slots} · {stock.voucher} voucher + {stock.merch} merchandise +{' '}
                                     {stock.limited} limited edition{runAt ? ` · dijalankan ${runAt}` : ''}
                                 </p>
                             </section>
@@ -292,7 +292,7 @@ export default function Generator({
                                     <Lock className="size-4" /> Terkunci
                                 </h2>
                                 <p className="mt-2 text-[12px] leading-relaxed text-[#7a5410]">
-                                    Slot dan kode dibuat sekali dan tidak pernah dibuat ulang selama program. Papan tidak diisi ulang. Tombol jalankan
+                                    Hadiah dan kode dibuat sekali dan tidak pernah dibuat ulang selama program. Papan tidak diisi ulang. Tombol jalankan
                                     tidak tersedia lagi.
                                 </p>
                             </section>
@@ -304,7 +304,7 @@ export default function Generator({
                                     {(
                                         [
                                             [checks.totalMatches, `Total ${stock.slots} = ${stock.voucher} + ${stock.merch} + ${stock.limited}`],
-                                            [checks.boards > 0, `${checks.boards} papan × 25 slot = ${stock.slots} slot`],
+                                            [checks.boards > 0, `${checks.boards} papan × 25 hadiah = ${stock.slots} slot`],
                                             [true, 'Kode dibuat unik, dicek tanpa ganda saat jalan'],
                                             [
                                                 checks.outletsActive === checks.outlets && checks.outlets > 0,
@@ -398,7 +398,7 @@ export default function Generator({
                     <h2 className="text-[17px] font-extrabold">Jalankan generator?</h2>
                 </div>
                 <p className="text-ink/60 mt-2 text-[12px] leading-relaxed">
-                    Sistem membuat {stock.slots} slot dan {stock.slots} kode unik di {stock.boards} papan. Setelah dijalankan, tidak bisa diulang dan
+                    Sistem membuat {stock.slots} hadiah dan {stock.slots} kode unik di {stock.boards} papan. Setelah dijalankan, tidak bisa diulang dan
                     papan tidak diisi ulang.
                 </p>
                 <dl className="bg-cream mt-3 divide-y divide-[#ece6cc] rounded-xl px-4 py-1 text-[12px]">
@@ -407,7 +407,7 @@ export default function Generator({
                             ['Voucher', stock.voucher],
                             ['Merchandise', stock.merch],
                             ['Limited edition', stock.limited],
-                            ['Papan', `${stock.boards} × 25 slot = ${stock.slots}`],
+                            ['Papan', `${stock.boards} × 25 hadiah = ${stock.slots}`],
                         ] as const
                     ).map(([k, v]) => (
                         <div key={k} className="flex justify-between py-2">
@@ -423,7 +423,7 @@ export default function Generator({
                 )}
                 {!checks.totalMatches && (
                     <p className="mt-2 rounded-xl bg-[#fde0dc] px-3 py-2.5 text-[12px] font-bold text-[#b42318]">
-                        Total stok ({total}) belum sama dengan {stock.slots} slot. Merchandise dan limited edition dibagi dulu, slot lainnya diisi
+                        Total stok ({total}) belum sama dengan {stock.slots} hadiah. Merchandise dan limited edition dibagi dulu, hadiah lainnya diisi
                         voucher acak berbobot jumlah tiap jenis.
                     </p>
                 )}

@@ -6,8 +6,8 @@ import { ArrowLeft, Download, Printer } from 'lucide-react';
 type Slot = { position: string; code: string; prize: string; partner: string | null; status: string };
 
 /**
- * Lembar cetak papan fisik: QR alamat titik di atas, lalu 25 slot dengan kode yang ditempel di balik slot dan isinya.
- * Kode slot rahasia: lembar ini hanya untuk tim yang membuat papan.
+ * Lembar cetak papan fisik: QR alamat titik di atas, lalu 25 hadiah dengan kode yang ditempel di balik slot dan isinya.
+ * Kode hadiah rahasia: lembar ini hanya untuk tim yang membuat papan.
  */
 export default function CetakPapan({ outlet, slots }: { outlet: { code: string; name: string; area: string | null; qr: string }; slots: Slot[] }) {
     return (
@@ -17,7 +17,7 @@ export default function CetakPapan({ outlet, slots }: { outlet: { code: string; 
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
                     <Link href={`/admin/papan/${outlet.code}`} className="text-ink/60 hover:text-ink flex items-center gap-1.5 text-[12px] font-bold">
                         <ArrowLeft className="size-4" />
-                        Kembali ke Papan dan slot
+                        Kembali ke Papan dan hadiah
                     </Link>
                     <div className="flex gap-2">
                         <Btn variant="outline" onClick={() => downloadQr(outlet.qr, outlet.code)}>
@@ -46,14 +46,14 @@ export default function CetakPapan({ outlet, slots }: { outlet: { code: string; 
                     </div>
 
                     <p className="mt-5 text-[11px] font-bold text-[#b42318]">
-                        Rahasia: kode di bawah ditempel di balik slot fisik. Jangan dibagikan ke peserta.
+                        Rahasia: kode di bawah ditempel di balik hadiah fisik. Jangan dibagikan ke peserta.
                     </p>
                     <div className="mt-3 overflow-x-auto print:overflow-visible">
                         <table className="w-full min-w-[520px] text-left text-[12px]">
                         <thead>
                             <tr className="border-ink text-ink/60 border-b-2 text-[10px] font-bold">
-                                <th className="py-2">Slot</th>
-                                <th className="py-2">Kode di balik slot</th>
+                                <th className="py-2">Hadiah</th>
+                                <th className="py-2">Kode di balik hadiah</th>
                                 <th className="py-2">Isi</th>
                                 <th className="py-2">Tukar di</th>
                             </tr>

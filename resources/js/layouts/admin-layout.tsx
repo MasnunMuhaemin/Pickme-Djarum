@@ -48,7 +48,7 @@ const menu: { key: string; label: string; href: string; icon: LucideIcon; badge?
         badge: (b) => b.fulfillment + b.dispatch,
         match: ['kirim-voucher'],
     },
-    { key: 'papan', label: 'Papan dan slot', href: '/admin/papan', icon: LayoutGrid },
+    { key: 'papan', label: 'Papan dan hadiah', href: '/admin/papan', icon: LayoutGrid },
     { key: 'pembayaran', label: 'Mitra dan pembayaran', href: '/admin/pembayaran', icon: Wallet, match: ['md-mitra'] },
     { key: 'pengguna', label: 'Peserta', href: '/admin/pengguna?tab=peserta', icon: Users, group: 'Data' },
     { key: 'peringkat', label: 'Peringkat', href: '/admin/peringkat', icon: Trophy, group: 'Data' },
@@ -296,12 +296,12 @@ export default function AdminLayout({
                         <LogOut className="size-4" />
                         Keluar
                     </button>
-                    {/* Kartu program (desain): jumlah warung dan slot. */}
+                    {/* Kartu program (desain): jumlah warung dan hadiah. */}
                     <div className="mt-4 rounded-2xl bg-white/[0.06] p-4">
                         <p className="text-lime text-[10px] font-extrabold tracking-[0.16em]">PROGRAM</p>
                         <p className="mt-1 text-[14px] font-extrabold">Lotre Warung</p>
                         <p className="text-[11px] text-white/50">
-                            {admin?.outlets.length ?? 0} warung · {(admin?.outlets.length ?? 0) * 25} slot
+                            {admin?.outlets.length ?? 0} warung · {(admin?.outlets.length ?? 0) * 25} hadiah
                         </p>
                         <img src="/images/logo.webp" alt="" aria-hidden className="mt-2 h-7 w-auto opacity-90" />
                         <p className="mt-2 text-[10px] leading-snug text-white/40">Masuk sebagai {user?.name ?? 'Admin'}. Semua aksi tercatat.</p>
@@ -508,7 +508,7 @@ export function EmergencyDialog({
                     placeholder="Tulis alasan jeda"
                     className="mt-1"
                 />
-                <Hint>Minimal 5 huruf, mis. Kode slot W07 bocor di media sosial. Tercatat di log.</Hint>
+                <Hint>Minimal 5 huruf, mis. Kode hadiah W07 bocor di media sosial. Tercatat di log.</Hint>
                 {form.errors.reason && <p className="mt-1 text-[11px] font-semibold text-[#b42318]">{form.errors.reason}</p>}
             </label>
 
@@ -593,13 +593,13 @@ export function PauseOutletDialog({
             </p>
             <dl className="bg-cream mt-3 divide-y divide-[#ece6cc] rounded-xl px-4 py-1 text-[12px]">
                 <div className="flex justify-between py-2">
-                    <dt className="text-ink/60">Slot terpakai</dt>
+                    <dt className="text-ink/60">Hadiah terpakai</dt>
                     <dd className="font-extrabold">
                         {used} dari {total}
                     </dd>
                 </div>
                 <div className="flex justify-between py-2">
-                    <dt className="text-ink/60">Sisa slot tetap tersimpan</dt>
+                    <dt className="text-ink/60">Sisa hadiah tetap tersimpan</dt>
                     <dd className="font-extrabold">{total - used}</dd>
                 </div>
             </dl>

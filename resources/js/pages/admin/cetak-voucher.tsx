@@ -7,11 +7,11 @@ import { ArrowLeft, Check, Download, Hash, Image, Layers } from 'lucide-react';
 type Row = { code: string; name: string; vouchers: number; merch: number };
 
 const STEPS: { title: string; who: string; text: string }[] = [
-    { title: 'Generate isi papan', who: 'Admin', text: 'Isi papan dibuat sistem saat warung ditambahkan. Kode unik tiap slot terkunci per papan.' },
+    { title: 'Generate isi papan', who: 'Admin', text: 'Isi papan dibuat sistem saat warung ditambahkan. Kode unik tiap hadiah terkunci per papan.' },
     { title: 'Ekspor kode dan QR', who: 'Admin', text: 'Ekspor kode unik per papan (CSV) dan QR warung, lalu serahkan ke tim cetak.' },
-    { title: 'Cetak voucher', who: 'Tim', text: 'Cetak sesuai file ekspor, satu voucher per slot. Kode tercetak di kotak KODE UNIK.' },
+    { title: 'Cetak voucher', who: 'Tim', text: 'Cetak sesuai file ekspor, satu voucher per hadiah. Kode tercetak di kotak KODE UNIK.' },
     { title: 'Masukkan ke plastik', who: 'Tim', text: 'Voucher masuk plastik. Merchandise kecil ikut dimasukkan sesuai kolom isi plastik.' },
-    { title: 'Tempel ke papan', who: 'Tim', text: 'Plastik ditempel urut di papan, sesuai posisi slot (A1 sampai E5) di file ekspor.' },
+    { title: 'Tempel ke papan', who: 'Tim', text: 'Plastik ditempel urut di papan, sesuai posisi hadiah (A1 sampai E5) di file ekspor.' },
 ];
 
 function Stat({ label, value, hint, icon: Icon, tone }: { label: string; value: string | number; hint: string; icon: LucideIcon; tone: string }) {
@@ -35,7 +35,7 @@ export default function CetakVoucher({ outlets, totalCodes, lastExport }: { outl
         <AdminLayout
             active="md-warung"
             title="Cetak voucher"
-            subtitle="Ekspor kode unik per papan untuk dicetak tim. Satu voucher = satu slot = satu kode di kotak KODE UNIK."
+            subtitle="Ekspor kode unik per papan untuk dicetak tim. Satu voucher = satu hadiah = satu kode di kotak KODE UNIK."
         >
             <div className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-2">
                 <Link href="/admin/master-data/warung" className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12px] font-bold">
@@ -58,8 +58,8 @@ export default function CetakVoucher({ outlets, totalCodes, lastExport }: { outl
             </div>
 
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                <Stat label="Kode unik siap" value={totalCodes} hint={`${outlets.length} papan × 25 slot`} icon={Hash} tone="bg-lime text-ink" />
-                <Stat label="Voucher per papan" value={25} hint="satu kode per slot" icon={Layers} tone="bg-lime-soft text-ink" />
+                <Stat label="Kode unik siap" value={totalCodes} hint={`${outlets.length} papan × 25 hadiah`} icon={Hash} tone="bg-lime text-ink" />
+                <Stat label="Voucher per papan" value={25} hint="satu kode per hadiah" icon={Layers} tone="bg-lime-soft text-ink" />
                 <Stat label="Desain kartu" value={2} hint="depan dan belakang" icon={Image} tone="bg-lime-soft text-ink" />
                 <Stat label="Terakhir diekspor" value={lastExport ?? 'Belum'} hint="ekspor kode unik" icon={Download} tone="bg-lime-soft text-ink" />
             </div>
@@ -149,7 +149,7 @@ export default function CetakVoucher({ outlets, totalCodes, lastExport }: { outl
                         </tbody>
                         </table>
                     </div>
-                    <p className="text-ink/45 mt-3 text-[10px]">Kolom file: Titik, Nama warung, Slot, Kode unik, Isi papan.</p>
+                    <p className="text-ink/45 mt-3 text-[10px]">Kolom file: Titik, Nama warung, Hadiah, Kode unik, Isi papan.</p>
                 </section>
             </div>
         </AdminLayout>

@@ -386,6 +386,12 @@ class CustomerFlowTest extends TestCase
             ->where('studentBlocked', true));
     }
 
+    public function test_guest_login_and_register_open_over_home_not_scan(): void
+    {
+        $this->get('/participant/masuk')->assertInertia(fn ($page) => $page->component('participant/home')->where('modal', 'login')->has('prizes'));
+        $this->get('/participant/daftar')->assertInertia(fn ($page) => $page->component('participant/home')->where('modal', 'register')->has('areas'));
+    }
+
     public function test_login_without_scan_never_lands_on_the_board(): void
     {
         // Tamu membuka foto: popup masuk, bukan papan.

@@ -97,7 +97,7 @@ class BoardController extends Controller
 
         return response()->streamDownload(function () use ($outlets) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Titik', 'Nama warung', 'Slot', 'Kode unik', 'Isi papan']);
+            fputcsv($out, ['Titik', 'Nama warung', 'Hadiah', 'Kode unik', 'Isi papan']);
             foreach ($outlets as $o) {
                 foreach ($o->board?->slots->sortBy('position') ?? [] as $slot) {
                     fputcsv($out, [$o->code, $o->name, $slot->position, $slot->code, $this->prizeLabel($slot)]);

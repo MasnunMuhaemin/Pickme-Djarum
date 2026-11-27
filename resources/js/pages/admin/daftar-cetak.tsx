@@ -18,12 +18,12 @@ export default function DaftarCetak({ boards }: { boards: Board[] }) {
                     <h1 className="text-[20px] font-extrabold">
                         {b.code} · {b.name}
                     </h1>
-                    <p className="text-[12px] text-black/60">25 slot · urut A1 sampai E5 · satu voucher per slot</p>
+                    <p className="text-[12px] text-black/60">25 hadiah · urut A1 sampai E5 · satu voucher per hadiah</p>
                     <div className="mt-4 overflow-x-auto print:overflow-visible">
                         <table className="w-full min-w-[420px] border-collapse text-[13px]">
                         <thead>
                             <tr className="border-b-2 border-black text-left">
-                                <th className="py-1.5">Slot</th>
+                                <th className="py-1.5">Hadiah</th>
                                 <th className="py-1.5">Kode unik</th>
                                 <th className="py-1.5">Isi papan</th>
                             </tr>

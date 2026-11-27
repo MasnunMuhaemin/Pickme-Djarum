@@ -24,9 +24,9 @@ class SettingsController extends Controller
         $slotsPerBoard = 25;
         $fixed = [
             ['label' => 'Jumlah titik', 'value' => Outlet::count().' warung', 'stored' => 'Master data'],
-            ['label' => 'Slot per papan', 'value' => "{$slotsPerBoard} (A1 sampai E5)", 'stored' => 'Tetap'],
-            ['label' => 'Total slot', 'value' => (string) Slot::count(), 'stored' => 'Turunan'],
-            ['label' => 'Isi slot (skema B)', 'value' => $this->prizeMix(), 'stored' => 'Generator'],
+            ['label' => 'Hadiah per papan', 'value' => "{$slotsPerBoard} (A1 sampai E5)", 'stored' => 'Tetap'],
+            ['label' => 'Total hadiah', 'value' => (string) Slot::count(), 'stored' => 'Turunan'],
+            ['label' => 'Isi hadiah (skema B)', 'value' => $this->prizeMix(), 'stored' => 'Generator'],
             ['label' => 'Batas klaim harian', 'value' => '2 per nomor per hari (belum diaktifkan selama uji coba)', 'stored' => 'Pengaturan'],
             ['label' => 'Kartu loyalti', 'value' => '10 cap, mystery gift di cap ke-5', 'stored' => 'Tetap'],
         ];

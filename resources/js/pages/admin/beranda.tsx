@@ -265,8 +265,8 @@ export default function Beranda({
                 <StatCard
                     icon={LayoutGrid}
                     value={stats.usedSlots}
-                    label="Slot terpakai"
-                    hint={`dari ${stats.totalSlots} slot`}
+                    label="Hadiah terpakai"
+                    hint={`dari ${stats.totalSlots} hadiah`}
                     href="/admin/papan"
                     dark
                     progress={stats.totalSlots ? (stats.usedSlots / stats.totalSlots) * 100 : 0}
@@ -297,7 +297,7 @@ export default function Beranda({
                     <Legend
                         items={[
                             { label: 'Disetujui', value: claimStatus.approved, color: '#8fc31f' },
-                            { label: 'Menunggu kode slot', value: claimStatus.waiting, color: '#0b0b0b' },
+                            { label: 'Menunggu kode hadiah', value: claimStatus.waiting, color: '#0b0b0b' },
                             { label: 'Ditolak', value: claimStatus.rejected, color: '#d0271d' },
                         ]}
                     />
@@ -305,7 +305,7 @@ export default function Beranda({
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Panel title="Hadiah terpakai" subtitle={`Per jenis · ${prizeTotal} slot`}>
+                <Panel title="Hadiah terpakai" subtitle={`Per jenis · ${prizeTotal} hadiah`}>
                     <div className="flex items-center gap-4">
                         <Donut
                             size={110}
@@ -318,7 +318,7 @@ export default function Beranda({
                         <Legend items={prizes.map((p, i) => ({ label: p.label, value: p.count, color: ['#8fc31f', '#0b0b0b'][i] ?? '#e0a526' }))} />
                     </div>
                 </Panel>
-                <Panel title="Slot per area" subtitle="Terpakai dari kapasitas">
+                <Panel title="Hadiah per area" subtitle="Terpakai dari kapasitas">
                     <div className="space-y-3">
                         {perArea.map((a) => (
                             <div key={a.name}>
@@ -333,7 +333,7 @@ export default function Beranda({
                         ))}
                     </div>
                 </Panel>
-                <Panel title="Warung teratas" subtitle="Slot terpakai terbanyak">
+                <Panel title="Warung teratas" subtitle="Hadiah terpakai terbanyak">
                     <ul className="space-y-3">
                         {topOutlets.map((o, i) => (
                             <li key={o.code} className="flex items-center gap-3">
