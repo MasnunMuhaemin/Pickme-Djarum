@@ -49,7 +49,7 @@ class UserController extends Controller
         $history = Claim::with(['outlet', 'slot', 'voucher.voucherType', 'gifts'])->whereIn('participant_id', $ids)->latest('submitted_at')->get()
             ->groupBy('participant_id')->map(fn ($claims) => $claims->take(10)->map(fn (Claim $c) => [
                 'code' => $c->claim_code,
-                'outlet' => $c->outlet?->code,
+                'outlet' => $c->outlet ? "{$c->outlet->code} · {$c->outlet->name}" : null,
                 'slot' => $c->slot?->position,
                 'at' => ($c->submitted_at ?? $c->created_at)?->format('d/m H:i'),
                 'status' => $c->status,

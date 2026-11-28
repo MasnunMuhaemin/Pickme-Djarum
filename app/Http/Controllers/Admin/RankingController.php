@@ -34,12 +34,12 @@ class RankingController extends Controller
                 $claims = Claim::where('claims.participant_id', $row->participant_id);
                 // Titik tempat peserta paling sering klaim (kolom diberi nama tabel karena ada join).
                 $outlet = (clone $claims)->where('claims.status', 'approved')->join('outlets', 'outlets.id', '=', 'claims.outlet_id')
-                    ->selectRaw('outlets.code as code, count(*) as n')->groupBy('outlets.code')->orderByDesc('n')->value('code');
+                    ->selectRaw('outlets.code as code, outlets.name as name, count(*) as n')->groupBy('outlets.code', 'outlets.name')->orderByDesc('n')->first();
 
                 return [
                     'rank' => $row->rank,
                     'name' => $participants[$row->participant_id]?->name ?? 'Peserta',
-                    'outlet' => $outlet,
+                    'outlet' => $outlet ? "{$outlet->code} · {$outlet->name}" : null,
                     'caps' => $row->caps,
                     'flagged' => (clone $claims)->whereNotNull('flag')->count(),
                     'golden' => $prize === 'golden_slot',

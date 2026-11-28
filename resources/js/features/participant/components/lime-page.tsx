@@ -1,12 +1,9 @@
-import { BackLink, LogoutButton } from '@/features/participant/components/ui';
+import { BackLink } from '@/features/participant/components/ui';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { cn } from '@/lib/utils';
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ChevronLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
-
-/** Tombol keluar bulat hitam, serasi dengan tombol kembali di header lime. Hanya tampil saat sudah masuk. */
-export const limeLogoutClass = 'bg-ink text-lime hover:bg-ink/85 hover:text-lime md:hidden';
 
 export function useIsLoggedIn(): boolean {
     const { props } = usePage();
@@ -22,6 +19,7 @@ export function LimePage({
     tabTitle,
     subtitle,
     back,
+    backExact,
     right,
     nav,
     hideBottomNav,
@@ -35,6 +33,8 @@ export function LimePage({
     tabTitle?: string;
     subtitle?: ReactNode;
     back?: string;
+    /** Kembali ke alamat ini apa adanya, bukan ke halaman sebelumnya di riwayat browser. */
+    backExact?: boolean;
     right?: ReactNode;
     nav?: string;
     hideBottomNav?: boolean;
@@ -44,31 +44,34 @@ export function LimePage({
     decoration?: ReactNode;
     children: ReactNode;
 }) {
-    const isLoggedIn = useIsLoggedIn();
-
     return (
         <ParticipantLayout title={tabTitle ?? (typeof title === 'string' ? title : undefined)} nav={nav} hideBottomNav={hideBottomNav}>
             <div className="lime-hero relative px-5 pt-4 pb-14 md:px-8 md:pt-6">
                 {decoration}
-                {(back || right || isLoggedIn) && (
+                {(back || right) && (
                     <div className="flex min-h-10 items-center justify-between gap-3">
-                        {back ? (
-                            <BackLink fallback={back} className="bg-ink text-lime grid size-10 shrink-0 place-items-center rounded-full">
+                        {back && backExact ? (
+                            <Link
+                                href={back}
+                                aria-label="Kembali"
+                                className="text-lime grid size-10 shrink-0 place-items-center rounded-full bg-[#0b0b0b]"
+                            >
+                                <ChevronLeft className="size-5" strokeWidth={2.5} />
+                            </Link>
+                        ) : back ? (
+                            <BackLink fallback={back} className="text-lime grid size-10 shrink-0 place-items-center rounded-full bg-[#0b0b0b]">
                                 <ChevronLeft className="size-5" strokeWidth={2.5} />
                             </BackLink>
                         ) : (
                             <span />
                         )}
-                        <div className="flex items-center gap-2">
-                            {right}
-                            <LogoutButton className={limeLogoutClass} />
-                        </div>
+                        <div className="flex items-center gap-2">{right}</div>
                     </div>
                 )}
                 <h1
                     className={cn(
-                        'text-[34px] leading-[1.05] font-extrabold tracking-tight md:text-[44px]',
-                        back || right || isLoggedIn ? 'mt-3' : 'mt-1',
+                        'text-[34px] leading-[1.05] font-extrabold tracking-tight text-[#0b0b0b] md:text-[44px]',
+                        back || right ? 'mt-3' : 'mt-1',
                         // Sisakan ruang untuk hiasan di kanan supaya judul turun baris, tidak tertutup.
                         decoration && 'relative max-w-[58%] md:max-w-[65%]',
                     )}
@@ -92,5 +95,5 @@ export function LimePage({
 
 /** Label hitam di kanan atas bagian lime, mis. "Cap 4 / 10". */
 export function HeaderPill({ children }: { children: ReactNode }) {
-    return <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold whitespace-nowrap">{children}</span>;
+    return <span className="text-cream rounded-full bg-[#0b0b0b] px-3.5 py-1.5 text-[12px] font-extrabold whitespace-nowrap">{children}</span>;
 }

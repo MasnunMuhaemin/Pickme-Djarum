@@ -1,8 +1,8 @@
 import { goBack } from '@/features/participant/nav-history';
 import { cn } from '@/lib/utils';
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
-import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, LogOut, X } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { ArrowLeft, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, EyeOff, X } from 'lucide-react';
 import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes, TouchEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -31,28 +31,6 @@ export function Badge({ children, tone = 'lime', className }: { children: ReactN
 export function logoutParticipant() {
     router.flushAll();
     router.post('/participant/keluar', {}, { onFinish: () => router.flushAll() });
-}
-
-export function LogoutButton({ dark, className }: { dark?: boolean; className?: string }) {
-    const { props } = usePage();
-    const isLoggedIn = Boolean((props.auth as { participant?: unknown } | undefined)?.participant);
-    if (!isLoggedIn) return null;
-
-    return (
-        <button
-            type="button"
-            aria-label="Keluar"
-            title="Keluar"
-            onClick={logoutParticipant}
-            className={cn(
-                'grid size-10 shrink-0 place-items-center rounded-full transition',
-                dark ? 'text-cream/70 hover:text-cream hover:bg-white/10' : 'text-ink-soft hover:bg-cream-deep hover:text-ink',
-                className,
-            )}
-        >
-            <LogOut className="size-4" />
-        </button>
-    );
 }
 
 /**
@@ -106,15 +84,12 @@ export function PageHeader({
                     )}
                 </div>
                 <h1 className="min-w-0 truncate text-center text-sm font-bold">{title}</h1>
-                <div className="flex items-center justify-end gap-1">
-                    {right}
-                    <LogoutButton dark />
-                </div>
+                <div className="flex items-center justify-end gap-1">{right}</div>
             </header>
         );
     }
 
-    const roundButton = 'bg-ink text-lime grid size-10 shrink-0 place-items-center rounded-full';
+    const roundButton = 'text-lime grid size-10 shrink-0 place-items-center rounded-full bg-[#0b0b0b]';
     return (
         <header className={cn('lime-hero text-ink shrink-0', className)}>
             <div className="px-5 pt-4 pb-10 md:px-8 md:pt-6">
@@ -130,14 +105,10 @@ export function PageHeader({
                     ) : (
                         <span />
                     )}
-                    <div className="flex items-center gap-2">
-                        {right}
-                        {/* Layar dengan tombol tutup (Klaim berhasil) tidak menampilkan tombol keluar kedua. */}
-                        {!close && <LogoutButton className="bg-ink text-lime hover:bg-ink/85 hover:text-lime md:hidden" />}
-                    </div>
+                    <div className="flex items-center gap-2">{right}</div>
                 </div>
                 {title && (
-                    <h1 className="mt-3 flex items-center gap-2.5 text-[30px] leading-[1.05] font-extrabold tracking-tight md:text-[40px]">
+                    <h1 className="mt-3 flex items-center gap-2.5 text-[30px] leading-[1.05] font-extrabold tracking-tight text-[#0b0b0b] md:text-[40px]">
                         {icon}
                         <span className="min-w-0">{title}</span>
                     </h1>
@@ -407,7 +378,7 @@ export function DateField({
                                     onClick={() => pickYear(y)}
                                     className={cn(
                                         'h-9 rounded-lg text-[12px] font-semibold',
-                                        y === year ? 'bg-ink text-cream' : 'text-ink hover:bg-cream-deep',
+                                        y === year ? 'text-cream bg-[#0b0b0b]' : 'text-ink hover:bg-cream-deep',
                                     )}
                                 >
                                     {y}
@@ -437,7 +408,7 @@ export function DateField({
                                         onClick={() => pick(day)}
                                         className={cn(
                                             'grid size-8 place-items-center rounded-full text-[11px] font-semibold',
-                                            isSelected ? 'bg-ink text-cream' : 'text-ink hover:bg-cream-deep',
+                                            isSelected ? 'text-cream bg-[#0b0b0b]' : 'text-ink hover:bg-cream-deep',
                                             isToday && !isSelected && 'ring-ink/30 ring-1',
                                             future && 'text-ink/25',
                                         )}
@@ -464,7 +435,7 @@ export function Checkbox({ checked, onChange, children }: { checked: boolean; on
                 onClick={() => onChange(!checked)}
                 className={cn(
                     'mt-0.5 grid size-5 shrink-0 place-items-center rounded-md border',
-                    checked ? 'border-ink bg-ink text-cream' : 'border-ink/30 bg-white',
+                    checked ? 'text-cream border-[#0b0b0b] bg-[#0b0b0b]' : 'border-ink/30 bg-white',
                 )}
             >
                 {checked && <Check className="size-3.5" />}
@@ -528,12 +499,16 @@ export function NoticeSheet({
                 <span
                     className={cn(
                         'grid size-14 place-items-center rounded-full text-[20px] font-extrabold',
-                        tone === 'danger' ? 'bg-danger text-white' : tone === 'warn' ? 'text-danger bg-[#fbe3e0] text-[26px]' : 'bg-ink text-lime',
+                        tone === 'danger'
+                            ? 'bg-danger text-white'
+                            : tone === 'warn'
+                              ? 'text-danger bg-[#fbe3e0] text-[26px]'
+                              : 'text-lime bg-[#0b0b0b]',
                     )}
                 >
                     {icon}
                 </span>
-                <h2 className="mt-4 text-[24px] leading-tight font-extrabold tracking-tight">{title}</h2>
+                <h2 className="mt-4 text-[24px] leading-tight font-extrabold tracking-tight text-[#0b0b0b]">{title}</h2>
                 <p className="text-ink-soft mt-1.5 text-[13px] leading-relaxed">{text}</p>
             </div>
             {stacked ? (
@@ -637,7 +612,7 @@ function SheetPanel({ onClose, title, children }: SheetProps) {
                 <div className="-mx-5 -mt-5 mb-4 flex justify-center pt-4 pb-3 md:mb-2 md:pt-3 md:pb-2" aria-hidden>
                     <span className="bg-ink/25 h-1.5 w-12 rounded-full" />
                 </div>
-                {title && <h2 className="text-ink mb-1 text-lg font-extrabold tracking-tight">{title}</h2>}
+                {title && <h2 className="mb-1 text-lg font-extrabold tracking-tight text-[#0b0b0b]">{title}</h2>}
                 {children}
             </div>
         </div>

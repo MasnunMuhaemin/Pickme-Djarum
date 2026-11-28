@@ -14,7 +14,7 @@ export default function TerimaKasih() {
                     <span className="bg-lime grid size-20 place-items-center rounded-full">
                         <Check className="text-ink size-9" />
                     </span>
-                    <h2 className="mt-4 text-2xl font-extrabold tracking-tight">Terima kasih!</h2>
+                    <h2 className="mt-4 text-2xl font-extrabold tracking-tight text-[#0b0b0b]">Terima kasih!</h2>
                     <p className="text-ink-soft mt-1 max-w-[260px] text-[11px] leading-relaxed">
                         Klaim kamu sudah kami terima. Admin akan memproses hadiahnya.
                     </p>

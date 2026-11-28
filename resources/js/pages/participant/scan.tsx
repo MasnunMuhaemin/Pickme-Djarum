@@ -1,5 +1,5 @@
 import { AuthSheet, type AuthMode } from '@/features/participant/components/auth-sheet';
-import { BackLink, LogoutButton, NoticeSheet, OutlineButton, PrimaryButton, Sheet } from '@/features/participant/components/ui';
+import { BackLink, NoticeSheet, OutlineButton, PrimaryButton, Sheet } from '@/features/participant/components/ui';
 import { Head, router, usePage } from '@inertiajs/react';
 import { Camera, GraduationCap, QrCode } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -164,8 +164,6 @@ export default function Scan({
                             <path d="m15 18-6-6 6-6" />
                         </svg>
                     </BackLink>
-                    {/* Hanya tampil saat sudah masuk. */}
-                    <LogoutButton dark className="bg-black/35 backdrop-blur-sm" />
                 </header>
 
                 <div className="relative z-10 px-6 pt-2">
@@ -213,7 +211,7 @@ export default function Scan({
                     <span className="bg-cream-deep mx-auto grid size-16 place-items-center rounded-full">
                         <GraduationCap className="text-ink size-8" />
                     </span>
-                    <h2 className="mt-4 text-[24px] leading-tight font-extrabold tracking-tight">Kamu mahasiswa?</h2>
+                    <h2 className="mt-4 text-[24px] leading-tight font-extrabold tracking-tight text-[#0b0b0b]">Kamu mahasiswa?</h2>
                     <p className="text-ink-soft mt-1.5 text-[13px] leading-relaxed">
                         Program ini khusus mahasiswa. Kartu cap dan hadiahnya tetap sama.
                     </p>

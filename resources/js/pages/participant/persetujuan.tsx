@@ -27,7 +27,7 @@ function Bullets({ items }: { items: ReactNode[] }) {
 function Section({ title, children }: { title: string; children: ReactNode }) {
     return (
         <section className="mt-6">
-            <h2 className="text-[16px] font-extrabold tracking-tight">{title}</h2>
+            <h2 className="text-[16px] font-extrabold tracking-tight text-[#0b0b0b]">{title}</h2>
             <div className="mt-2 space-y-2">{children}</div>
         </section>
     );
@@ -52,10 +52,13 @@ export default function Persetujuan({ consent, guest = false }: { consent: Conse
             {/* Tinggi dikunci ke layar di HP supaya kotak teks mengisi sisa ruang dan tombol menempel di bawah. */}
             <div className="flex h-dvh flex-col sm:h-[calc(100dvh-3rem)] md:h-auto md:flex-1">
                 <div className="shrink-0 px-5 pt-4 pb-6 md:px-8">
-                    <Link href={back} aria-label="Kembali" className="bg-ink text-lime grid size-10 place-items-center rounded-full">
-                        <ChevronLeft className="size-5" strokeWidth={2.5} />
-                    </Link>
-                    <h1 className="mt-4 text-[34px] leading-none font-extrabold tracking-tight md:text-[44px]">Persetujuan data</h1>
+                    {/* Tamu sudah punya tombol "Kembali ke pendaftaran", jadi chevron tidak ditampilkan. */}
+                    {!guest && (
+                        <Link href={back} aria-label="Kembali" className="text-lime grid size-10 place-items-center rounded-full bg-[#0b0b0b]">
+                            <ChevronLeft className="size-5" strokeWidth={2.5} />
+                        </Link>
+                    )}
+                    <h1 className="mt-4 text-[34px] leading-none font-extrabold tracking-tight text-[#0b0b0b] md:text-[44px]">Persetujuan data</h1>
                 </div>
 
                 <form
@@ -69,7 +72,7 @@ export default function Persetujuan({ consent, guest = false }: { consent: Conse
                         }}
                         className="min-h-[200px] flex-1 overflow-y-auto overscroll-contain rounded-3xl bg-white p-4 text-[13px] leading-relaxed md:mx-auto md:h-[460px] md:w-full md:max-w-[720px] md:flex-none md:p-6"
                     >
-                        <h2 className="text-[16px] font-extrabold tracking-tight">Singkatnya</h2>
+                        <h2 className="text-[16px] font-extrabold tracking-tight text-[#0b0b0b]">Singkatnya</h2>
                         <Bullets
                             items={[
                                 'Kami hanya minta data yang perlu untuk menjalankan program: akun, foto bungkus, dan alamat kalau hadiahmu berupa barang.',
@@ -103,11 +106,7 @@ export default function Persetujuan({ consent, guest = false }: { consent: Conse
                             />
                             <Sub>Saat kamu klaim</Sub>
                             <Bullets
-                                items={[
-                                    'Foto bungkus dari kamera',
-                                    'Titik warung yang kamu scan dan waktu klaim',
-                                    'Hadiah dan kode yang kamu dapat',
-                                ]}
+                                items={['Foto bungkus dari kamera', 'Titik warung yang kamu scan dan waktu klaim', 'Hadiah dan kode yang kamu dapat']}
                             />
                             <Sub>Kalau hadiahmu barang atau pulsa</Sub>
                             <Bullets items={['Nama penerima dan alamat pengiriman', 'Nomor tujuan pengisian']} />

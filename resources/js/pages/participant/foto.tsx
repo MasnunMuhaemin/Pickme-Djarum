@@ -1,4 +1,4 @@
-import { BackLink, LogoutButton, NoticeSheet } from '@/features/participant/components/ui';
+import { BackLink, NoticeSheet } from '@/features/participant/components/ui';
 import { useCameraCapture } from '@/hooks/use-camera-capture';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Camera, ChevronLeft, RotateCcw } from 'lucide-react';
@@ -57,7 +57,6 @@ export default function FotoBungkus({ outlet = 'W07', openedAt }: { outlet?: str
                     >
                         <ChevronLeft className="size-4" strokeWidth={2.5} />
                     </BackLink>
-                    <LogoutButton dark className="bg-white/10" />
                 </header>
 
                 <h1 className="mt-2 text-[32px] leading-none font-extrabold tracking-tight">Foto bungkus</h1>

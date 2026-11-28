@@ -12,8 +12,8 @@ type Position = { rank: number; caps: number; prize: Prize } | null;
 type Tab = 'total' | 'weekly';
 
 const prizeBadge: Record<Exclude<Prize, null>, { label: string; className: string }> = {
-    golden_slot: { label: 'Golden hadiah', className: 'bg-lime text-ink' },
-    limited_edition: { label: 'Limited edition', className: 'bg-[#e9e2bf] text-ink' },
+    golden_slot: { label: 'Golden hadiah', className: 'bg-lime text-[#0b0b0b]' },
+    limited_edition: { label: 'Limited edition', className: 'bg-[#e9e2bf] text-[#0b0b0b]' },
 };
 
 /** Kartu cap hitam seperti desain: angka besar, sobekan tiket, 10 lingkaran cap, dan status mystery gift. */
@@ -35,9 +35,9 @@ function CapCard({
     const mysteryEnabled = usePage().props.mysteryEnabled as boolean | null;
     const slots = capSlots(capTrail, mysteryAt, 10, { won, enabled: mysteryEnabled !== false });
     return (
-        <section className="bg-night text-cream relative overflow-hidden rounded-[28px] px-5 pt-5 pb-5 md:px-7">
-            <span aria-hidden className="absolute -top-12 -right-10 size-40 rounded-full bg-white/[0.04]" />
-            <span aria-hidden className="absolute -bottom-16 -left-14 size-36 rounded-full bg-white/[0.03]" />
+        <section className="text-cream relative overflow-hidden rounded-[28px] bg-[#0b0b0b] px-5 pt-5 pb-5 md:px-7">
+            <span aria-hidden className="bg-lime/15 absolute -top-12 -right-10 size-40 rounded-full" />
+            <span aria-hidden className="bg-lime/10 absolute -bottom-16 -left-14 size-36 rounded-full" />
 
             <div className="relative flex items-center justify-between gap-3">
                 <p className="text-lime text-[11px] font-extrabold tracking-[0.22em] uppercase">Kartu cap</p>
@@ -70,7 +70,7 @@ function CapCard({
                             <span
                                 className={cn(
                                     // Kado cap ke-5 selalu berdenyut hijau, sebelum maupun sesudah dibuka.
-                                    'text-ink grid size-12 place-items-center rounded-full bg-white shadow-[0_0_18px_4px_rgba(143,195,31,0.65)] ring-4 ring-[#8fcf3a] motion-safe:animate-[gift-glow_1.8s_ease-in-out_infinite] md:size-14',
+                                    'bg-cream grid size-12 place-items-center rounded-full text-[#0b0b0b] shadow-[0_0_18px_4px_rgba(143,195,31,0.65)] ring-4 ring-[#8fcf3a] motion-safe:animate-[gift-glow_1.8s_ease-in-out_infinite] md:size-14',
                                 )}
                             >
                                 <Gift className="size-5" />
@@ -103,8 +103,8 @@ function CapCard({
                                     style={{ animationDelay: `${150 + i * 110}ms` }}
                                     aria-label={`Cap ${number}`}
                                 >
-                                    <span className="border-ink/70 grid size-8 place-items-center rounded-full border-2">
-                                        <Check className="text-ink size-4" strokeWidth={3} />
+                                    <span className="grid size-8 place-items-center rounded-full border-2 border-[#0b0b0b]">
+                                        <Check className="size-4 text-[#0b0b0b]" strokeWidth={3} />
                                     </span>
                                 </span>
                             </span>
@@ -113,7 +113,10 @@ function CapCard({
                     return (
                         <span
                             key={number}
-                            className="text-cream/45 grid size-12 place-items-center rounded-full border-2 border-dashed border-white/25 text-[15px] font-extrabold md:size-14"
+                            className={cn(
+                                'grid size-12 place-items-center rounded-full border-2 text-[15px] font-extrabold md:size-14',
+                                isMystery ? 'border-lime text-lime' : 'text-cream/45 border-dashed border-white/25',
+                            )}
                         >
                             {isMystery ? <Gift className="size-5" /> : number}
                         </span>
@@ -164,7 +167,7 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
     return (
         <span
             className={cn(
-                'bg-[#0b0b0b] text-lime grid shrink-0 place-items-center rounded-full font-extrabold',
+                'text-lime grid shrink-0 place-items-center rounded-full bg-[#0b0b0b] font-extrabold',
                 size === 'lg' ? 'size-16 text-[24px] md:size-[72px]' : 'size-14 text-[20px]',
             )}
         >
@@ -174,6 +177,16 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg' }) {
 }
 
 /** Podium tiga besar: juara 1 di tengah (bar lime tertinggi), juara 2 kiri, juara 3 kanan. */
+/** Posisi bintang kecil di sekitar juara 1 (hijau dan oranye, seperti desain). */
+const SPARKLES = [
+    { left: '24%', top: '30%', size: 20, color: '#8fc31f' },
+    { left: '33%', top: '6%', size: 12, color: '#f2b134' },
+    { left: '29%', top: '58%', size: 13, color: '#f2b134' },
+    { left: '70%', top: '14%', size: 15, color: '#f2b134' },
+    { left: '66%', top: '44%', size: 18, color: '#8fc31f' },
+    { left: '78%', top: '70%', size: 10, color: '#8fc31f' },
+];
+
 function Podium({ rows }: { rows: LeaderRow[] }) {
     const order = [rows[1], rows[0], rows[2]];
     const blocks = [
@@ -195,10 +208,30 @@ function Podium({ rows }: { rows: LeaderRow[] }) {
     ];
     return (
         <div className="relative mt-5">
+            {/* Cahaya hijau naik dari bawah bersama batang juara 1 (waktu sama dengan podium-loop-3). */}
             <span
                 aria-hidden
-                className="pointer-events-none absolute inset-x-4 top-0 h-[270px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(143,195,31,0.5),transparent_68%)] blur-xl motion-safe:animate-[podium-glow_12s_ease-in-out_infinite]"
+                className="pointer-events-none absolute inset-x-0 -top-6 h-[300px] origin-bottom rounded-full bg-[radial-gradient(ellipse_at_center,rgba(200,235,110,0.85),rgba(143,195,31,0.35)_45%,transparent_70%)] blur-xl motion-safe:animate-[podium-glow_12s_ease-in-out_infinite]"
             />
+            {/* Bintang kecil di sekitar juara 1: muncul bersama juara 1, lalu bernafas. */}
+            <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 h-[170px] motion-safe:animate-[podium-show-3_12s_ease-in-out_infinite]"
+            >
+                {SPARKLES.map((s, i) => (
+                    <svg
+                        key={i}
+                        viewBox="0 0 24 24"
+                        className="absolute motion-safe:animate-[sparkle_2.4s_ease-in-out_infinite]"
+                        style={{ left: s.left, top: s.top, width: s.size, height: s.size, color: s.color, animationDelay: `${i * 0.35}s` }}
+                    >
+                        <path
+                            d="M12 0C12.9 7.6 16.4 11.1 24 12C16.4 12.9 12.9 16.4 12 24C11.1 16.4 7.6 12.9 0 12C7.6 11.1 11.1 7.6 12 0Z"
+                            fill="currentColor"
+                        />
+                    </svg>
+                ))}
+            </div>
             <div className="relative grid min-h-[290px] grid-cols-3 items-end gap-2 md:gap-4">
                 {order.map((row, i) =>
                     row ? (
@@ -237,7 +270,7 @@ function Podium({ rows }: { rows: LeaderRow[] }) {
                     ),
                 )}
             </div>
-            <span aria-hidden className="bg-[#0b0b0b] absolute inset-x-0 bottom-0 h-2 rounded-full" />
+            <span aria-hidden className="absolute inset-x-0 bottom-0 h-2 rounded-full bg-[#0b0b0b]" />
         </div>
     );
 }
@@ -278,7 +311,7 @@ export default function Kartu({
 
             <section className={cn(name && 'mt-6')}>
                 <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-[24px] font-extrabold tracking-tight">Peringkat</h2>
+                    <h2 className="text-[24px] font-extrabold tracking-tight text-[#0b0b0b]">Peringkat</h2>
                     <div className="flex gap-2">
                         {(
                             [
@@ -293,7 +326,7 @@ export default function Kartu({
                                 aria-pressed={tab === key}
                                 className={cn(
                                     'h-9 rounded-full px-4 text-[13px] font-extrabold transition-colors',
-                                    tab === key ? 'bg-ink text-cream' : 'text-ink bg-white',
+                                    tab === key ? 'text-cream bg-[#0b0b0b]' : 'text-ink bg-white',
                                 )}
                             >
                                 {label}
@@ -318,7 +351,7 @@ export default function Kartu({
                                 <span className="text-ink-soft w-6 shrink-0 text-[14px] font-bold tabular-nums">
                                     {String(row.rank).padStart(2, '0')}
                                 </span>
-                                <span className="bg-ink text-lime grid size-9 shrink-0 place-items-center rounded-full text-[15px] font-extrabold">
+                                <span className="text-lime grid size-9 shrink-0 place-items-center rounded-full bg-[#0b0b0b] text-[15px] font-extrabold">
                                     {row.name.trim().charAt(0).toUpperCase() || '?'}
                                 </span>
                                 <p className="min-w-0 flex-1 truncate text-[16px] font-extrabold">{row.is_me ? `Kamu · ${row.name}` : row.name}</p>
@@ -345,7 +378,7 @@ export default function Kartu({
                             key={`me-${tab}`}
                             className="bg-lime mt-4 flex items-center gap-3 rounded-2xl px-4 py-3.5 motion-safe:animate-[rise-in_.45s_ease-out_both] motion-safe:[animation-delay:700ms]"
                         >
-                            <span className="bg-ink text-cream grid size-9 shrink-0 place-items-center rounded-full text-[13px] font-extrabold">
+                            <span className="text-cream grid size-9 shrink-0 place-items-center rounded-full bg-[#0b0b0b] text-[13px] font-extrabold">
                                 {myPosition?.rank ?? '-'}
                             </span>
                             <p className="min-w-0 flex-1 truncate text-[17px] font-extrabold">Kamu · {name}</p>
@@ -361,8 +394,8 @@ export default function Kartu({
                 </div>
 
                 <p className="text-ink-soft mt-3 text-[12px] leading-relaxed">
-                    10 teratas dapat merchandise limited edition, 4 teratas dapat golden hadiah Laga Kosan. Urutan: cap terbanyak, lalu yang lebih dulu
-                    mencapai jumlah itu.
+                    10 teratas dapat merchandise limited edition, 4 teratas dapat golden hadiah Laga Kosan. Urutan: cap terbanyak, lalu yang lebih
+                    dulu mencapai jumlah itu.
                 </p>
             </section>
 
@@ -373,14 +406,14 @@ export default function Kartu({
                     rel="noopener noreferrer"
                     className="mt-5 flex items-center gap-3 rounded-3xl bg-white p-3.5 transition active:scale-[0.99]"
                 >
-                    <span className="bg-ink text-lime grid size-11 shrink-0 place-items-center rounded-full">
+                    <span className="text-lime grid size-11 shrink-0 place-items-center rounded-full bg-[#0b0b0b]">
                         <MessageSquare className="size-5" />
                     </span>
                     <span className="min-w-0 flex-1">
                         <span className="block text-[14px] font-extrabold">Mau dapat update?</span>
                         <span className="text-ink-soft block text-[12px] leading-snug">Masuk grup WhatsApp untuk info hadiah dan acara</span>
                     </span>
-                    <span className="bg-ink text-lime shrink-0 rounded-full px-4 py-2.5 text-[13px] font-extrabold">Masuk grup</span>
+                    <span className="text-lime shrink-0 rounded-full bg-[#0b0b0b] px-4 py-2.5 text-[13px] font-extrabold">Masuk grup</span>
                 </a>
             )}
         </LimePage>

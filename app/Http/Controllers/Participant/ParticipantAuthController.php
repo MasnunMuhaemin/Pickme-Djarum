@@ -31,13 +31,20 @@ class ParticipantAuthController extends Controller
     }
 
     /**
-     * Popup masuk/daftar di atas beranda tamu (bukan di atas kamera Scan). Peserta yang sudah masuk
-     * (mis. kembali lewat tombol back) langsung ke Scan.
+     * Popup masuk/daftar. Datang dari scan QR warung (QR tersimpan di sesi): popup di atas halaman Scan.
+     * Dari menu Masuk/Daftar: popup di atas beranda tamu. Peserta yang sudah masuk langsung ke Scan.
      */
     private function authPage(Request $request, string $modal): Response|RedirectResponse
     {
         if ($request->session()->get('participant_id')) {
             return to_route('participant.scan');
+        }
+
+        if ($request->session()->get('claim_outlet')) {
+            return Inertia::render('participant/scan', [
+                'modal' => $modal,
+                'areas' => Area::orderBy('name')->get(['id', 'name']),
+            ]);
         }
 
         return Inertia::render('participant/home', [

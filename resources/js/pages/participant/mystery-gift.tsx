@@ -48,7 +48,7 @@ export default function MysteryGift({ reward }: { reward: Reward }) {
                         <button
                             type="button"
                             onClick={() => setRevealing(true)}
-                            className="bg-ink text-cream h-12 w-full rounded-full text-[14px] font-extrabold transition active:scale-[0.99]"
+                            className="text-cream h-12 w-full rounded-full bg-[#0b0b0b] text-[14px] font-extrabold transition active:scale-[0.99]"
                         >
                             Klaim sekarang
                         </button>
@@ -90,7 +90,7 @@ export default function MysteryGift({ reward }: { reward: Reward }) {
 
             {opened && (
                 <div className="mt-4 space-y-3">
-                    <PrimaryButton href="/participant/hadiah" className="text-cream h-14 bg-[#0b0b0b] text-[16px] font-extrabold">
+                    <PrimaryButton href="/participant/hadiah" className="bg-lime h-14 text-[16px] font-extrabold text-[#0b0b0b]">
                         Lihat Hadiahku
                     </PrimaryButton>
                 </div>

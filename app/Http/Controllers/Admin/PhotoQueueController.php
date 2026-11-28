@@ -41,7 +41,7 @@ class PhotoQueueController extends Controller
         return Inertia::render('admin/antrean-foto', [
             'photos' => collect($claims->items())->map(fn (Claim $claim) => $this->detail($claim)),
             'pagination' => ['current' => $claims->currentPage(), 'last' => $claims->lastPage(), 'total' => $claims->total()],
-            'outlets' => Outlet::orderBy('code')->pluck('code'),
+            'outlets' => Outlet::orderBy('code')->get(['code', 'name'])->map(fn (Outlet $o) => ['value' => $o->code, 'label' => "{$o->code} · {$o->name}"]),
             'outlet' => $outlet ?: null,
             'search' => $search,
         ]);
@@ -76,7 +76,7 @@ class PhotoQueueController extends Controller
             'id' => $claim->id,
             'claim_code' => $claim->claim_code,
             'status' => $claim->status,
-            'outlet' => $claim->outlet?->code,
+            'outlet' => $claim->outlet ? "{$claim->outlet->code} · {$claim->outlet->name}" : null,
             'time' => $claim->submitted_at?->format('H:i:s'),
             'date' => $claim->submitted_at?->translatedFormat('d M Y'),
             'photo_url' => $claim->photo ? route('admin.antrean-foto.foto', $claim) : null,

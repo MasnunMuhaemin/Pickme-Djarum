@@ -167,12 +167,14 @@ export default function MasterVoucher({
     partners,
     fulfillments,
     outletCodes,
+    outletNames,
 }: {
     types: VType[];
     summary: string;
     partners: PartnerOption[];
     fulfillments: Option[];
     outletCodes: string[];
+    outletNames: Record<string, string>;
 }) {
     const [outlet, setOutlet] = useState('');
     const [q, setQ] = useState('');
@@ -192,7 +194,7 @@ export default function MasterVoucher({
                     value={outlet}
                     onChange={setOutlet}
                     placeholder="Semua warung"
-                    options={outletCodes.map((code) => ({ value: code, label: `Dipakai di ${code}` }))}
+                    options={outletCodes.map((code) => ({ value: code, label: `Dipakai di ${code} · ${outletNames[code] ?? ''}` }))}
                     className="w-52"
                 />
             </div>
@@ -204,7 +206,11 @@ export default function MasterVoucher({
                             <tr key={t.id}>
                                 <Td className="font-bold">{t.name}</Td>
                                 <Td>{t.partner ?? '-'}</Td>
-                                <Td className="text-ink/60">{t.outlets.length ? t.outlets.join(', ') : 'Belum dipilih warung mana pun'}</Td>
+                                <Td className="text-ink/60">
+                                    {t.outlets.length
+                                        ? t.outlets.map((code) => `${code} · ${outletNames[code] ?? ''}`).join(', ')
+                                        : 'Belum dipilih warung mana pun'}
+                                </Td>
                                 <Td>{rupiah(t.value)}</Td>
                                 <Td>{t.quantity}</Td>
                                 <Td>{t.fulfillment_label}</Td>

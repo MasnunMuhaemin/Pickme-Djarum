@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Outlet extends Model
 {
-    protected $fillable = ['code', 'name', 'whatsapp', 'area_id', 'status', 'qr_tested_at'];
+    protected $fillable = ['code', 'name', 'whatsapp', 'area_id', 'status', 'qr_tested_at', 'lat', 'lng'];
 
     protected $casts = ['qr_tested_at' => 'datetime'];
 

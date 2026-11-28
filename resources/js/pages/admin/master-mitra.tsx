@@ -19,6 +19,7 @@ type PartnerRow = {
     type_names: string;
     address: string | null;
     maps_url: string | null;
+    location: string;
     last_login: string | null;
 };
 

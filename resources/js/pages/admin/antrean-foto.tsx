@@ -34,7 +34,7 @@ export default function AntreanFoto({
 }: {
     photos: PhotoItem[];
     pagination: { current: number; last: number; total: number };
-    outlets: string[];
+    outlets: { value: string; label: string }[];
     outlet: string | null;
     search: string;
 }) {
@@ -75,7 +75,7 @@ export default function AntreanFoto({
                     value={outlet ?? ''}
                     onChange={(code) => router.get(query(1, code || null), {}, { preserveScroll: true })}
                     placeholder="Semua warung"
-                    options={outlets.map((code) => ({ value: code, label: code }))}
+                    options={outlets}
                     className="w-48"
                 />
             </div>

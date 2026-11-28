@@ -125,5 +125,6 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     // A8 Log aktivitas
     Route::get('log', [ActivityLogController::class, 'index'])->name('log');
     Route::get('log/ekspor', [ActivityLogController::class, 'export'])->name('log.ekspor');
+    Route::post('log/hapus-massal', [ActivityLogController::class, 'destroyMany'])->name('log.hapus-massal');
     Route::delete('log/{log}', [ActivityLogController::class, 'destroy'])->name('log.hapus');
 });

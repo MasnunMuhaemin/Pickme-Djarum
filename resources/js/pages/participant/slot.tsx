@@ -78,7 +78,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
             <Head title="Ambil hadiah" />
             <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col md:max-w-[720px]">
                 <header className="lime-hero px-6 pt-8 pb-14">
-                    <h1 className="text-[34px] leading-none font-extrabold tracking-tight">Ambil hadiah</h1>
+                    <h1 className="text-[34px] leading-none font-extrabold tracking-tight text-[#0b0b0b]">Ambil hadiah</h1>
                 </header>
 
                 <main className="bg-cream relative -mt-7 flex flex-1 flex-col rounded-t-[28px] px-5 pt-5 pb-8">
@@ -117,7 +117,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                                                     selected
                                                         ? 'slot-pop bg-lime text-ink z-10 rounded-2xl shadow-[0_12px_28px_-10px_rgba(27,58,26,0.55)]'
                                                         : taken
-                                                          ? 'bg-[#0b0b0b] text-lime'
+                                                          ? 'text-lime bg-[#0b0b0b]'
                                                           : 'bg-cream-deep text-ink-soft'
                                                 }`}
                                             >
@@ -136,8 +136,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                             ))}
                         </div>
                         <p className="text-ink mt-4 text-[12px] leading-relaxed">
-                            Ambil hadiah {position} di papan warung (atau hadiah lain yang masih kosong), lalu masukkan kode 6 karakter yang tercetak di
-                            baliknya.
+                            Ambil hadiah {position} di papan warung, lalu masukkan kode 6 karakter yang tercetak di baliknya.
                         </p>
                     </div>
 
@@ -160,7 +159,7 @@ export default function Slot({ claim, board = [] }: { claim?: Claim; board?: Boa
                                     <button
                                         type="button"
                                         onClick={copyCode}
-                                        className="bg-ink text-cream flex items-center gap-1 rounded-full px-3 py-1.5 text-[10px] font-bold"
+                                        className="text-cream flex items-center gap-1 rounded-full bg-[#0b0b0b] px-3 py-1.5 text-[10px] font-bold"
                                     >
                                         {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
                                         {copied ? 'Tersalin' : 'Salin'}

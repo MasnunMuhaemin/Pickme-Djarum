@@ -125,14 +125,14 @@ export function VoucherArt({ code, value, className }: { code: string; value?: s
             </p>
 
             <p
-                className="text-ink absolute flex items-center justify-center font-mono text-[3.9cqw] font-extrabold tracking-[0.12em]"
+                className="absolute flex items-center justify-center font-mono text-[3.9cqw] font-extrabold tracking-[0.12em] text-[#0b0b0b]"
                 style={pos(v.code)}
             >
                 {code}
             </p>
 
             {value && (
-                <span className="bg-lime text-ink absolute top-[4%] right-[3%] rounded-full px-[2.4cqw] py-[0.8cqw] text-[3.2cqw] font-extrabold">
+                <span className="bg-lime absolute top-[4%] right-[3%] rounded-full px-[2.4cqw] py-[0.8cqw] text-[3.2cqw] font-extrabold text-[#0b0b0b]">
                     {value}
                 </span>
             )}

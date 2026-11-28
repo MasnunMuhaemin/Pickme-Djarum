@@ -1,13 +1,13 @@
 import { type AuthMode, AuthSheet } from '@/features/participant/components/auth-sheet';
-import { LogoutButton, NoticeSheet, RejectedCap } from '@/features/participant/components/ui';
+import { NoticeSheet, RejectedCap } from '@/features/participant/components/ui';
 import { type CapMark, capSlots, type Reward, STAR, useMysteryReady } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
 import { cn } from '@/lib/utils';
 import { CountUp } from '@/pages/participant/kartu';
 import { Link, usePage } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
-import { Box, Check, ChevronRight, Coffee, Fuel, Gift, MapPin, ScanLine, Trophy, Zap } from 'lucide-react';
-import { Fragment, useEffect, useState } from 'react';
+import { ArrowRight, Box, Check, ChevronRight, Coffee, Fuel, Gift, MapPin, ScanLine, Trophy, Zap } from 'lucide-react';
+import { Fragment, type ReactNode, useEffect, useState } from 'react';
 
 /** Data dari App\Support\RewardPresenter::prize(). */
 type Prize = { type: string; title: string; subtitle: string; value: string; remaining: number };
@@ -135,13 +135,13 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                 <span aria-hidden className="absolute -top-16 -right-16 size-56 rounded-full border-[18px] border-white/15" />
                 <img src="/images/logo.webp" alt="Papan Pick(me)" className="relative h-14 w-auto md:h-16" />
                 <div className="relative mt-2 flex items-center justify-between gap-3">
-                    <h1 className="text-[32px] leading-tight font-extrabold tracking-tight md:text-[40px]">
+                    <h1 className="text-[32px] leading-tight font-extrabold tracking-tight text-[#0b0b0b] md:text-[40px]">
                         {greeting(hour)}, {me.name.split(' ')[0]}!
                     </h1>
                     <Link
                         href="/participant/profil"
                         aria-label="Profil saya"
-                        className="bg-ink text-lime ring-lime grid size-12 shrink-0 place-items-center rounded-full text-[18px] font-extrabold ring-2"
+                        className="text-lime ring-lime grid size-12 shrink-0 place-items-center rounded-full bg-[#0b0b0b] text-[18px] font-extrabold ring-2"
                     >
                         {me.name.trim().charAt(0).toUpperCase()}
                     </Link>
@@ -152,7 +152,7 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                             <MapPin className="size-3.5" /> Papan terakhir · {me.last_outlet}
                         </span>
                     )}
-                    <span className="bg-ink/10 flex items-center gap-1.5 rounded-full px-3 py-1.5">
+                    <span className="flex items-center gap-1.5 rounded-full bg-[#6a9a14]/80 px-3 py-1.5 text-[#0b0b0b] shadow-[0_2px_8px_rgba(0,0,0,0.18)]">
                         <Check className="size-3.5" strokeWidth={3} /> Klaim hari ini {me.claims_today}
                         {me.daily_limit > 0 && `/${me.daily_limit}`}
                     </span>
@@ -168,8 +168,8 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                         className="text-cream relative block overflow-hidden rounded-[28px] bg-[#0b0b0b] p-5 shadow-[0_18px_40px_-20px_rgba(0,0,0,0.6)]"
                     >
                         {/* Aksen seperti kartu cap di Leaderboard. */}
-                        <span aria-hidden className="absolute -top-16 -right-12 size-48 rounded-full bg-white/[0.06]" />
-                        <span aria-hidden className="absolute -bottom-16 -left-14 size-36 rounded-full bg-white/[0.03]" />
+                        <span aria-hidden className="bg-lime/15 absolute -top-16 -right-12 size-48 rounded-full" />
+                        <span aria-hidden className="bg-lime/10 absolute -bottom-16 -left-14 size-36 rounded-full" />
                         <div className="relative flex items-center justify-between">
                             <p className="text-lime text-[11px] font-extrabold tracking-[0.22em] uppercase">Kartu cap</p>
                             <span className="text-cream/60 flex items-center text-[12px]">
@@ -197,7 +197,7 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                                             key={number}
                                             className={cn(
                                                 // Kado cap ke-5 selalu berdenyut hijau, sebelum maupun sesudah dibuka.
-                                                'text-ink grid size-12 place-items-center rounded-full bg-white ring-4 ring-[#8fcf3a] motion-safe:animate-[gift-glow_1.8s_ease-in-out_infinite]',
+                                                'bg-cream grid size-12 place-items-center rounded-full text-[#0b0b0b] ring-4 ring-[#8fcf3a] motion-safe:animate-[gift-glow_1.8s_ease-in-out_infinite]',
                                             )}
                                         >
                                             <Gift className="size-5" />
@@ -221,8 +221,8 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                                                 )}
                                                 style={{ animationDelay: `${150 + i * 110}ms` }}
                                             >
-                                                <span className="border-ink/70 grid size-8 place-items-center rounded-full border-2">
-                                                    <Check className="text-ink size-3.5" strokeWidth={3} />
+                                                <span className="grid size-8 place-items-center rounded-full border-2 border-[#0b0b0b]">
+                                                    <Check className="size-3.5 text-[#0b0b0b]" strokeWidth={3} />
                                                 </span>
                                             </span>
                                         </span>
@@ -231,7 +231,10 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                                 return (
                                     <span
                                         key={number}
-                                        className="text-cream/45 grid size-12 place-items-center rounded-full border-2 border-dashed border-white/25 text-[15px] font-extrabold"
+                                        className={cn(
+                                            'grid size-12 place-items-center rounded-full border-2 text-[15px] font-extrabold',
+                                            number === slots.giftAt ? 'border-lime text-lime' : 'text-cream/45 border-dashed border-white/25',
+                                        )}
                                     >
                                         {number === slots.giftAt ? <Gift className="size-5" /> : number}
                                     </span>
@@ -256,7 +259,7 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                             text="Klaim produk"
                             icon={ScanLine}
                             className="bg-lime text-ink"
-                            iconClass="bg-ink text-lime"
+                            iconClass="bg-[#0b0b0b] text-lime"
                             starClass="bg-[#7aa91a]"
                             rings
                         />
@@ -266,7 +269,7 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
                             text="Voucher & merch"
                             icon={Gift}
                             className="text-cream bg-[#0b0b0b]"
-                            iconClass="bg-lime text-ink"
+                            iconClass="bg-lime text-[#0b0b0b]"
                             starClass="bg-[#2b3a12]"
                         />
                         <ShortcutTile
@@ -282,23 +285,42 @@ function Dashboard({ me, lastBoard, leaders }: { me: Me; lastBoard: LastBoard; l
 
                     {/* Info program, digeser ke samping */}
                     <div className="mt-6 flex items-center justify-between">
-                        <h2 className="text-[18px] font-extrabold tracking-tight">Yang lagi seru</h2>
+                        <h2 className="text-[18px] font-extrabold tracking-tight text-[#0b0b0b]">Yang lagi seru</h2>
                         <span className="text-ink-soft text-[12px]">Geser</span>
                     </div>
                     <div className="-mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-2 [scrollbar-width:none] md:-mx-8 md:scroll-px-8 md:px-8">
                         <PromoCard
-                            href="/participant/scan"
+                            href="/participant/peta"
                             tag="Papan warung"
-                            title="Jajan dekat. Ambil hadiahnya."
-                            text="Beli bungkus di warung terdekat, foto, lalu ambil hadiah."
+                            title="Jajan dekat. Kejutan melekat."
+                            cta="Lihat papan"
+                            tone="dark"
                             image="/images/banner.webp"
+                            art={<BoardDots />}
+                        />
+                        <PromoCard
+                            href="/participant/peta"
+                            tag="Peta"
+                            title="Cari papan dan mitra terdekat."
+                            cta="Lihat peta"
+                            tone="white"
+                            art={<MiniMap />}
                         />
                         <PromoCard
                             href="/participant/kartu"
                             tag="Kartu cap"
-                            title="5 cap = mystery gift"
-                            text="Kumpulkan cap dan naik ke 10 besar peringkat."
+                            title="5 cap, mystery gift."
+                            cta="Lihat kartu cap"
+                            tone="lime"
                             image="/images/design-voucher3.webp"
+                        />
+                        <PromoCard
+                            href="/participant/kartu"
+                            tag="Peringkat"
+                            title="10 teratas dapat merchandise limited edition."
+                            cta="Lihat peringkat"
+                            tone="beige"
+                            art={<RankBars />}
                         />
                     </div>
 
@@ -322,8 +344,8 @@ function LastBoardCard({ board }: { board: NonNullable<LastBoard> }) {
     return (
         <section className="mt-8">
             <div className="flex items-center justify-between">
-                <h2 className="text-[18px] font-extrabold tracking-tight">Papan terakhir</h2>
-                <Link href="/participant/scan" className="text-[13px] font-extrabold">
+                <h2 className="text-[18px] font-extrabold tracking-tight text-[#0b0b0b]">Papan terakhir</h2>
+                <Link href="/participant/peta" className="text-[13px] font-extrabold">
                     Lihat papan
                 </Link>
             </div>
@@ -440,18 +462,91 @@ function ShortcutTile({
     );
 }
 
-function PromoCard({ href, tag, title, text, image }: { href: string; tag: string; title: string; text: string; image: string }) {
+const PROMO_TONE = {
+    dark: { card: 'bg-[#0b0b0b] text-white', tag: 'bg-lime text-[#0b0b0b]', cta: 'text-lime', image: 'opacity-30' },
+    white: { card: 'border-lime border-2 bg-white text-[#0b0b0b]', tag: 'text-lime bg-[#0b0b0b]', cta: 'text-[#0b0b0b]', image: '' },
+    lime: { card: 'bg-lime text-[#0b0b0b]', tag: 'text-lime bg-[#0b0b0b]', cta: 'text-[#0b0b0b]', image: 'opacity-40 mix-blend-multiply' },
+    beige: { card: 'bg-[#e3dcb0] text-[#0b0b0b]', tag: 'bg-[#0b0b0b] text-white', cta: 'text-[#0b0b0b]', image: '' },
+} as const;
+
+/** Kartu "Yang lagi seru" (desain): label, judul besar, tautan dengan panah, dan ilustrasi kecil di kanan. */
+function PromoCard({
+    href,
+    tag,
+    title,
+    cta,
+    tone,
+    image,
+    art,
+}: {
+    href: string;
+    tag: string;
+    title: string;
+    cta: string;
+    tone: keyof typeof PROMO_TONE;
+    image?: string;
+    art?: ReactNode;
+}) {
+    const style = PROMO_TONE[tone];
     return (
-        <Link href={href} className="bg-night text-cream relative w-[78%] shrink-0 snap-start overflow-hidden rounded-3xl p-4 md:w-[60%]">
-            <img src={image} alt="" aria-hidden loading="lazy" className="absolute inset-0 size-full object-cover opacity-30" />
-            <span className="relative block">
-                <span className="bg-lime text-ink inline-block rounded-full px-2.5 py-1 text-[10px] font-extrabold tracking-wide uppercase">
-                    {tag}
+        <Link
+            href={href}
+            className={cn('relative flex min-h-[168px] w-[82%] shrink-0 snap-start overflow-hidden rounded-[1.75rem] p-5 md:w-[60%]', style.card)}
+        >
+            {image && <img src={image} alt="" aria-hidden loading="lazy" className={cn('absolute inset-0 size-full object-cover', style.image)} />}
+            <span className="relative flex min-w-0 flex-1 flex-col">
+                <span className={cn('self-start rounded-full px-3 py-1 text-[11px] font-extrabold tracking-wide uppercase', style.tag)}>{tag}</span>
+                <span className="mt-3 block max-w-[16ch] text-[19px] leading-[1.18] font-extrabold tracking-tight">{title}</span>
+                <span className={cn('mt-auto flex items-center gap-2 pt-4 text-[14px] font-extrabold', style.cta)}>
+                    {cta} <ArrowRight className="size-4" />
                 </span>
-                <span className="mt-3 block text-[22px] leading-tight font-extrabold">{title}</span>
-                <span className="text-cream/75 mt-1 block text-[12px]">{text}</span>
             </span>
+            {art && <span className="relative ml-2 flex shrink-0 items-center">{art}</span>}
         </Link>
+    );
+}
+
+/** Ilustrasi papan: 25 titik, tiga baris atas terisi lime. */
+function BoardDots() {
+    return (
+        <span aria-hidden className="grid grid-cols-5 gap-1.5">
+            {Array.from({ length: 25 }, (_, i) => (
+                <span key={i} className={cn('size-3 rounded-full', i < 15 ? 'bg-lime' : 'border border-white/70')} />
+            ))}
+        </span>
+    );
+}
+
+/** Ilustrasi peta mini: jalan, pin warung lime, kampus oranye, dan mitra hitam. */
+function MiniMap() {
+    return (
+        <svg aria-hidden viewBox="0 0 120 150" className="h-[140px] w-[112px]">
+            <rect width="120" height="150" rx="18" fill="#f1eee3" />
+            <rect x="72" y="104" width="38" height="36" rx="6" fill="#d6ebb8" />
+            <path d="M0 52 L120 34 M0 96 L120 84 M40 0 L52 150 M88 0 L96 150" stroke="#ffffff" strokeWidth="7" />
+            {[
+                [28, 30],
+                [92, 22],
+                [24, 106],
+                [104, 112],
+            ].map(([x, y]) => (
+                <circle key={`${x}-${y}`} cx={x} cy={y} r="8" fill="#8fc31f" stroke="#fff" strokeWidth="3" />
+            ))}
+            <circle cx="62" cy="64" r="11" fill="#f2b134" stroke="#fff" strokeWidth="3" />
+            <rect x="92" y="62" width="13" height="13" rx="3" fill="#0b0b0b" stroke="#fff" strokeWidth="2" />
+            <rect x="80" y="118" width="13" height="13" rx="3" fill="#0b0b0b" stroke="#fff" strokeWidth="2" />
+        </svg>
+    );
+}
+
+/** Ilustrasi podium peringkat: batang tengah lime paling tinggi. */
+function RankBars() {
+    return (
+        <span aria-hidden className="flex items-end gap-1.5 self-end">
+            <span className="h-14 w-7 rounded-t-xl bg-[#0b0b0b]" />
+            <span className="bg-lime h-24 w-7 rounded-t-xl" />
+            <span className="h-10 w-7 rounded-t-xl bg-[#0b0b0b]" />
+        </span>
     );
 }
 
@@ -474,8 +569,6 @@ function Landing({ modal, areas = [], prizes = [] }: { modal?: string; areas?: A
                     aria-hidden
                     className="pointer-events-none absolute inset-x-0 top-0 h-full w-full object-cover object-top select-none"
                 />
-                {/* Tombol keluar di pojok kanan atas, hanya saat sudah masuk. */}
-                <LogoutButton className="bg-ink/80 text-lime hover:bg-ink hover:text-lime absolute top-4 right-4 z-10 md:hidden" />
                 <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(13,27,21,0)_0%,rgba(13,27,21,0.1)_35%,rgba(13,27,21,0.72)_58%,#0d1b15_80%)]" />
                 <img src="/images/logo.webp" alt="Papan Pick(me)" className="relative h-14 w-auto md:h-16" />
                 <span className="bg-lime text-ink relative mt-3 inline-block rounded-full px-3.5 py-1.5 text-[13px] font-extrabold">
@@ -493,7 +586,7 @@ function Landing({ modal, areas = [], prizes = [] }: { modal?: string; areas?: A
 
             <div className="bg-cream relative -mt-7 flex flex-1 flex-col rounded-t-[2rem] px-5 pt-6 pb-6 md:px-8 md:pt-8 md:pb-10">
                 <div className="flex-1 md:mx-auto md:w-full md:max-w-[720px]">
-                    <h2 className="text-[18px] font-extrabold tracking-tight">Hadiah yang bisa kamu dapat</h2>
+                    <h2 className="text-[18px] font-extrabold tracking-tight text-[#0b0b0b]">Hadiah yang bisa kamu dapat</h2>
                     <div className="mt-2">
                         {prizes.map((prize) => {
                             const style = prizeStyle[prize.type] ?? { icon: Gift, tile: 'from-[#e9e2bf] to-[#8b8466]' };
@@ -521,7 +614,7 @@ function Landing({ modal, areas = [], prizes = [] }: { modal?: string; areas?: A
                         {steps.map((step, i) => (
                             <Fragment key={step}>
                                 {i > 0 && <span className="mx-3 h-0.5 flex-1 bg-[#e8e1c4]" />}
-                                <span className="bg-ink text-lime grid size-10 shrink-0 place-items-center rounded-full text-[15px] font-extrabold">
+                                <span className="text-lime grid size-10 shrink-0 place-items-center rounded-full bg-[#0b0b0b] text-[15px] font-extrabold">
                                     {i + 1}
                                 </span>
                             </Fragment>

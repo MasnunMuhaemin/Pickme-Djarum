@@ -1,5 +1,4 @@
-import { limeLogoutClass } from '@/features/participant/components/lime-page';
-import { LogoutButton, PrimaryButton } from '@/features/participant/components/ui';
+import { PrimaryButton } from '@/features/participant/components/ui';
 import { RewardImage } from '@/features/participant/components/voucher-art';
 import { type Reward, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
@@ -41,10 +40,11 @@ export default function HadiahBarang({ gift, reward }: { gift: GiftData; reward:
                     className="pointer-events-none absolute right-3 bottom-[8px] z-10 w-[27%] max-w-[150px] select-none md:right-8 md:w-[22%]"
                 />
                 <div className="flex items-center justify-end gap-2">
-                    <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
-                    <LogoutButton className={limeLogoutClass} />
+                    <span className="text-cream rounded-full bg-[#0b0b0b] px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
                 </div>
-                <h1 className="relative mt-2 max-w-[62%] text-[32px] leading-none font-extrabold tracking-tight md:text-[44px]">{reward.title}</h1>
+                <h1 className="relative mt-2 max-w-[62%] text-[32px] leading-none font-extrabold tracking-tight text-[#0b0b0b] md:text-[44px]">
+                    {reward.title}
+                </h1>
                 <p className="relative mt-2 max-w-[62%] text-[13px] font-semibold md:text-sm">{reward.description}</p>
             </div>
 

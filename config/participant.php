@@ -52,4 +52,6 @@ return [
     // Tautan grup WhatsApp untuk kartu "Mau dapat update?" di halaman Kartu. Kosong: kartu disembunyikan.
     'whatsapp_group_url' => env('WHATSAPP_GROUP_URL'),
 
+    // Titik kampus di Peta peserta.
+    'campus' => ['name' => 'Telkom University', 'short' => 'TU', 'lat' => -6.9733, 'lng' => 107.6301],
 ];

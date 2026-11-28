@@ -72,6 +72,7 @@ class ActivityLogController extends Controller
         'board.printed' => 'Mencetak lembar papan (kode hadiah)',
         'device.flagged' => 'Perangkat ditandai',
         'log.deleted' => 'Menghapus log aktivitas',
+        'log.bulk_deleted' => 'Menghapus log aktivitas (massal)',
         'claim.photo_deleted' => 'Menghapus foto klaim',
         'admin.created' => 'Menambah admin',
         'admin.updated' => 'Mengubah akun admin',
@@ -125,12 +126,33 @@ class ActivityLogController extends Controller
         return back()->with('status', 'Log dihapus.');
     }
 
-    public function export(): StreamedResponse
+    /** Hapus beberapa log sekaligus (bulk action). Penghapusan dicatat sebagai satu log baru beserta ringkasannya. */
+    public function destroyMany(Request $request): RedirectResponse
     {
-        return response()->streamDownload(function () {
+        $data = $request->validate(
+            ['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer']],
+            ['ids.required' => 'Pilih log yang akan dihapus.', 'ids.max' => 'Maksimal 500 log sekali hapus.'],
+        );
+        $logs = ActivityLog::whereIn('id', $data['ids'])->get();
+        if ($logs->isEmpty()) {
+            return back()->withErrors(['ids' => 'Log yang dipilih tidak ditemukan.']);
+        }
+        $summary = collect($this->present($logs))->take(20)->map(fn ($row) => "{$row['at_full']} · {$row['actor']} · {$row['action']}")->implode(' | ');
+        ActivityLog::whereIn('id', $logs->pluck('id'))->delete();
+        ActivityLogger::log('log.bulk_deleted', 'log', null, ['count' => $logs->count(), 'reason' => $summary], $request->user());
+
+        return back()->with('status', $logs->count().' log dihapus.');
+    }
+
+    /** Ekspor CSV: semua log, atau hanya log terpilih bila ?ids=1,2,3 dikirim (bulk action). */
+    public function export(Request $request): StreamedResponse
+    {
+        $ids = collect(explode(',', (string) $request->query('ids')))->map(fn ($id) => (int) $id)->filter()->values();
+
+        return response()->streamDownload(function () use ($ids) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['Waktu', 'Pelaku', 'Aksi', 'Objek', 'Detail']);
-            ActivityLog::latest()->chunk(500, function ($chunk) use ($out) {
+            ActivityLog::when($ids->isNotEmpty(), fn ($q) => $q->whereIn('id', $ids))->latest()->chunk(500, function ($chunk) use ($out) {
                 foreach ($this->present($chunk) as $row) {
                     fputcsv($out, [$row['at_full'], $row['actor'], $row['action'], $row['subject'], $row['detail']]);
                 }

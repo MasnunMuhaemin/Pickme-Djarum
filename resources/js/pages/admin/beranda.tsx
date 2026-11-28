@@ -1,20 +1,20 @@
-import { rupiah } from '@/features/admin/ui';
+import { DateInput, SelectInput, rupiah } from '@/features/admin/ui';
 import AdminLayout from '@/layouts/admin-layout';
 import { cn } from '@/lib/utils';
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
 import { Camera, ChevronRight, Clock, LayoutGrid, Store, Tag, TrendingUp } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 
 type Stats = {
-    claimsToday: number;
+    claims: number;
     oldestToday: string | null;
     toProcess: number;
     needsHelp: number;
     usedSlots: number;
     totalSlots: number;
-    redeemedWeek: number;
-    redeemedWeekValue: number;
+    redeemed: number;
+    redeemedValue: number;
 };
 type Recent = { code: string; outlet: string | null; kind: string; status: string; ago: string | null };
 
@@ -106,9 +106,13 @@ function LineChart({ days }: { days: { label: string; count: number }[] }) {
     const x = (i: number) => pad.l + (i * (w - pad.l - pad.r)) / Math.max(1, days.length - 1);
     const y = (v: number) => pad.t + (1 - v / top) * (h - pad.t - pad.b);
     const points = days.map((d, i) => `${x(i)},${y(d.count)}`).join(' ');
-    const last = days[days.length - 1];
+    // Badge jumlah klaim hanya tampil saat titik kurva disorot (hover/sentuh).
+    const [hover, setHover] = useState<number | null>(null);
+    const picked = hover !== null ? days[hover] : null;
+    const col = (w - pad.l - pad.r) / Math.max(1, days.length - 1);
+    const labelStep = Math.max(1, Math.ceil(days.length / 8));
     return (
-        <svg viewBox={`0 0 ${w} ${h}`} className="h-auto w-full" role="img" aria-label="Grafik klaim per hari, 7 hari terakhir">
+        <svg viewBox={`0 0 ${w} ${h}`} className="h-auto w-full" role="img" aria-label="Grafik klaim disetujui" onMouseLeave={() => setHover(null)}>
             {[0, 1, 2, 3, 4].map((i) => {
                 const v = (top / 4) * i;
                 return (
@@ -124,17 +128,48 @@ function LineChart({ days }: { days: { label: string; count: number }[] }) {
             <polyline points={points} fill="none" stroke="#8fc31f" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
             {days.map((d, i) => (
                 <g key={d.label}>
-                    <circle cx={x(i)} cy={y(d.count)} r={i === days.length - 1 ? 5 : 3} fill={i === days.length - 1 ? '#1b3a1a' : '#8fc31f'} />
-                    <text x={x(i)} y={h - 6} textAnchor="middle" fontSize="9" fill="#9a9a8a">
-                        {d.label}
-                    </text>
+                    <circle cx={x(i)} cy={y(d.count)} r={hover === i ? 5 : 3} fill={hover === i ? '#0b0b0b' : '#8fc31f'} />
+                    {/* Banyak titik (30 hari, mingguan): label berselang supaya tidak bertumpuk. */}
+                    {((i % labelStep === 0 && days.length - 1 - i >= labelStep / 2) || i === days.length - 1) && (
+                        <text x={x(i)} y={h - 6} textAnchor="middle" fontSize="9" fill="#9a9a8a">
+                            {d.label}
+                        </text>
+                    )}
                 </g>
             ))}
-            {last && (
-                <g>
-                    <rect x={x(days.length - 1) - 70} y={y(last.count) - 38} width="64" height="28" rx="8" fill="#1b3a1a" />
-                    <text x={x(days.length - 1) - 38} y={y(last.count) - 20} textAnchor="middle" fontSize="10" fontWeight="800" fill="#fdf8d5">
-                        {last.count} klaim
+            {/* Area sorot tak terlihat per hari: selebar satu kolom supaya mudah disentuh. */}
+            {days.map((d, i) => (
+                <rect
+                    key={`hit-${d.label}`}
+                    x={x(i) - col / 2}
+                    y={pad.t}
+                    width={col}
+                    height={h - pad.t - pad.b}
+                    fill="transparent"
+                    onMouseEnter={() => setHover(i)}
+                    onTouchStart={() => setHover(i)}
+                />
+            ))}
+            {picked && hover !== null && (
+                <g pointerEvents="none">
+                    {/* Badge di kiri titik, kecuali titik paling kiri supaya tidak terpotong. */}
+                    <rect
+                        x={Math.min(Math.max(x(hover) - 32, pad.l), w - pad.r - 64)}
+                        y={Math.max(y(picked.count) - 38, 0)}
+                        width="64"
+                        height="28"
+                        rx="8"
+                        fill="#0b0b0b"
+                    />
+                    <text
+                        x={Math.min(Math.max(x(hover) - 32, pad.l), w - pad.r - 64) + 32}
+                        y={Math.max(y(picked.count) - 38, 0) + 18}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fontWeight="800"
+                        fill="#fdf8d5"
+                    >
+                        {picked.count} klaim
                     </text>
                 </g>
             )}
@@ -197,24 +232,49 @@ function Legend({ items }: { items: { label: string; value: number; color: strin
     );
 }
 
-function Bar({ value, max, className }: { value: number; max: number; className?: string }) {
+/** Batang progres. `color` mewarnai isi; `className` untuk wadah (mis. jarak). */
+function Bar({ value, max, color = 'bg-lime', className }: { value: number; max: number; color?: string; className?: string }) {
     return (
-        <div className="bg-cream-deep h-2 overflow-hidden rounded-full">
-            <div
-                className={cn('h-full rounded-full', className ?? 'bg-lime')}
-                style={{ width: `${max ? Math.min(100, (value / max) * 100) : 0}%` }}
-            />
+        <div className={cn('bg-cream-deep h-2 overflow-hidden rounded-full', className)}>
+            <div className={cn('h-full rounded-full', color)} style={{ width: `${max ? Math.min(100, (value / max) * 100) : 0}%` }} />
         </div>
     );
 }
 
 const STATUS_CHIP: Record<string, { label: string; className: string }> = {
-    approved: { label: 'Disetujui', className: 'bg-lime text-ink' },
+    approved: { label: 'Disetujui', className: 'bg-lime text-[#0b0b0b]' },
     rejected: { label: 'Ditolak', className: 'bg-[#fde0dc] text-[#b42318]' },
 };
 
 /** A1 Beranda: ringkasan program sesuai desain admin. */
+const PERIODS = [
+    { key: 'hari', label: 'Hari ini', chart: 'Per jam hari ini', text: 'hari ini' },
+    { key: '7', label: '7 hari', chart: 'Per hari, 7 hari terakhir', text: '7 hari terakhir' },
+    { key: '30', label: '30 hari', chart: 'Per hari, 30 hari terakhir', text: '30 hari terakhir' },
+    { key: 'semua', label: 'Semua', chart: 'Per minggu, seluruh program', text: 'seluruh program' },
+] as const;
+
+const MONTH_NAMES = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const isoDate = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const shortDate = (value: string) => {
+    const [y, m, d] = value.split('-').map(Number);
+    return `${d} ${MONTH_NAMES[m - 1].slice(0, 3)} ${y}`;
+};
+
+/** 12 bulan terakhir untuk pilihan bulan: nilai "YYYY-MM-01|YYYY-MM-akhir". */
+function monthOptions() {
+    const now = new Date();
+    return Array.from({ length: 12 }, (_, k) => {
+        const first = new Date(now.getFullYear(), now.getMonth() - k, 1);
+        const last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+        return { value: `${isoDate(first)}|${isoDate(last)}`, label: `${MONTH_NAMES[first.getMonth()]} ${first.getFullYear()}` };
+    });
+}
+
 export default function Beranda({
+    period,
+    range,
     stats,
     days,
     claimStatus,
@@ -226,6 +286,8 @@ export default function Beranda({
     perPartner,
     partnerWeek,
 }: {
+    period: (typeof PERIODS)[number]['key'] | 'rentang';
+    range: { from: string; to: string } | null;
     stats: Stats;
     days: { label: string; count: number }[];
     claimStatus: { approved: number; waiting: number; rejected: number };
@@ -244,14 +306,73 @@ export default function Beranda({
     const partnerMax = Math.max(1, ...perPartner.map((p) => p.count));
     const oldest = stats.oldestToday ? new Date(stats.oldestToday).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : null;
 
+    const rangeText = range ? `${shortDate(range.from)} – ${shortDate(range.to)}` : '';
+    const current =
+        period === 'rentang' && range
+            ? { key: 'rentang', label: rangeText, chart: `Klaim disetujui, ${rangeText}`, text: rangeText }
+            : (PERIODS.find((p) => p.key === period) ?? PERIODS[1]);
+    const [from, setFrom] = useState(range?.from ?? '');
+    const [to, setTo] = useState(range?.to ?? '');
+    const months = monthOptions();
+    const monthValue = range ? (months.find((m) => m.value === `${range.from}|${range.to}`)?.value ?? '') : '';
+    const applyRange = (a: string, b: string) => a && b && router.get('/admin', { dari: a, sampai: b }, { preserveScroll: true });
+
     return (
         <AdminLayout active="beranda" title="Beranda" subtitle="Ringkasan program Lotre Warung">
+            {/* Filter periode: berlaku untuk semua panel kecuali antrean pemenuhan (selalu antrean saat ini). */}
+            <div className="-mt-2 mb-4 flex flex-wrap items-center gap-2">
+                <span className="text-ink/55 text-[12px] font-bold">Periode</span>
+                {PERIODS.map((p) => (
+                    <Link
+                        key={p.key}
+                        href={p.key === '7' ? '/admin' : `/admin?periode=${p.key}`}
+                        preserveScroll
+                        className={cn(
+                            'rounded-full px-3.5 py-1.5 text-[12px] font-extrabold transition',
+                            p.key === period ? 'bg-[#0b0b0b] text-white' : 'hover:bg-cream-deep bg-white',
+                        )}
+                    >
+                        {p.label}
+                    </Link>
+                ))}
+                {/* Rentang bebas lewat kalender, atau satu bulan penuh. */}
+                <span className="text-ink/30 mx-1 hidden sm:inline">|</span>
+                <DateInput
+                    value={from}
+                    onChange={(v) => {
+                        setFrom(v);
+                        applyRange(v, to);
+                    }}
+                    className={cn('w-40', period === 'rentang' && 'ring-2 ring-[#0b0b0b]')}
+                />
+                <span className="text-ink/55 text-[12px] font-bold">s/d</span>
+                <DateInput
+                    value={to}
+                    onChange={(v) => {
+                        setTo(v);
+                        applyRange(from, v);
+                    }}
+                    className={cn('w-40', period === 'rentang' && 'ring-2 ring-[#0b0b0b]')}
+                />
+                <SelectInput
+                    value={monthValue}
+                    onChange={(v) => {
+                        const [a, b] = v.split('|');
+                        setFrom(a);
+                        setTo(b);
+                        applyRange(a, b);
+                    }}
+                    placeholder="Pilih bulan"
+                    options={months}
+                    className="w-44"
+                />
+            </div>
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
                 <StatCard
                     icon={Camera}
-                    value={stats.claimsToday}
-                    label="Klaim hari ini"
-                    hint={oldest ? `Klaim pertama ${oldest}` : 'Belum ada klaim hari ini'}
+                    value={stats.claims}
+                    label={period === 'hari' ? 'Klaim hari ini' : `Klaim ${current.text}`}
+                    hint={period === 'hari' ? (oldest ? `Klaim pertama ${oldest}` : 'Belum ada klaim hari ini') : 'Klaim disetujui'}
                     href="/admin/antrean-foto"
                 />
                 <StatCard
@@ -266,25 +387,25 @@ export default function Beranda({
                     icon={LayoutGrid}
                     value={stats.usedSlots}
                     label="Hadiah terpakai"
-                    hint={`dari ${stats.totalSlots} hadiah`}
+                    hint={`dari ${stats.totalSlots} hadiah · ${current.text}`}
                     href="/admin/papan"
                     dark
                     progress={stats.totalSlots ? (stats.usedSlots / stats.totalSlots) * 100 : 0}
                 />
                 <StatCard
                     icon={Tag}
-                    value={stats.redeemedWeek}
+                    value={stats.redeemed}
                     label="Voucher ditukar"
-                    hint={`Minggu ini · ${rupiah(stats.redeemedWeekValue)}`}
+                    hint={`${current.label} · ${rupiah(stats.redeemedValue)}`}
                     href="/admin/pembayaran"
                 />
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-                <Panel title="Klaim per hari" subtitle="7 hari terakhir" right={<TrendingUp className="text-ink/40 size-4" />}>
+                <Panel title="Klaim" subtitle={current.chart} right={<TrendingUp className="text-ink/40 size-4" />}>
                     <LineChart days={days} />
                 </Panel>
-                <Panel title="Status klaim" subtitle={`Seluruh program · ${claimTotal} klaim`}>
+                <Panel title="Status klaim" subtitle={`${current.label} · ${claimTotal} klaim`}>
                     <Donut
                         parts={[
                             { value: claimStatus.approved, color: '#8fc31f' },
@@ -305,7 +426,7 @@ export default function Beranda({
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <Panel title="Hadiah terpakai" subtitle={`Per jenis · ${prizeTotal} hadiah`}>
+                <Panel title="Hadiah terpakai" subtitle={`Per jenis · ${current.label} · ${prizeTotal} hadiah`}>
                     <div className="flex items-center gap-4">
                         <Donut
                             size={110}
@@ -318,7 +439,7 @@ export default function Beranda({
                         <Legend items={prizes.map((p, i) => ({ label: p.label, value: p.count, color: ['#8fc31f', '#0b0b0b'][i] ?? '#e0a526' }))} />
                     </div>
                 </Panel>
-                <Panel title="Hadiah per area" subtitle="Terpakai dari kapasitas">
+                <Panel title="Hadiah per area" subtitle={`Terpakai ${current.text} dari kapasitas`}>
                     <div className="space-y-3">
                         {perArea.map((a) => (
                             <div key={a.name}>
@@ -328,12 +449,12 @@ export default function Beranda({
                                         {a.used}/{a.total}
                                     </span>
                                 </div>
-                                <Bar value={a.used} max={a.total} className="bg-lime mt-1" />
+                                <Bar value={a.used} max={a.total} className="mt-1.5" />
                             </div>
                         ))}
                     </div>
                 </Panel>
-                <Panel title="Warung teratas" subtitle="Hadiah terpakai terbanyak">
+                <Panel title="Warung teratas" subtitle={`Hadiah terpakai terbanyak · ${current.label}`}>
                     <ul className="space-y-3">
                         {topOutlets.map((o, i) => (
                             <li key={o.code} className="flex items-center gap-3">
@@ -357,14 +478,14 @@ export default function Beranda({
                     </ul>
                 </Panel>
                 <Panel title="Antrean pemenuhan" subtitle={`${queues.reduce((a, q) => a + q.count, 0)} permintaan`}>
-                    <div className="space-y-2.5">
+                    <div className="space-y-3">
                         {queues.map((q) => (
                             <Link key={q.label} href={q.href} className="block">
                                 <div className="flex justify-between text-[11px]">
                                     <span className={cn('font-bold', q.danger && 'text-[#b42318]')}>{q.label}</span>
                                     <span className="font-extrabold tabular-nums">{q.count}</span>
                                 </div>
-                                <Bar value={q.count} max={queueMax} className={cn('mt-1', q.danger ? 'bg-[#d0271d]' : 'bg-lime')} />
+                                <Bar value={q.count} max={queueMax} color={q.danger ? 'bg-[#d0271d]' : 'bg-lime'} className="mt-1.5" />
                             </Link>
                         ))}
                     </div>
@@ -424,7 +545,7 @@ export default function Beranda({
                 </Panel>
                 <Panel
                     title="Penukaran per mitra"
-                    subtitle={`Minggu lalu · ${partnerWeek.partners} mitra · ${partnerWeek.vouchers} voucher · ${rupiah(partnerWeek.value)}`}
+                    subtitle={`${current.label} · ${partnerWeek.partners} mitra · ${partnerWeek.vouchers} voucher · ${rupiah(partnerWeek.value)}`}
                 >
                     {perPartner.length === 0 ? (
                         <p className="text-ink/50 py-6 text-center text-[12px]">Belum ada penukaran minggu lalu.</p>
@@ -433,7 +554,7 @@ export default function Beranda({
                             {perPartner.map((p, i) => (
                                 <div key={p.name} className="grid grid-cols-[100px_1fr_24px] items-center gap-3 text-[11px]">
                                     <span className="truncate font-bold">{p.name}</span>
-                                    <Bar value={p.count} max={partnerMax} className={i === 0 ? 'bg-lime' : 'bg-[#0b0b0b]'} />
+                                    <Bar value={p.count} max={partnerMax} color={i === 0 ? 'bg-lime' : 'bg-[#0b0b0b]'} />
                                     <span className="text-right font-extrabold tabular-nums">{p.count}</span>
                                 </div>
                             ))}

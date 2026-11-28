@@ -9,6 +9,7 @@ use App\Models\MysteryAccess;
 use App\Models\MysteryPrize;
 use App\Models\Outlet;
 use App\Models\Participant;
+use App\Models\Partner;
 use App\Models\Setting;
 use App\Models\Slot;
 use App\Models\User;
@@ -386,10 +387,33 @@ class CustomerFlowTest extends TestCase
             ->where('studentBlocked', true));
     }
 
-    public function test_guest_login_and_register_open_over_home_not_scan(): void
+    public function test_map_shows_pinned_outlets_and_voucher_partners(): void
+    {
+        $outlet = Outlet::where('code', 'W07')->firstOrFail();
+        $outlet->update(['lat' => -6.97, 'lng' => 107.63]);
+        $partner = Partner::create(['name' => 'Kopi Peta', 'type' => 'umum', 'status' => 'active', 'lat' => -6.971, 'lng' => 107.631]);
+        Partner::create(['name' => 'Tanpa Titik', 'type' => 'umum', 'status' => 'active']);
+
+        // Peta terbuka untuk tamu; hanya titik yang sudah diisi yang tampil.
+        $this->get('/participant/peta')->assertInertia(fn ($page) => $page->component('participant/peta')
+            ->where('outlets.0.code', 'W07')
+            ->where('outlets.0.label', '07')
+            ->where('outlets.0.total', 25)
+            ->has('partners', 1)
+            ->where('partners.0.name', $partner->name)
+            ->where('campus.short', 'TU'));
+    }
+
+    public function test_guest_login_opens_over_home_from_menu_and_over_scan_from_qr(): void
     {
         $this->get('/participant/masuk')->assertInertia(fn ($page) => $page->component('participant/home')->where('modal', 'login')->has('prizes'));
         $this->get('/participant/daftar')->assertInertia(fn ($page) => $page->component('participant/home')->where('modal', 'register')->has('areas'));
+
+        // Lewat scan QR warung: popup masuk tetap di atas halaman Scan.
+        $this->get('/w07')->assertRedirect('/participant/masuk');
+        $this->get('/participant/masuk')->assertInertia(fn ($page) => $page->component('participant/scan')->where('modal', 'login'));
+        $this->post('/participant/scan', ['code' => 'W07'])->assertRedirect('/participant/masuk');
+        $this->get('/participant/daftar')->assertInertia(fn ($page) => $page->component('participant/scan')->where('modal', 'register'));
     }
 
     public function test_login_without_scan_never_lands_on_the_board(): void

@@ -1,16 +1,16 @@
-import { LogoutButton } from '@/features/participant/components/ui';
 import { useNavDrag } from '@/hooks/use-nav-drag';
 import { useSlidingIndicator } from '@/hooks/use-sliding-indicator';
 import { useCaps } from '@/lib/participant';
 import { cn } from '@/lib/utils';
 import { Link, router, usePage } from '@inertiajs/react';
-import { CreditCard, Gift, House, LogIn, ScanLine, UserRound } from 'lucide-react';
+import { CreditCard, Gift, House, LogIn, Map as MapIcon, ScanLine, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const items = [
     { key: 'beranda', label: 'Beranda', href: '/participant', icon: House },
     { key: 'hadiah', label: 'Hadiahku', href: '/participant/hadiah', icon: Gift },
     { key: 'scan', label: 'Scan', href: '/participant/scan', icon: ScanLine },
+    { key: 'peta', label: 'Peta', href: '/participant/peta', icon: MapIcon },
     { key: 'kartu', label: 'Leaderboard', href: '/participant/kartu', icon: CreditCard },
     { key: 'profil', label: 'Profil', href: '/participant/profil', icon: UserRound },
 ];
@@ -30,7 +30,9 @@ function activeKey(url: string): string {
         return 'beranda';
     }
     if (path.startsWith('/participant/profil')) return 'profil';
-    if (path.startsWith('/participant/scan') || path.startsWith('/participant/lupa-pin')) {
+    if (path.startsWith('/participant/peta')) return 'peta';
+    if (path.startsWith('/participant/lupa-pin')) return 'profil';
+    if (path.startsWith('/participant/scan')) {
         return 'scan';
     }
     if (path.startsWith('/participant/kartu')) {
@@ -70,7 +72,22 @@ function useNavItems() {
     return [...items.filter((item) => item.key !== 'hadiah' && item.key !== 'profil'), loginItem];
 }
 
+const LAST_MENU_KEY = 'pickme:last-menu';
+
+/** Simpan menu utama dari alamat ini, mis. detail voucher tercatat sebagai Hadiahku. Peta tidak dicatat. */
+export function rememberMenu(path: string) {
+    const key = activeKey(path);
+    const href = items.find((item) => item.key === key)?.href;
+    if (key !== 'peta' && href) window.sessionStorage.setItem(LAST_MENU_KEY, href);
+}
+
+/** Menu utama terakhir yang dibuka peserta; Beranda bila belum ada. */
+export function lastMenuHref(): string {
+    return (typeof window !== 'undefined' && window.sessionStorage.getItem(LAST_MENU_KEY)) || '/participant';
+}
+
 function useActiveNav(): string {
+    const loggedIn = useIsLoggedIn();
     const [path, setPath] = useState(() => window.location.pathname);
 
     useEffect(() => {
@@ -78,7 +95,9 @@ function useActiveNav(): string {
         return () => stop();
     }, []);
 
-    return activeKey(path);
+    const key = activeKey(path);
+    // Lupa PIN: peserta masuk lewat Profil; tamu lewat popup Masuk (tamu tidak punya menu Profil).
+    return key === 'profil' && !loggedIn ? 'masuk' : key;
 }
 
 export function DesktopNav() {
@@ -125,7 +144,6 @@ export function DesktopNav() {
                 {loggedIn ? (
                     <>
                         <span className="bg-lime-soft text-ink rounded-full px-3 py-1.5 text-[10px] font-bold">Kartu {caps} / 10</span>
-                        <LogoutButton dark />
                     </>
                 ) : (
                     <Link href="/participant/masuk" className="bg-lime text-ink h-10 rounded-full px-5 text-[12px] font-extrabold">
@@ -139,7 +157,7 @@ export function DesktopNav() {
 
 /** Label pendek di navbar HP supaya pil yang melebar tetap muat di HP kecil. */
 // Label pendek supaya muat di kolom tetap (HP 360 px).
-const NAV_LABELS: Record<string, string> = { hadiah: 'Hadiah', kartu: 'Peringkat' };
+const NAV_LABELS: Record<string, string> = { beranda: 'Home', hadiah: 'Hadiah', kartu: 'Peringkat' };
 
 /** Lama pil meluncur sebelum membuka halaman tanpa navbar (kamera), supaya geraknya sempat terlihat. */
 const SLIDE_BEFORE_LEAVE_MS = 260;
@@ -158,7 +176,10 @@ export function BottomNav() {
 
     if (compact) {
         return (
-            <nav className="bg-night after:bg-night sticky bottom-0 z-30 mt-auto grid grid-cols-3 border-t border-white/10 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] after:absolute after:top-full after:left-0 after:h-2 after:w-full md:hidden">
+            <nav
+                style={{ gridTemplateColumns: `repeat(${compactItems.length}, minmax(0, 1fr))` }}
+                className="bg-night after:bg-night sticky bottom-0 z-30 mt-auto grid border-t border-white/10 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] after:absolute after:top-full after:left-0 after:h-2 after:w-full md:hidden"
+            >
                 {compactItems.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -185,12 +206,14 @@ export function BottomNav() {
                     {...handlers}
                     className={cn(
                         'pointer-events-auto relative mx-auto h-14 touch-none items-center rounded-full bg-[#0b0b0b] px-1.5 shadow-[0_10px_24px_-8px_rgba(0,0,0,0.45)] select-none',
-                        // 5 menu (peserta masuk): jarak dibagi rata. 4 menu (tamu): empat kolom sama lebar.
+                        // 6 menu (peserta masuk) atau 5 menu (tamu): kolom sama lebar supaya ikon tidak bergeser.
                         cameraCentered
                             ? 'grid max-w-[324px] grid-cols-3 gap-0.5'
                             : visibleItems.length === 4
                               ? 'grid max-w-[352px] grid-cols-4'
-                              : 'grid max-w-[384px] grid-cols-5',
+                              : visibleItems.length === 5
+                                ? 'grid max-w-[384px] grid-cols-5'
+                                : 'grid max-w-[404px] grid-cols-6',
                     )}
                 >
                     <span aria-hidden className="bg-lime pointer-events-none absolute top-0 left-0 rounded-full" style={indicatorStyle} />
@@ -234,10 +257,16 @@ export function BottomNav() {
                     isActive ? 'gap-1 px-3 text-[12px] font-extrabold text-[#0b0b0b]' : 'text-cream w-10 hover:bg-white/10',
                     // Menu selebar kolomnya agar posisinya tidak bergeser.
                     fill && 'w-full min-w-0',
-                    fill && isActive && 'gap-0.5 px-0.5 text-[10px] tracking-tight',
+                    // 6 menu di HP kecil: label aktif sedikit lebih kecil supaya "Peringkat" tidak terpotong.
+                    fill &&
+                        isActive &&
+                        (visibleItems.length >= 6 ? 'gap-px px-0 text-[9px] tracking-tighter' : 'gap-0.5 px-0.5 text-[10px] tracking-tight'),
                 )}
             >
-                <Icon className={cn('shrink-0', fill && isActive ? 'size-4' : 'size-5')} strokeWidth={isActive ? 2.25 : 1.75} />
+                <Icon
+                    className={cn('shrink-0', fill && isActive ? (visibleItems.length >= 6 ? 'size-3.5' : 'size-4') : 'size-5')}
+                    strokeWidth={isActive ? 2.25 : 1.75}
+                />
                 {isActive && <span className="truncate">{NAV_LABELS[item.key] ?? item.label}</span>}
             </Link>
         );

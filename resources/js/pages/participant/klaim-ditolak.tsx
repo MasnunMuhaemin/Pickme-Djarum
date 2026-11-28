@@ -43,7 +43,7 @@ export default function KlaimDitolak({
                     aria-hidden
                     className="pointer-events-none absolute right-3 bottom-[8px] z-10 w-[27%] max-w-[150px] select-none md:right-8 md:w-[22%]"
                 />
-                <h1 className="relative flex max-w-[78%] items-center gap-3 text-[30px] leading-[1.05] font-extrabold tracking-tight md:text-[38px]">
+                <h1 className="relative flex max-w-[78%] items-center gap-3 text-[30px] leading-[1.05] font-extrabold tracking-tight text-[#0b0b0b] md:text-[38px]">
                     <span className="text-lime grid size-12 shrink-0 place-items-center rounded-full bg-[#0b0b0b]">
                         <CircleX className="size-7" strokeWidth={2.5} />
                     </span>

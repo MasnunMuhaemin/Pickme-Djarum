@@ -5,7 +5,15 @@ import { type CSSProperties, type PointerEvent, useEffect, useRef, useState } fr
 /** Bagian kartu yang harus tergosok sebelum kartu dianggap terbuka penuh. */
 // Kartu terbuka setelah 85% penutup tergosok; sisa penutup lalu memudar.
 const SCRATCH_DONE = 0.85;
-const CONFETTI_COLORS = ['#8fc31f', '#1b3a1a', '#e23b2e', '#fdf8d5', '#72a012', '#f5c542', '#ef8b2c'];
+// Warna konfeti dari desain: lime muda, lime, hijau tua, hitam, oranye, merah.
+const CONFETTI_COLORS = ['#d6f26e', '#8fc31f', '#3f5c12', '#111111', '#f2b134', '#b42318'];
+/** Bentuk keping: pita bergelombang (SVG), kelopak melengkung, potongan kertas, dan segitiga. */
+const CONFETTI_SHAPES: { className?: string; style?: CSSProperties; w: number; h: number }[] = [
+    { className: 'confetti-flake', w: 1.4, h: 1 },
+    { style: { borderRadius: '80% 10% 80% 10%' }, w: 1.3, h: 0.8 },
+    { style: { borderRadius: '2px 6px 2px 6px' }, w: 0.9, h: 1.25 },
+    { style: { clipPath: 'polygon(0 0, 100% 35%, 20% 100%)' }, w: 1.1, h: 1.1 },
+];
 
 type Phase = 'cover' | 'done';
 
@@ -120,7 +128,7 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
             <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col md:max-w-[560px]">
                 <header className="lime-hero px-5 pt-8 pb-10">
                     <p className="text-ink/70 text-[10px] font-extrabold tracking-[0.2em] uppercase">Kartu hadiah</p>
-                    <h1 className="mt-1 text-[28px] leading-none font-extrabold tracking-tight md:text-[34px]">
+                    <h1 className="mt-1 text-[28px] leading-none font-extrabold tracking-tight text-[#0b0b0b] md:text-[34px]">
                         {done ? 'Selamat!' : 'Saatnya buka hadiah'}
                     </h1>
                 </header>
@@ -155,26 +163,45 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
                         className="pointer-events-none absolute top-[34%] left-1/2 size-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(143,195,31,0.7)_0%,rgba(114,160,18,0.35)_40%,transparent_70%)] blur-sm"
                     />
 
-                    {/* Konfeti: satu keping SVG dipakai ulang dengan warna dan ukuran berbeda. */}
+                    {/* Konfeti meledak sekali dari tengah kartu: tiap keping terlempar ke arahnya sendiri, lalu jatuh dan memudar. */}
+                    {/* z-20: keping terlihat di depan kartu, bukan tertutup kartunya. */}
                     {done && !reduced && (
-                        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-                            {Array.from({ length: 180 }, (_, i) => {
+                        <div aria-hidden className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+                            {Array.from({ length: 170 }, (_, i) => {
                                 // Sebaran semu-acak yang tetap (tanpa Math.random) supaya hasil render stabil.
-                                const r = (n: number) => ((i * 9301 + n * 49297) % 233280) / 233280;
+                                // Hash sinus: sudut dan jarak tiap keping tidak berurutan, jadi ledakan tidak membentuk spiral.
+                                const r = (n: number) => {
+                                    const x = Math.sin(i * 12.9898 + n * 78.233) * 43758.5453;
+                                    return x - Math.floor(x);
+                                };
+                                // Dua ledakan: 110 keping dari tengah kartu, lalu 60 keping dari kiri dan kanan sesaat kemudian.
+                                const second = i >= 110;
+                                const side = i % 2 ? 1 : -1;
+                                const angle = second ? -Math.PI / 2 + side * (0.35 + r(1) * 0.9) : r(1) * Math.PI * 2;
+                                const distance = second ? 160 + r(2) * 260 : 70 + Math.sqrt(r(2)) * 380;
+                                const shape = CONFETTI_SHAPES[i % CONFETTI_SHAPES.length];
+                                const size = 9 + Math.round(r(6) * 15);
                                 return (
                                     <span
                                         key={i}
-                                        className="confetti-flake absolute -top-8 block animate-[confetti_var(--dur)_cubic-bezier(.2,.6,.4,1)_forwards]"
+                                        className={cn(
+                                            'absolute block animate-[confetti-burst_var(--dur)_cubic-bezier(.12,.75,.3,1)_both]',
+                                            second ? 'top-[52%]' : 'top-[34%]',
+                                            shape.className,
+                                        )}
                                         style={
                                             {
-                                                left: `${r(1) * 100}%`,
-                                                width: `${6 + Math.round(r(6) * 10)}px`,
-                                                height: `${9 + Math.round(r(7) * 12)}px`,
-                                                backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-                                                animationDelay: `${Math.round(r(2) * 900) - 250}ms`,
-                                                '--dur': `${(2.6 + r(3) * 2.2).toFixed(2)}s`,
-                                                '--dx': `${Math.round((r(4) - 0.5) * 300)}px`,
-                                                '--rot': `${Math.round(540 + r(5) * 900)}deg`,
+                                                ...shape.style,
+                                                left: second ? `${50 + side * 38}%` : '50%',
+                                                width: `${Math.round(size * shape.w)}px`,
+                                                height: `${Math.round(size * shape.h)}px`,
+                                                backgroundColor: CONFETTI_COLORS[(i * 7) % CONFETTI_COLORS.length],
+                                                animationDelay: `${(second ? 280 : 0) + Math.round(r(3) * 140)}ms`,
+                                                '--dur': `${(2.2 + r(4) * 1.6).toFixed(2)}s`,
+                                                // Sedikit condong ke atas supaya ledakannya terasa naik dulu baru jatuh.
+                                                '--dx': `${Math.round(Math.cos(angle) * distance)}px`,
+                                                '--dy': `${Math.round(Math.sin(angle) * distance * 0.9 - 110)}px`,
+                                                '--rot': `${Math.round((r(5) - 0.5) * 1440)}deg`,
                                             } as CSSProperties
                                         }
                                     />
@@ -189,7 +216,7 @@ export function PrizeReveal({ label, onDone }: { label: string; onDone: () => vo
                             aria-hidden
                             className="absolute -inset-12 rounded-[56px] bg-[radial-gradient(circle,rgba(143,195,31,0.9),rgba(114,160,18,0.4)_55%,transparent_74%)] blur-2xl"
                         />
-                        <span aria-hidden className="bg-ink absolute inset-0 translate-x-2 translate-y-2 -rotate-3 rounded-[22px] opacity-80" />
+                        <span aria-hidden className="absolute inset-0 translate-x-2 translate-y-2 -rotate-3 rounded-[22px] bg-[#0b0b0b] opacity-80" />
                         <div
                             className={cn(
                                 'relative aspect-[3/4] w-full overflow-hidden rounded-[22px] shadow-[0_18px_40px_-16px_rgba(0,0,0,0.5)] ring-4 ring-[#c9e88f] transition-transform duration-500',

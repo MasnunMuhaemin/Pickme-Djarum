@@ -9,6 +9,7 @@ use App\Models\Partner;
 use App\Models\PartnerPayout;
 use App\Models\Voucher;
 use App\Support\ActivityLogger;
+use App\Support\GeoPoint;
 use App\Support\Mask;
 use App\Support\Pin;
 use Carbon\CarbonInterface;
@@ -173,6 +174,11 @@ class PartnerController extends Controller
             'type' => [Rule::requiredIf($partner->type !== 'outlet'), 'nullable', Rule::in(['umum', 'kuota'])],
             'address' => ['nullable', 'string', 'max:160'],
             'maps_url' => ['nullable', 'url:https', 'max:500', 'regex:/^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps)/'],
+            'location' => ['nullable', 'string', 'max:500', function ($attribute, $value, $fail) {
+                if ($value && ! GeoPoint::parse($value)) {
+                    $fail('Titik peta tidak dikenali. Tempel koordinat dari Google Maps, mis. -6.9733, 107.6301.');
+                }
+            }],
         ], [
             'whatsapp.regex' => 'Nomor WhatsApp diawali 08, 10 sampai 13 angka.',
             'maps_url.url' => 'Tautan harus diawali https://.',
@@ -181,7 +187,12 @@ class PartnerController extends Controller
         if ($partner->type === 'outlet') {
             unset($data['type']);
         }
-        $fields = ['name', 'whatsapp', 'type', 'address', 'maps_url'];
+        // Titik peta: dari isian koordinat, atau dari tautan Google Maps bila tautannya memuat koordinat.
+        $point = GeoPoint::parse($data['location'] ?? null) ?? GeoPoint::parse($data['maps_url'] ?? null);
+        unset($data['location']);
+        $data['lat'] = $point['lat'] ?? null;
+        $data['lng'] = $point['lng'] ?? null;
+        $fields = ['name', 'whatsapp', 'type', 'address', 'maps_url', 'lat', 'lng'];
         $before = $partner->only($fields);
         $partner->update($data);
         ActivityLogger::log('partner.updated', 'partner', $partner->id, ['from' => $before, 'to' => $partner->only($fields)], $request->user());

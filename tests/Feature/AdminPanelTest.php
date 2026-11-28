@@ -496,6 +496,18 @@ kalimat dua
         $this->put("/admin/mitra/{$partner->id}", [...$base, 'maps_url' => 'https://contoh.com/peta'])->assertSessionHasErrors('maps_url');
         $this->put("/admin/mitra/{$partner->id}", [...$base, 'maps_url' => 'https://maps.app.goo.gl/abc123'])->assertSessionHasNoErrors();
         $this->assertSame('Jl. Sukabirus 12', $partner->fresh()->address);
+        // Titik peta: tautan pendek tanpa koordinat butuh isian manual; teks yang bukan koordinat ditolak.
+        $this->assertNull($partner->fresh()->lat);
+        $this->put("/admin/mitra/{$partner->id}", [...$base, 'maps_url' => 'https://maps.app.goo.gl/abc123', 'location' => 'dekat masjid'])
+            ->assertSessionHasErrors('location');
+        $this->put("/admin/mitra/{$partner->id}", [...$base, 'maps_url' => 'https://maps.app.goo.gl/abc123', 'location' => '-6.9741, 107.6312'])
+            ->assertSessionHasNoErrors();
+        $this->assertEqualsWithDelta(-6.9741, (float) $partner->fresh()->lat, 0.00001);
+        // Tautan panjang Google Maps yang memuat koordinat terbaca otomatis.
+        $this->put("/admin/mitra/{$partner->id}", [...$base, 'maps_url' => 'https://www.google.com/maps/place/Kopi/@-6.9755,107.6299,17z'])
+            ->assertSessionHasNoErrors();
+        $this->assertEqualsWithDelta(107.6299, (float) $partner->fresh()->lng, 0.00001);
+        $this->put("/admin/mitra/{$partner->id}", [...$base, 'maps_url' => 'https://maps.app.goo.gl/abc123'])->assertSessionHasNoErrors();
 
         $claim = $this->rewardedClaim('voucher', voucherTypeId: VoucherType::where('fulfillment', 'mitra')->value('id'));
         $claim->voucher->update(['partner_id' => $partner->id]);
@@ -637,5 +649,51 @@ kalimat dua
         }
         $this->assertSame(5, $participant->fresh()->caps);
         $this->assertSame(0, $mysteryOf($participant));
+    }
+
+    public function test_activity_log_bulk_export_and_delete(): void
+    {
+        $this->actingAs($this->admin);
+        $logs = collect(range(1, 3))->map(fn ($n) => ActivityLog::create(['action' => 'settings.updated', 'actor_type' => 'system', 'subject_type' => 'settings', 'metadata' => ['n' => $n]]));
+        [$a, $b, $keep] = $logs;
+
+        // Ekspor hanya log terpilih.
+        $csv = $this->get("/admin/log/ekspor?ids={$a->id},{$b->id}")->assertOk()->streamedContent();
+        $this->assertSame(3, substr_count(trim($csv), chr(10)) + 1);
+
+        $this->post('/admin/log/hapus-massal', ['ids' => []])->assertSessionHasErrors('ids');
+        $this->post('/admin/log/hapus-massal', ['ids' => [$a->id, $b->id]])->assertSessionHas('status', '2 log dihapus.');
+        $this->assertDatabaseMissing('activity_logs', ['id' => $a->id]);
+        $this->assertDatabaseMissing('activity_logs', ['id' => $b->id]);
+        $this->assertDatabaseHas('activity_logs', ['id' => $keep->id]);
+        $this->assertDatabaseHas('activity_logs', ['action' => 'log.bulk_deleted', 'actor_type' => 'admin']);
+    }
+
+    public function test_dashboard_period_filter(): void
+    {
+        $this->actingAs($this->admin);
+        $outlet = Outlet::firstOrFail();
+        $participant = $this->participant();
+        $make = fn (string $code, $at) => Claim::create(['participant_id' => $participant->id, 'outlet_id' => $outlet->id, 'claim_code' => $code, 'status' => 'approved', 'submitted_at' => $at]);
+        Claim::query()->update(['submitted_at' => now()->subYear()]);
+        $make('KLMT001', now());
+        $make('KLMT002', now()->subDays(3));
+        $make('KLMT003', now()->subDays(20));
+
+        $this->get('/admin')->assertInertia(fn ($page) => $page->where('period', '7')->where('stats.claims', 2)->has('days', 7));
+        $this->get('/admin?periode=hari')->assertInertia(fn ($page) => $page->where('stats.claims', 1)->has('days', (int) now()->format('G') + 1));
+        $this->get('/admin?periode=30')->assertInertia(fn ($page) => $page->where('stats.claims', 3)->has('days', 30));
+        $this->get('/admin?periode=semua')->assertInertia(fn ($page) => $page->where('period', 'semua')->where('stats.claims', Claim::where('status', 'approved')->count()));
+        // Nilai tidak dikenal kembali ke 7 hari.
+        $this->get('/admin?periode=abc')->assertInertia(fn ($page) => $page->where('period', '7'));
+
+        // Rentang tanggal dari kalender (urutan terbalik ditukar) dan satu bulan penuh.
+        $from = now()->subDays(5)->toDateString();
+        $to = now()->subDays(1)->toDateString();
+        $this->get("/admin?dari={$to}&sampai={$from}")->assertInertia(fn ($page) => $page
+            ->where('period', 'rentang')->where('range.from', $from)->where('range.to', $to)->where('stats.claims', 1)->has('days', 5));
+        $this->get('/admin?dari='.now()->startOfMonth()->toDateString().'&sampai='.now()->endOfMonth()->toDateString())
+            ->assertInertia(fn ($page) => $page->where('period', 'rentang')->has('days', now()->daysInMonth));
+        $this->get('/admin?dari=bukan-tanggal&sampai=2026-01-01')->assertInertia(fn ($page) => $page->where('period', '7')->where('range', null));
     }
 }

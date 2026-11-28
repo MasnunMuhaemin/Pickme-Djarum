@@ -1,8 +1,8 @@
-import { BackLink, PrimaryButton } from '@/features/participant/components/ui';
+import { PrimaryButton } from '@/features/participant/components/ui';
 import { RewardImage, VoucherArt } from '@/features/participant/components/voucher-art';
 import { type Reward } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
-import { ChevronLeft, ExternalLink, MapPin } from 'lucide-react';
+import { ExternalLink, MapPin } from 'lucide-react';
 import { useState } from 'react';
 
 type VoucherData = {
@@ -52,13 +52,11 @@ export default function VoucherPage({ voucher, reward }: { voucher: VoucherData;
                     aria-hidden
                     className="pointer-events-none absolute right-3 bottom-[8px] z-10 w-[27%] max-w-[150px] select-none md:right-8 md:w-[22%]"
                 />
-                <div className="relative flex items-center justify-between gap-2">
-                    <BackLink fallback="/participant/hadiah" className="bg-ink text-lime grid size-10 shrink-0 place-items-center rounded-full">
-                        <ChevronLeft className="size-5" strokeWidth={2.5} />
-                    </BackLink>
-                    <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">{reward.status_label}</span>
+                {/* Tanpa chevron: halaman ini sudah punya tombol "Kembali ke Hadiahku". */}
+                <div className="relative flex items-center justify-end gap-2">
+                    <span className="text-cream rounded-full bg-[#0b0b0b] px-3.5 py-1.5 text-[12px] font-extrabold">{reward.status_label}</span>
                 </div>
-                <h1 className="relative mt-3 max-w-[65%] text-[34px] leading-none font-extrabold tracking-tight md:text-[44px]">
+                <h1 className="relative mt-3 max-w-[65%] text-[34px] leading-none font-extrabold tracking-tight text-[#0b0b0b] md:text-[44px]">
                     {isVoucher ? 'Voucher' : reward.title}
                 </h1>
             </div>

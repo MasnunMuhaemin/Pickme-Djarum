@@ -5,6 +5,7 @@ use App\Http\Controllers\Participant\ClaimController;
 use App\Http\Controllers\Participant\ConsentController;
 use App\Http\Controllers\Participant\GiftController;
 use App\Http\Controllers\Participant\HomeController;
+use App\Http\Controllers\Participant\MapController;
 use App\Http\Controllers\Participant\ParticipantAuthController;
 use App\Http\Controllers\Participant\RewardController;
 use App\Http\Controllers\Participant\ScanController;
@@ -65,6 +66,8 @@ Route::prefix('participant')->name('participant.')->group(function () {
     Route::get('terima-kasih', fn () => Inertia::render('participant/terima-kasih'))->name('terima-kasih');
 
     Route::get('kartu', [CardController::class, 'index'])->name('kartu');
+    // Peta papan warung dan mitra voucher; terbuka juga untuk tamu.
+    Route::get('peta', MapController::class)->name('peta');
 
     Route::get('mahasiswa', [SupportController::class, 'showStudent'])->name('mahasiswa');
     Route::post('mahasiswa', [SupportController::class, 'storeStudent'])->name('mahasiswa.store');

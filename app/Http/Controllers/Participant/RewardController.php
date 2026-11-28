@@ -37,7 +37,8 @@ class RewardController extends Controller
 
         return Inertia::render('participant/hadiah', [
             'rewards' => $rewards,
-            'approvedClaims' => $claims->where('status', 'approved')->count(),
+            // Sama dengan jumlah cap di kartu cap, supaya angka di Hadiahku selalu sinkron.
+            'approvedClaims' => $participant->caps,
         ]);
     }
 

@@ -1,6 +1,4 @@
 import { FollowUpNotice } from '@/features/participant/components/follow-up-notice';
-import { limeLogoutClass } from '@/features/participant/components/lime-page';
-import { LogoutButton } from '@/features/participant/components/ui';
 import { RewardImage } from '@/features/participant/components/voucher-art';
 import { type Reward, rewardToneClass } from '@/features/participant/rewards';
 import ParticipantLayout from '@/layouts/participant-layout';
@@ -70,10 +68,9 @@ export default function Hadiahku({ rewards = [], approvedClaims = 0 }: { rewards
         <ParticipantLayout title="Hadiahku" nav="hadiah">
             <div className="lime-hero px-5 pt-4 pb-14 md:px-8 md:pt-6">
                 <div className="flex items-center justify-end gap-2">
-                    <span className="bg-ink text-cream rounded-full px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
-                    <LogoutButton className={limeLogoutClass} />
+                    <span className="text-cream rounded-full bg-[#0b0b0b] px-3.5 py-1.5 text-[12px] font-extrabold">Cap {caps} / 10</span>
                 </div>
-                <h1 className="mt-2 text-[36px] leading-none font-extrabold tracking-tight md:text-[44px]">Hadiahku</h1>
+                <h1 className="mt-2 text-[36px] leading-none font-extrabold tracking-tight text-[#0b0b0b] md:text-[44px]">Hadiahku</h1>
                 <p className="mt-2 text-[13px] font-semibold md:text-sm">
                     {rewardCount} hadiah dari {approvedClaims} klaim disetujui.
                 </p>

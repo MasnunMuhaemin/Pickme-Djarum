@@ -1,9 +1,10 @@
 import { LimePage } from '@/features/participant/components/lime-page';
-import { logoutParticipant, OutlineButton } from '@/features/participant/components/ui';
+import { logoutParticipant, NoticeSheet, OutlineButton } from '@/features/participant/components/ui';
 import { STAR } from '@/features/participant/rewards';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, LogOut } from 'lucide-react';
+import { useState } from 'react';
 
 type Me = {
     name: string;
@@ -78,13 +79,14 @@ const SHORTCUTS = [
 
 /** Profil saya: ringkasan cap, peringkat, klaim hari ini, data akun, dan pintasan. */
 export default function Profil({ me }: { me: Me }) {
+    const [confirmLogout, setConfirmLogout] = useState(false);
     const status = me.is_student ? 'Mahasiswa' : me.is_student === false ? 'Bukan mahasiswa' : 'Belum diisi';
 
     return (
         <LimePage title="Profil saya" nav="profil">
             <div className="relative flex items-center gap-3 overflow-hidden rounded-3xl bg-white p-4">
                 <CardAccent />
-                <span className="bg-ink text-lime ring-lime relative grid size-14 shrink-0 place-items-center rounded-full text-[22px] font-extrabold ring-2">
+                <span className="text-lime ring-lime relative grid size-14 shrink-0 place-items-center rounded-full bg-[#0b0b0b] text-[22px] font-extrabold ring-2">
                     {me.name.trim().charAt(0).toUpperCase()}
                 </span>
                 <p className="relative min-w-0 flex-1 truncate text-[20px] font-extrabold tracking-tight">{me.name}</p>
@@ -93,7 +95,7 @@ export default function Profil({ me }: { me: Me }) {
 
             <div className="mt-3 grid grid-cols-3 gap-2.5">
                 <Stat label="Cap" value={`${Math.min(me.caps, 10)}/10`} className="text-cream bg-[#0b0b0b]" starClass="bg-[#2b3a12]" />
-                <Stat label="Peringkat" value={me.rank ? `#${me.rank}` : '-'} className="bg-lime text-ink" starClass="bg-[#7aa91a]" rings />
+                <Stat label="Peringkat" value={me.rank ? `#${me.rank}` : '-'} className="bg-lime text-[#0b0b0b]" starClass="bg-[#7aa91a]" rings />
                 <Stat
                     label="Klaim hari ini"
                     value={me.daily_limit > 0 ? `${me.claims_today}/${me.daily_limit}` : `${me.claims_today}`}
@@ -102,7 +104,7 @@ export default function Profil({ me }: { me: Me }) {
                 />
             </div>
 
-            <h2 className="mt-6 text-[18px] font-extrabold tracking-tight">Akun</h2>
+            <h2 className="mt-6 text-[18px] font-extrabold tracking-tight text-[#0b0b0b]">Akun</h2>
             <div className="relative mt-2 overflow-hidden rounded-3xl bg-white px-5 py-1">
                 <CardAccent flip />
                 <div className="divide-ink/8 relative divide-y">
@@ -113,7 +115,7 @@ export default function Profil({ me }: { me: Me }) {
                 </div>
             </div>
 
-            <h2 className="mt-6 text-[18px] font-extrabold tracking-tight">Pintasan</h2>
+            <h2 className="mt-6 text-[18px] font-extrabold tracking-tight text-[#0b0b0b]">Pintasan</h2>
             <div className="relative mt-2 overflow-hidden rounded-3xl bg-white px-5 py-1">
                 <CardAccent />
                 <div className="divide-ink/8 relative divide-y">
@@ -126,9 +128,20 @@ export default function Profil({ me }: { me: Me }) {
                 </div>
             </div>
 
-            <OutlineButton onClick={logoutParticipant} className="mt-6">
+            <OutlineButton onClick={() => setConfirmLogout(true)} className="mt-6">
                 Keluar
             </OutlineButton>
+
+            {/* Konfirmasi keluar; setelah keluar peserta diarahkan ke Beranda. */}
+            <NoticeSheet
+                open={confirmLogout}
+                onClose={() => setConfirmLogout(false)}
+                icon={<LogOut className="size-7" />}
+                title="Keluar dari akun?"
+                text="Kamu perlu masuk lagi dengan nomor WhatsApp dan PIN untuk klaim hadiah."
+                primary={{ label: 'Ya, keluar', onClick: logoutParticipant }}
+                secondary={{ label: 'Tidak' }}
+            />
         </LimePage>
     );
 }

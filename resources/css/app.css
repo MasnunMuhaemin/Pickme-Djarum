@@ -178,17 +178,22 @@
     mask: url('/images/confetti.svg') center / contain no-repeat;
 }
 
-/* Konfeti layar buka hadiah: jatuh dari atas sambil melayang ke samping dan berputar (--dx, --rot per potongan). */
-@keyframes confetti {
+/* Konfeti layar buka hadiah: meledak dari tengah ke arah --dx/--dy, lalu jatuh sambil berputar (--rot) dan memudar. */
+@keyframes confetti-burst {
     0% {
-        transform: translate3d(0, 0, 0) rotate(0deg);
+        transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
         opacity: 1;
     }
-    80% {
+    /* Letupan cepat dan sedikit membesar, lalu melayang turun. */
+    22% {
+        transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.15) rotate(calc(var(--rot) * 0.3));
+        opacity: 1;
+    }
+    75% {
         opacity: 1;
     }
     100% {
-        transform: translate3d(var(--dx, 0px), 105vh, 0) rotate(var(--rot, 540deg));
+        transform: translate(calc(-50% + var(--dx) * 1.25), calc(-50% + var(--dy) + 55vh)) scale(0.9) rotate(var(--rot));
         opacity: 0;
     }
 }
@@ -356,20 +361,34 @@
 }
 /* Cahaya hijau podium naik dan memudar bersama bar juara 1 (siklus 12 detik). */
 @keyframes podium-glow {
+    /* Sama dengan podium-loop-3 (batang juara 1): tumbuh dari bawah, bertahan, lalu turun lagi. */
     0%,
-    5% {
+    29% {
         opacity: 0;
-        transform: translateY(14px) scale(0.9);
+        transform: translateY(90px) scaleY(0.3);
     }
-    15%,
+    39%,
     85% {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateY(0) scaleY(1);
     }
     93%,
     100% {
         opacity: 0;
-        transform: translateY(14px) scale(0.9);
+        transform: translateY(90px) scaleY(0.3);
+    }
+}
+
+/* Bintang kecil leaderboard: bernafas (membesar-mengecil dan berkedip pelan). */
+@keyframes sparkle {
+    0%,
+    100% {
+        transform: scale(0.65) rotate(0deg);
+        opacity: 0.45;
+    }
+    50% {
+        transform: scale(1.1) rotate(20deg);
+        opacity: 1;
     }
 }
 /* Slot terpilih: muncul dengan pantulan, lalu tetap berdenyut supaya tidak terlihat diam. */
@@ -419,4 +438,18 @@
         transform: translateY(0);
         opacity: 1;
     }
+}
+
+/* Label kampus di Peta peserta (tooltip Leaflet). */
+.peta-label {
+    border: 0;
+    border-radius: 9999px;
+    padding: 4px 10px;
+    font-weight: 800;
+    font-size: 12px;
+    color: #0b0b0b;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.peta-label::before {
+    display: none;
 }

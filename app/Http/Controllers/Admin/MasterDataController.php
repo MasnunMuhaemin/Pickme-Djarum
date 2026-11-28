@@ -12,6 +12,7 @@ use App\Models\Slot;
 use App\Models\VoucherType;
 use App\Services\SlotPrizeService;
 use App\Support\ActivityLogger;
+use App\Support\GeoPoint;
 use App\Support\Mask;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,6 +78,7 @@ class MasterDataController extends Controller
                 // QR dianggap teruji setelah ada klaim pertama dari warung ini.
                 'qr_used' => $usedQr->has($o->id),
                 'qr_tested' => $o->qr_tested_at?->format('d/m H:i'),
+                'location' => $o->lat !== null ? "{$o->lat}, {$o->lng}" : '',
                 'whatsapp' => $o->whatsapp,
                 'wa' => Mask::waLink($o->whatsapp, "Halo {$o->name}, ini admin PICKME."),
                 'qr' => url($o->code),
@@ -191,6 +193,7 @@ class MasterDataController extends Controller
                 'type_names' => $p->voucherTypes->pluck('name')->implode(', '),
                 'address' => $p->address,
                 'maps_url' => $p->maps_url,
+                'location' => $p->lat !== null ? "{$p->lat}, {$p->lng}" : '',
                 'last_login' => $p->last_login_at
                     ? ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'][$p->last_login_at->dayOfWeek].', '.$p->last_login_at->format('d/m H:i')
                     : null,
@@ -226,6 +229,7 @@ class MasterDataController extends Controller
             'partners' => Partner::where('type', '!=', 'outlet')->orderBy('name')->get(['id', 'name']),
             'fulfillments' => collect(self::FULFILLMENTS)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values(),
             'outletCodes' => Outlet::orderBy('code')->pluck('code'),
+            'outletNames' => Outlet::pluck('name', 'code'),
         ]);
     }
 
@@ -274,7 +278,21 @@ class MasterDataController extends Controller
             'area_ids.*' => ['integer', 'exists:areas,id'],
             'voucher_type_ids' => ['array'],
             'voucher_type_ids.*' => ['integer', 'exists:voucher_types,id'],
+            // Titik peta peserta: "lat, lng" atau tautan Google Maps yang memuat koordinat.
+            'location' => ['nullable', 'string', 'max:500', function ($attribute, $value, $fail) {
+                if ($value && ! GeoPoint::parse($value)) {
+                    $fail('Titik peta tidak dikenali. Tempel koordinat dari Google Maps, mis. -6.9733, 107.6301.');
+                }
+            }],
         ];
+    }
+
+    /** @return array{lat: ?float, lng: ?float} */
+    private static function coordinates(?string $location): array
+    {
+        $point = GeoPoint::parse($location);
+
+        return ['lat' => $point['lat'] ?? null, 'lng' => $point['lng'] ?? null];
     }
 
     private const OUTLET_MESSAGES = [
@@ -295,7 +313,7 @@ class MasterDataController extends Controller
         $code = strtoupper($data['code']);
 
         $outlet = $prizes->createOutlet($code, $data['name'], array_map('intval', $data['area_ids']), array_map('intval', $data['voucher_type_ids'] ?? []));
-        $outlet->update(['whatsapp' => $data['whatsapp']]);
+        $outlet->update(['whatsapp' => $data['whatsapp'], ...self::coordinates($data['location'] ?? null)]);
         ActivityLogger::log('master.outlet_created', 'outlet', $outlet->id, ['code' => $code], $request->user());
 
         return back()->with('status', "Warung {$code} ditambahkan dengan 25 hadiah. Alamat QR: ".url($code));
@@ -309,7 +327,7 @@ class MasterDataController extends Controller
         $typeIds = array_map('intval', $data['voucher_type_ids'] ?? []);
         $before = ['areas' => $outlet->areas()->pluck('areas.id')->all(), 'voucher_types' => $outlet->voucherTypes()->pluck('voucher_types.id')->all()];
 
-        $outlet->update(['name' => $data['name'], 'whatsapp' => $data['whatsapp'], 'area_id' => $areaIds[0]]);
+        $outlet->update(['name' => $data['name'], 'whatsapp' => $data['whatsapp'], 'area_id' => $areaIds[0], ...self::coordinates($data['location'] ?? null)]);
         $outlet->areas()->sync($areaIds);
         $outlet->voucherTypes()->sync($typeIds);
         // Akun warung ikut area utama warungnya.

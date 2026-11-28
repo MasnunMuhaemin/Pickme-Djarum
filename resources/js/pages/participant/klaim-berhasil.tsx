@@ -48,7 +48,7 @@ export default function KlaimBerhasil({
                 close="/participant/hadiah"
                 title="Klaim berhasil"
                 icon={
-                    <span className="bg-ink text-lime grid size-9 shrink-0 place-items-center rounded-full md:size-11">
+                    <span className="text-lime grid size-9 shrink-0 place-items-center rounded-full bg-[#0b0b0b] md:size-11">
                         <Check className="size-5" strokeWidth={3} />
                     </span>
                 }
@@ -59,7 +59,7 @@ export default function KlaimBerhasil({
                 {mystery && (
                     <Link
                         href={mystery.href ?? '/participant/hadiah'}
-                        className="bg-ink text-cream mt-3 flex items-center gap-3 rounded-2xl p-3.5 transition active:scale-[0.99]"
+                        className="text-cream mt-3 flex items-center gap-3 rounded-2xl bg-[#0b0b0b] p-3.5 transition active:scale-[0.99]"
                     >
                         <span className="bg-lime text-ink grid size-11 shrink-0 place-items-center rounded-full">
                             <Gift className="size-5" />
@@ -135,7 +135,7 @@ export default function KlaimBerhasil({
                             <Sparkles className="text-ink absolute -top-1 -right-1 size-6" />
                         </span>
                         <p className="text-ink-soft mt-4 text-[11px] font-extrabold tracking-widest uppercase">Selamat, cap ke-5!</p>
-                        <h2 className="mt-1 text-[22px] leading-tight font-extrabold tracking-tight">Kamu dapat mystery gift</h2>
+                        <h2 className="mt-1 text-[22px] leading-tight font-extrabold tracking-tight text-[#0b0b0b]">Kamu dapat mystery gift</h2>
                         <p className="mt-3 text-[15px] font-extrabold">{mystery.title.replace(/^Mystery gift:\s*/, '')}</p>
                         <p className="text-ink-soft mt-1 text-[12px] leading-relaxed">{mystery.description}</p>
                     </div>
@@ -154,7 +154,7 @@ export default function KlaimBerhasil({
                             <ClipboardList className="size-9" />
                         </span>
                         <p className="text-ink-soft mt-4 text-[11px] font-extrabold tracking-widest uppercase">Satu langkah lagi</p>
-                        <h2 className="mt-1 text-[22px] leading-tight font-extrabold tracking-tight">{reward.follow_up.title}</h2>
+                        <h2 className="mt-1 text-[22px] leading-tight font-extrabold tracking-tight text-[#0b0b0b]">{reward.follow_up.title}</h2>
                         <p className="text-ink-soft mt-2 text-[13px] leading-relaxed">{reward.follow_up.message}</p>
                     </div>
                     {/* Hanya informasi: form diisi dari Hadiahku, bukan dari popup ini. */}
@@ -162,7 +162,7 @@ export default function KlaimBerhasil({
                         <button
                             type="button"
                             onClick={() => setFollowUpOpen(false)}
-                            className="bg-ink text-lime h-12 w-full rounded-full text-[14px] font-extrabold"
+                            className="text-lime h-12 w-full rounded-full bg-[#0b0b0b] text-[14px] font-extrabold"
                         >
                             Mengerti
                         </button>

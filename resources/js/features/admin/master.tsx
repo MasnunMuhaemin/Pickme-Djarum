@@ -32,6 +32,8 @@ export type OutletRow = {
     areas: string[];
     voucher_type_ids: number[];
     voucher_types: string[];
+    /** Titik peta peserta, "lat, lng"; kosong bila belum diisi. */
+    location?: string;
 };
 
 /**
@@ -55,6 +57,7 @@ export function OutletDialog({
         whatsapp: outlet?.whatsapp ?? '',
         area_ids: outlet?.area_ids ?? ([] as number[]),
         voucher_type_ids: outlet?.voucher_type_ids ?? ([] as number[]),
+        location: outlet?.location ?? '',
     });
     const [confirming, setConfirming] = useState(false);
     const typesChanged = !!outlet && [...outlet.voucher_type_ids].sort().join(',') !== [...form.data.voucher_type_ids].sort().join(',');
@@ -104,6 +107,17 @@ export function OutletDialog({
                     <Hint>Nomor pemilik atau penjaga warung untuk dihubungi admin. Diawali 08, 10 sampai 13 angka.</Hint>
                     <FieldError message={form.errors.whatsapp} />
                 </label>
+                <label className="block text-[11px] font-bold">
+                    Titik peta
+                    <TextInput
+                        value={form.data.location}
+                        onChange={(e) => form.setData('location', e.target.value)}
+                        placeholder="-6.9733, 107.6301"
+                        className="mt-1"
+                    />
+                    <Hint>Pin warung di Peta peserta. Di Google Maps: tekan lama titik warung, salin angka koordinatnya, lalu tempel di sini.</Hint>
+                    <FieldError message={form.errors.location} />
+                </label>
                 <div className="text-[11px] font-bold">
                     Area kos yang dicakup
                     <Req />
@@ -136,8 +150,8 @@ export function OutletDialog({
 
             {confirming && (
                 <p className="mt-3 rounded-lg bg-[#fff3a3]/60 px-3 py-2 text-[12px]">
-                    Pilihan voucher berubah. Hadiah papan {outlet?.code} yang masih kosong akan diisi ulang sesuai pilihan baru; hadiah yang sudah diambil
-                    peserta tidak berubah. Simpan?
+                    Pilihan voucher berubah. Hadiah papan {outlet?.code} yang masih kosong akan diisi ulang sesuai pilihan baru; hadiah yang sudah
+                    diambil peserta tidak berubah. Simpan?
                 </p>
             )}
             <Actions
@@ -206,6 +220,7 @@ export type PartnerFormRow = {
     whatsapp: string | null;
     address?: string | null;
     maps_url?: string | null;
+    location?: string;
 };
 
 /**
@@ -231,6 +246,7 @@ export function PartnerDialog({
         whatsapp: partner?.whatsapp ?? '',
         address: partner?.address ?? '',
         maps_url: partner?.maps_url ?? '',
+        location: partner?.location ?? '',
     });
     const title = partner ? (isOutlet ? `Ubah ${partner.name}` : 'Edit data mitra') : isOutlet ? 'Tambah akun warung' : 'Tambah mitra';
     // Sama dengan validasi server: hanya tautan Google Maps.
@@ -360,6 +376,17 @@ export function PartnerDialog({
                         >
                             <ExternalLink className="size-3.5" /> Uji tautan
                         </a>
+                        <label className="block text-[11px] font-bold">
+                            Titik peta
+                            <TextInput
+                                value={form.data.location}
+                                onChange={(e) => form.setData('location', e.target.value)}
+                                placeholder="-6.9733, 107.6301"
+                                className="mt-1"
+                            />
+                            <Hint>Pin mitra di Peta peserta. Boleh kosong bila tautan Google Maps sudah memuat koordinat (link panjang).</Hint>
+                            <FieldError message={form.errors.location} />
+                        </label>
                         {!form.data.maps_url && (
                             <p className="flex items-start gap-2 rounded-xl bg-[#fff1d6] px-3 py-2.5 text-[12px] text-[#7a5410]">
                                 <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Bila tautan dikosongkan, tombol peta tidak muncul di layar

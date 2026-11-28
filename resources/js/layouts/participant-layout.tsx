@@ -1,8 +1,8 @@
-import { BottomNav, DesktopNav } from '@/features/participant/components/bottom-nav';
+import { BottomNav, DesktopNav, rememberMenu } from '@/features/participant/components/bottom-nav';
 import { DesktopAside } from '@/features/participant/components/desktop-aside';
 import { cn } from '@/lib/utils';
-import { Head } from '@inertiajs/react';
-import type { ReactNode } from 'react';
+import { Head, usePage } from '@inertiajs/react';
+import { type ReactNode, useEffect } from 'react';
 
 export default function ParticipantLayout({
     children,
@@ -19,6 +19,9 @@ export default function ParticipantLayout({
     className?: string;
     hideBottomNav?: boolean;
 }) {
+    const { url } = usePage();
+    useEffect(() => rememberMenu(url), [url]);
+
     return (
         <div className="md:bg-cream min-h-dvh bg-[#e6e0cd]">
             <Head title={title} />
